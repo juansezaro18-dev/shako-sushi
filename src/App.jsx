@@ -1,0 +1,956 @@
+import { useState, useEffect, useCallback, useRef } from "react";
+import { supabase } from "./supabase.js";
+
+const LOGO_SRC = "data:image/jpeg;base64,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";
+
+const CONFIG = {
+  nombre: "Shako Sushi", adminPin: "1234",
+  ubicacion: "Hudson Plaza Comercial, Berazategui", horario: "16:30 a 23:30",
+};
+
+const MENU_DEFAULT = [
+  { id:"rolls", nombre:"Rolls", emoji:"🍣", desc:"Clásicos, Especiales y Calientes", items:[
+    {id:"r1", nombre:"Namazake (10u.)",              desc:"Makis de Salmón.",                                                                precio:16000},
+    {id:"r2", nombre:"Maki Philadelphia (10u.)",      desc:"Makis de Salmón y queso Philadelphia.",                                        precio:17000},
+    {id:"r3", nombre:"Futo Maki (8u.)",               desc:"Langostinos, Tamagoyaki, Zanahoria, Hongos Shitake y Pepino.",                 precio:17000},
+    {id:"r4", nombre:"Philadelphia (8u.)",             desc:"Arroz por fuera, Salmón, Palta y Philadelphia.",                              precio:17000},
+    {id:"r5", nombre:"California (8u.)",               desc:"Arroz por fuera, Kanikama y Palta.",                                          precio:15000},
+    {id:"r6", nombre:"New York (8u.)",                 desc:"Arroz por fuera, Salmón y Palta.",                                            precio:17000},
+    {id:"r7", nombre:"California Especial (8u.)",      desc:"Kanikama, Palta y Philadelphia.",                                             precio:15000},
+    {id:"r8", nombre:"Philadelphia Especial (8u.)",    desc:"Salmón, Palta y Philadelphia. Cubierto con ciboulette.",                      precio:17000},
+    {id:"r9", nombre:"Ebi Philadelphia (8u.)",         desc:"Langostinos, Palta y queso Philadelphia.",                                    precio:17000},
+    {id:"r10",nombre:"Ebi Pinku (8u.)",                desc:"Langostinos, Palta, envuelto en Salmón Rosado.",                              precio:17000},
+    {id:"r11",nombre:"Ebi Butterfly (8u.)",            desc:"Langostinos, Pepino, cubierto por Salmón crudo y Palta.",                     precio:17000},
+    {id:"r12",nombre:"Magetzu Roll (8u.)",             desc:"Langostinos, Kanikama y Pepino, envuelto en Salmón ahumado.",                 precio:17000},
+    {id:"r13",nombre:"Guacamole Roll (8u.)",           desc:"Salmón, Echalotte y Guacamole. Crocante de Won Ton.",                         precio:17000},
+    {id:"r14",nombre:"Ginger Roll (8u.)",              desc:"Salmón cocido, Ciboulette, Pepino, Philadelphia. Sésamo.",                    precio:17000},
+    {id:"r15",nombre:"Tuna Roll (8u.)",                desc:"Atún cocido, Ciboulette, Pepino, Philadelphia. Sésamo.",                      precio:17000},
+    {id:"r16",nombre:"Supremo Roll (8u.)",             desc:"Salmón Rosado, Palta, Philadelphia. Praliné Almendras, Caviar. Maracuyá.",    precio:18000},
+    {id:"r17",nombre:"Vegetariano (8u.)",              desc:"Palta, Philadelphia, Pepino, Zanahoria. Sésamo.",                             precio:15000},
+    {id:"r18",nombre:"Samurai Roll (8u.)",             desc:"Langostinos, Philadelphia, Berenjena grillada, Bonito y salsa Teriyaki.",      precio:17000},
+    {id:"r19",nombre:"Ceviche Roll (8u.)",             desc:"Langostino, Palta, Atún Rojo y Ceviche de Salmón Rosado.",                    precio:19000},
+    {id:"r20",nombre:"Crocante Sake (8u.)",            desc:"Salmón Rosado, Salmón ahumado, Pepino, Palta, Philadelphia. Panko. Teriyaki.", precio:19000},
+    {id:"r21",nombre:"Crocante Passion (8u.)",         desc:"Salmón Rosado, Langostino, Tamagoyaki, Pepino. Panko, Coco, Almendras. Maracuyá.",precio:19000},
+    {id:"r22",nombre:"Kamikaze (8u.)",                 desc:"Langostino frito en Panko. Sésamo tostado. Salsa Tonkatsu.",                  precio:17000},
+    {id:"r23",nombre:"Spicy (8u.)",                    desc:"Langostino frito, Palta, Salmón grillado, Shishito Garashi y Teriyaki.",       precio:19000},
+    {id:"r24",nombre:"Dragon Sake (8u.)",              desc:"Salmón en pasta de tempura, Philadelphia, Pepino. Envuelto en Tamagoyaki.",    precio:19000},
+    {id:"r25",nombre:"Avocado Roll (8u.)",             desc:"Arroz, Alga Nori, Philadelphia y Langostinos. Envuelto en Palta.",             precio:17000},
+    {id:"r26",nombre:"Buenos Aires Smoke Roll (8u.)",  desc:"Palta, Salmón, Langostinos, Philadelphia. Salmón Ahumado y Salsa Buenos Aires.",precio:19000},
+    {id:"r27",nombre:"Tempura Phila (8u.)",            desc:"Salmón, Palta, Philadelphia. Masa de Tempura frita.",                         precio:18000},
+    {id:"r28",nombre:"Roll Lenguado Acevichado (8u.)", desc:"Langostino, Philadelphia de albaca y Ají Amarillo. Lenguado curado y Ceviche.",precio:19000},
+  ]},
+  { id:"nigiri", nombre:"Nigiri, Geisha & Sashimi", emoji:"🐟", desc:"Bocados premium", items:[
+    {id:"n1",nombre:"Nigiri (6u.)",   desc:"Diferentes sabores sobre bocadito de arroz.",                precio:14000},
+    {id:"n2",nombre:"Geishas (6u.)",  desc:"Rolls sin arroz, varios sabores.",                           precio:17000},
+    {id:"n3",nombre:"Sashimi (15u.)", desc:"Cortes de Salmón crudo, Pulpo, Atún Rojo y/o Langostinos.", precio:57000},
+  ]},
+  { id:"combinados", nombre:"Combinados", emoji:"🎁", desc:"Combinados de Sushi", items:[
+    {id:"c1",nombre:"Premium",      desc:"Nigiris de Salmón y Atún. Sashimi. Ceviche Roll. Pinku Ahumado. Supremo Roll.", precio:46000},
+    {id:"c2",nombre:"Cocido+Crudo", desc:"Nigiris de Salmón y Langostinos, Philadelphia Roll, Ebi Philadelphia + 1 a elección.", precio:37000},
+    {id:"c3",nombre:"Todo Salmón",  desc:"Sashimi, Nigiris, Geishas, Philadelphia Roll, New York.", precio:41000},
+  ]},
+  { id:"temaki", nombre:"Temaki y Chirashi", emoji:"🌮", desc:"Cono o ensalada", items:[
+    {id:"tm1",nombre:"Temaki (2u.)",  desc:"Sake: Salmón crudo, Philadelphia, Palta. / Ebi: Langostinos, Pepino, Palta.", precio:20000},
+    {id:"tm2",nombre:"Poke Bowl",     desc:"Arroz, Atún rojo, Palta, Cebolla morada, Tomate, Pepino.", precio:48000},
+    {id:"tm3",nombre:"Chirashi",      desc:"Arroz, Salmón ahumado, Salmón crudo, Kanikama, Langostinos, Tamagoyaki...", precio:44000},
+    {id:"tm4",nombre:"Ensalada Sake", desc:"Arroz, Salmón, Palta y Queso Philadelphia.", precio:38000},
+  ]},
+  { id:"teppan", nombre:"Teppan", emoji:"🍳", desc:"Cocina a la plancha", items:[
+    {id:"tp1",nombre:"Yakimeshi",       desc:"Arroz a la plancha con vegetales e ingredientes a elección.", precio:23000},
+    {id:"tp2",nombre:"Salmón Teriyaki", desc:"Salmón a la plancha laqueado con teriyaki, arroz y vegetales.", precio:52000},
+    {id:"tp3",nombre:"Oishi",           desc:"Langostinos rebozados en panko. Arroz yamani, verduras y hongos.", precio:38000},
+    {id:"tp4",nombre:"Cerdo Tonkatsu",  desc:"Cerdo rebozado en panko, salsa tonkatsu y sésamo. Repollo y nabo.", precio:44000},
+  ]},
+  { id:"ceviche", nombre:"Ceviche", emoji:"🍋", desc:"", items:[
+    {id:"cv1",nombre:"Ceviche", desc:"Pescado o marisco crudo marinado en jugo de lima, rocoto, cebolla morada y cilantro.", precio:42000},
+  ]},
+  { id:"wok", nombre:"Wok", emoji:"🥢", desc:"Platos al Wok", items:[
+    {id:"w1",nombre:"Yakisoba",   desc:"Fideos soba salteados con vegetales e ingredientes a elección.", precio:23000},
+    {id:"w2",nombre:"Chop Suey", desc:"Vegetales salteados al wok con salsa de soja e ingredientes a elección.", precio:23000},
+    {id:"w3",nombre:"Chap Chae", desc:"Fideos de arroz, lomo, pollo, vegetales, huevo y hongos salteados al wok.", precio:25000},
+  ]},
+  { id:"aperitivos", nombre:"Aperitivos Calientes", emoji:"🔥", desc:"", items:[
+    {id:"a1",nombre:"Ika Rabas",                        desc:"Aros fritos de Calamar.", precio:21000},
+    {id:"a2",nombre:"Gyozas (5u.)",                     desc:"5 Empanadas de cerdo y vegetales a la plancha.", precio:8000},
+    {id:"a3",nombre:"Spring Rolls de Carne (2u.)",      desc:"2 Arrolladitos primavera de carne con Salsa agridulce.", precio:6000},
+    {id:"a4",nombre:"Spring Rolls Vegetarianos (2u.)",  desc:"2 Arrolladitos primavera vegetarianos con Salsa agridulce.", precio:6000},
+    {id:"a5",nombre:"Ebi Furai (9u.)",                  desc:"9 Langostinos apanados en Panko y Fritos.", precio:24000},
+    {id:"a6",nombre:"Ostras Frescas Flambée (5u.)",     desc:"5 Ostras frescas, estilo Acevichadas y Flambeadas.", precio:15000},
+    {id:"a7",nombre:"Ostras Empanadas (5u.)",            desc:"5 Ostras empanadas en Panko, con Salsa de miel y Mostaza.", precio:15000},
+  ]},
+  { id:"vegetarianos", nombre:"Vegetarianos", emoji:"🥑", desc:"Sushi vegetariano", items:[
+    {id:"v1",nombre:"Roll Vegetariano",     desc:"Arroz, Alga nori, Philadelphia, Pepino, Palta y Zanahoria.", precio:15000},
+    {id:"v2",nombre:"Maki Vegetariano",     desc:"Alga Nori, Arroz, Palta, Pepino, Tomate, Cebolla morada y Tamago.", precio:16000},
+    {id:"v3",nombre:"Geishas Vegetarianas", desc:"Berenjena grill, Tamago, Philadelphia, Palta, Pepino, Zanahoria y Ciboulette.", precio:16000},
+  ]},
+  { id:"salsas", nombre:"Salsas", emoji:"🫙", desc:"", items:[
+    {id:"s1",nombre:"Soja Extra",         desc:"", precio:3000},
+    {id:"s2",nombre:"Salsa Agridulce",    desc:"Para Spring Rolls.", precio:2000},
+    {id:"s3",nombre:"Salsa Teriyaki",     desc:"A base de salsa de soja agridulce y Sake.", precio:3000},
+    {id:"s4",nombre:"Salsa Buenos Aires", desc:"Soja, miel y semillas de sésamo.", precio:3000},
+    {id:"s5",nombre:"Salsa Tonkatzu",     desc:"", precio:3000},
+    {id:"s6",nombre:"Salsa Maracuyá",     desc:"", precio:3000},
+  ]},
+  { id:"adicionales", nombre:"Adicionales", emoji:"➕", desc:"", items:[
+    {id:"ad1",nombre:"Wasabi extra",       desc:"", precio:4000},
+    {id:"ad2",nombre:"Gari (Jengibre)",    desc:"Jengibre encurtido para limpiar paladar.", precio:4000},
+    {id:"ad3",nombre:"Pepinos encurtidos", desc:"Pepinos encurtidos en sushizu.", precio:4000},
+  ]},
+  { id:"bebidas", nombre:"Bebidas", emoji:"🥤", desc:"", items:[
+    {id:"be1",nombre:"Coca Cola (1,5L)",        desc:"",precio:6000},{id:"be2",nombre:"Coca Cola Zero (1,5L)", desc:"",precio:6000},
+    {id:"be3",nombre:"Coca Cola (500ml)",        desc:"",precio:4000},{id:"be4",nombre:"Coca Cola Zero (500ml)",desc:"",precio:4000},
+    {id:"be5",nombre:"Sprite (1L)",              desc:"",precio:6000},{id:"be6",nombre:"Sprite (500ml)",        desc:"",precio:4000},
+    {id:"be7",nombre:"Agua Gasificada (500ml)",  desc:"",precio:4000},{id:"be8",nombre:"Agua Sin Gas (500ml)",  desc:"",precio:4000},
+  ]},
+  { id:"cervezas", nombre:"Cervezas", emoji:"🍺", desc:"Cervezas Goyeneche", items:[
+    {id:"ce1", nombre:"Goyeneche APA (500ml)",       desc:"",precio:5000},{id:"ce2", nombre:"Goyeneche Blonde (500ml)",   desc:"",precio:5000},
+    {id:"ce3", nombre:"Goyeneche Doble IPA (500ml)", desc:"",precio:7000},{id:"ce4", nombre:"Goyeneche Golden (500ml)",  desc:"",precio:4000},
+    {id:"ce5", nombre:"Goyeneche Hazy (500ml)",      desc:"",precio:8000},{id:"ce6", nombre:"Goyeneche Honey (500ml)",   desc:"",precio:4000},
+    {id:"ce7", nombre:"Goyeneche IPA (500ml)",        desc:"",precio:6000},{id:"ce8", nombre:"Goyeneche Neipa (500ml)",  desc:"",precio:7000},
+    {id:"ce9", nombre:"Goyeneche Porter (500ml)",     desc:"",precio:5000},{id:"ce10",nombre:"Goyeneche Scottish (500ml)",desc:"",precio:5000},
+    {id:"ce11",nombre:"Goyeneche Tripel (500ml)",     desc:"",precio:6000},
+  ]},
+  { id:"postres", nombre:"Postres", emoji:"🍫", desc:"", items:[
+    {id:"po1",nombre:"Franui — Chocolate con frambuesa",desc:"",precio:10000},
+    {id:"po2",nombre:"Franui — Chocolate de leche",     desc:"",precio:10000},
+    {id:"po3",nombre:"Franui — Chocolate amargo",       desc:"",precio:10000},
+  ]},
+];
+
+/* ══ HELPERS ═══════════════════════════════════════════════════ */
+const fmt     = (n) => `$${Number(n).toLocaleString("es-AR")}`;
+const genId   = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const timeAgo = (ts) => { const d=Math.floor((Date.now()-ts)/1000); return d<60?`${d}s`:d<3600?`${Math.floor(d/60)}min`:`${Math.floor(d/3600)}h`; };
+
+const ESTADOS = {
+  nuevo:     {label:"Nuevo",      next:"preparando", nextLabel:"Empezar preparación",  color:"#CC1F1F", bg:"rgba(204,31,31,.1)",   ring:"#CC1F1F"},
+  preparando:{label:"Preparando", next:"listo",      nextLabel:"Marcar como listo ✓",  color:"#D97706", bg:"rgba(217,119,6,.1)",   ring:"#D97706"},
+  listo:     {label:"Listo ✓",   next:"entregado",  nextLabel:"Entregar / Despachar",  color:"#16A34A", bg:"rgba(22,163,74,.1)",   ring:"#16A34A"},
+  entregado: {label:"Entregado",  next:null,         nextLabel:null,                    color:"#9CA3AF", bg:"rgba(156,163,175,.1)", ring:"#9CA3AF"},
+};
+
+/* ══ GLOBAL STYLES ═════════════════════════════════════════════ */
+const GS = () => (
+  <style>{`
+    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0;}
+    :root{
+      --red:#CC1F1F; --red-light:rgba(204,31,31,0.08); --red-border:rgba(204,31,31,0.25); --red-glow:rgba(204,31,31,0.2);
+      --bg:#FFFFFF; --bg2:#F8F8F8; --surface:#FFFFFF; --surface2:#F3F3F3;
+      --border:#E5E5E5; --border2:#D4D4D4;
+      --text:#1A1A1A; --text2:#404040; --text3:#737373; --text4:#A3A3A3;
+    }
+    body,#root{background:var(--bg2);color:var(--text);font-family:'Barlow',sans-serif;min-height:100vh;}
+    ::-webkit-scrollbar{width:3px;height:3px;}
+    ::-webkit-scrollbar-track{background:var(--bg2);}
+    ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:2px;}
+    .fade-in{animation:fadeIn .25s ease forwards;}
+    .slide-up{animation:slideUp .35s cubic-bezier(.22,1,.36,1) forwards;}
+    .scale-in{animation:scaleIn .3s cubic-bezier(.22,1,.36,1) forwards;}
+    .pulse-new{animation:pulseNew 2s ease-in-out infinite;}
+    @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+    @keyframes slideUp{from{transform:translateY(28px);opacity:0}to{transform:translateY(0);opacity:1}}
+    @keyframes scaleIn{from{transform:scale(.93);opacity:0}to{transform:scale(1);opacity:1}}
+    @keyframes pulseNew{0%,100%{box-shadow:0 0 0 0 rgba(204,31,31,.4)}60%{box-shadow:0 0 0 10px rgba(204,31,31,0)}}
+    .btn{cursor:pointer;border:none;outline:none;transition:all .18s;font-family:'Barlow',sans-serif;}.btn:active{transform:scale(.95);}
+    input,textarea{outline:none;border:none;background:transparent;color:var(--text);font-family:'Barlow',sans-serif;}
+    input::placeholder,textarea::placeholder{color:var(--text4);}
+    .upload-btn{cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--border2);border-radius:10px;background:transparent;color:var(--text3);font-size:13px;padding:10px;width:100%;transition:all .2s;font-family:'Barlow',sans-serif;}
+    .upload-btn:hover{border-color:var(--red);color:var(--red);}
+    .sh{font-family:'Barlow Condensed',sans-serif;font-weight:800;}
+  `}</style>
+);
+
+/* ══ SHARED COMPONENTS ═════════════════════════════════════════ */
+const Card  = ({children, style={}}) => (
+  <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14,boxShadow:"0 1px 4px rgba(0,0,0,.04)",...style}}>{children}</div>
+);
+const Label = ({children}) => (
+  <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:12,fontFamily:"'Barlow Condensed',sans-serif"}}>{children}</div>
+);
+
+/* ══ APP ROOT ══════════════════════════════════════════════════ */
+export default function App() {
+  const [mode,   setMode]   = useState("customer");
+  const [showPin,setShowPin]= useState(false);
+  const [pin,    setPin]    = useState("");
+  const [pinErr, setPinErr] = useState(false);
+  const [menu,   setMenu]   = useState(MENU_DEFAULT);
+  const [menuLoaded, setMenuLoaded] = useState(false);
+  const clicks = useRef(0);
+  const clickTimer = useRef(null);
+
+  /* Cargar menú desde Supabase al iniciar */
+  useEffect(() => {
+    supabase.from("menu_config").select("data").eq("id",1).maybeSingle()
+      .then(({data}) => {
+        if (data?.data) setMenu(data.data);
+        setMenuLoaded(true);
+      })
+      .catch(() => setMenuLoaded(true));
+  }, []);
+
+  const saveMenu = async (m) => {
+    setMenu(m);
+    await supabase.from("menu_config").upsert({id:1, data:m});
+  };
+
+  const onLogoClick = () => {
+    clicks.current += 1;
+    clearTimeout(clickTimer.current);
+    if (clicks.current >= 3) { clicks.current=0; setShowPin(true); return; }
+    clickTimer.current = setTimeout(() => { clicks.current=0; }, 1800);
+  };
+
+  const submitPin = () => {
+    if (pin === CONFIG.adminPin) { setMode("admin"); setShowPin(false); setPin(""); setPinErr(false); }
+    else { setPinErr(true); setPin(""); setTimeout(() => setPinErr(false), 700); }
+  };
+
+  if (!menuLoaded) return (
+    <>
+      <GS/>
+      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg2)"}}>
+        <img src={LOGO_SRC} alt="Shako" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",opacity:.6}}/>
+      </div>
+    </>
+  );
+
+  return (
+    <>
+      <GS/>
+      {showPin && (
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)"}}>
+          <div className="scale-in" style={{background:"#fff",borderRadius:20,padding:36,width:300,textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"}}>
+            <img src={LOGO_SRC} alt="Shako Sushi" style={{width:72,height:72,borderRadius:"50%",objectFit:"cover",marginBottom:16}}/>
+            <div className="sh" style={{fontSize:22,color:"var(--text)",marginBottom:4}}>Panel Admin</div>
+            <div style={{fontSize:13,color:"var(--text3)",marginBottom:22}}>Ingresá tu PIN para continuar</div>
+            <input type="password" inputMode="numeric" maxLength={6} value={pin}
+              onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submitPin()} autoFocus
+              style={{width:"100%",padding:"13px 18px",background:pinErr?"rgba(204,31,31,.05)":"var(--bg2)",border:`2px solid ${pinErr?"var(--red)":"var(--border)"}`,borderRadius:12,fontSize:24,letterSpacing:10,textAlign:"center",marginBottom:14,transition:"all .2s"}}/>
+            <div style={{display:"flex",gap:8}}>
+              <button className="btn" onClick={()=>{setShowPin(false);setPin("");}} style={{flex:1,padding:"11px 0",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:12,color:"var(--text3)",fontSize:14,fontWeight:600}}>Cancelar</button>
+              <button className="btn" onClick={submitPin} style={{flex:1,padding:"11px 0",background:"var(--red)",borderRadius:12,color:"#fff",fontSize:14,fontWeight:700}}>Ingresar</button>
+            </div>
+          </div>
+        </div>
+      )}
+      {mode === "customer"
+        ? <CustomerView onLogoClick={onLogoClick} menu={menu}/>
+        : <AdminView onExit={()=>setMode("customer")} menu={menu} saveMenu={saveMenu}/>}
+    </>
+  );
+}
+
+/* ══ CUSTOMER VIEW ═════════════════════════════════════════════ */
+function CustomerView({ onLogoClick, menu }) {
+  const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
+  const [activeCat, setActiveCat] = useState(menuVis[0]?.id);
+  const [cart,      setCart]      = useState([]);
+  const [step,      setStep]      = useState("menu");
+  const [form,      setForm]      = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",piso:"",barrio:"",pago:"efectivo"});
+  const [loading,   setLoading]   = useState(false);
+  const [orderId,   setOrderId]   = useState(null);
+  const [orderTotal,setOrderTotal]= useState(0);
+  const tabsRef = useRef(null);
+  const sRefs   = useRef({});
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      en => { en.forEach(e => { if (e.isIntersecting) setActiveCat(e.target.dataset.cat); }); },
+      { threshold:.25, rootMargin:"-80px 0px -55% 0px" }
+    );
+    Object.values(sRefs.current).forEach(el => el && obs.observe(el));
+    return () => obs.disconnect();
+  }, [menu]);
+
+  const scrollTo = (id) => {
+    sRefs.current[id]?.scrollIntoView({behavior:"smooth",block:"start"});
+    tabsRef.current?.querySelector(`[data-tid="${id}"]`)?.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"});
+  };
+  const add    = (item) => setCart(p => { const ex=p.find(c=>c.item.id===item.id); return ex?p.map(c=>c.item.id===item.id?{...c,qty:c.qty+1}:c):[...p,{item,qty:1}]; });
+  const setQty = (id,q) => setCart(p => q<=0?p.filter(c=>c.item.id!==id):p.map(c=>c.item.id===id?{...c,qty:q}:c));
+  const getQty = (id)   => cart.find(c=>c.item.id===id)?.qty||0;
+  const total      = cart.reduce((s,c) => s+c.item.precio*c.qty, 0);
+  const count      = cart.reduce((s,c) => s+c.qty, 0);
+  const canConfirm = form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&form.numero.trim()));
+
+  const placeOrder = async () => {
+    if (!canConfirm) return;
+    setLoading(true);
+    const order = {
+      id: genId(),
+      ...form,
+      items: cart,
+      total,
+      status: "nuevo",
+      created_at: Date.now(),
+    };
+    const { error } = await supabase.from("orders").insert(order);
+    if (!error) {
+      setOrderId(order.id);
+      setOrderTotal(order.total);
+      setCart([]);
+      setStep("confirm");
+    } else {
+      alert("Error al enviar el pedido. Intentá de nuevo.");
+    }
+    setLoading(false);
+  };
+
+  const PAGOS = [
+    {v:"efectivo",      l:"💵 Efectivo",      desc:"Pagás al recibir / retirar"},
+    {v:"transferencia", l:"📲 Transferencia",  desc:"Te mandamos el CBU al confirmar"},
+    {v:"tarjeta",       l:"💳 Tarjeta",        desc:"Débito o crédito en el local"},
+  ];
+
+  /* CONFIRMACIÓN */
+  if (step === "confirm") return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
+      <div className="slide-up">
+        <img src={LOGO_SRC} alt="Shako Sushi" style={{width:100,height:100,borderRadius:"50%",objectFit:"cover",boxShadow:"0 8px 32px var(--red-glow)",marginBottom:20}}/>
+        <div className="sh" style={{fontSize:32,color:"var(--text)",marginBottom:8}}>¡Pedido enviado!</div>
+        <div style={{color:"var(--text3)",fontSize:15,marginBottom:28,lineHeight:1.7}}>Tu pedido fue recibido en Shako Sushi.<br/>En breve comenzamos a prepararlo.</div>
+        <div style={{display:"inline-flex",alignItems:"center",gap:10,background:"var(--red-light)",border:"1px solid var(--red-border)",borderRadius:40,padding:"10px 22px",marginBottom:36}}>
+          <span style={{color:"var(--text3)",fontSize:13}}>Pedido</span>
+          <span style={{color:"var(--red)",fontFamily:"monospace",fontSize:15,fontWeight:700}}>#{orderId?.slice(-6).toUpperCase()}</span>
+          <span style={{color:"var(--text4)"}}>·</span>
+          <span style={{color:"var(--text2)",fontSize:13}}>{fmt(orderTotal)}</span>
+        </div><br/>
+        <button className="btn" onClick={()=>setStep("menu")} style={{background:"var(--red)",color:"#fff",padding:"14px 40px",borderRadius:40,fontSize:16,fontWeight:700,boxShadow:"0 8px 24px var(--red-glow)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
+          HACER OTRO PEDIDO
+        </button>
+      </div>
+    </div>
+  );
+
+  /* CHECKOUT */
+  if (step === "checkout") return (
+    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"var(--bg2)"}}>
+      <div style={{position:"sticky",top:0,background:"rgba(255,255,255,.97)",backdropFilter:"blur(14px)",borderBottom:"1px solid var(--border)",padding:"14px 16px",display:"flex",alignItems:"center",gap:12,zIndex:10}}>
+        <button className="btn" onClick={()=>setStep("menu")} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"7px 16px",color:"var(--text2)",fontSize:14,fontWeight:600}}>← Volver</button>
+        <span className="sh" style={{fontSize:20,color:"var(--text)"}}>Confirmá tu pedido</span>
+      </div>
+      <div style={{padding:16,paddingBottom:32}}>
+        <Card>
+          <Label>TU PEDIDO</Label>
+          {cart.map(c=>(
+            <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid var(--border)"}}>
+              <div style={{flex:1,paddingRight:12}}>
+                <div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{c.item.nombre}</div>
+                <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{fmt(c.item.precio)} c/u</div>
+              </div>
+              <div style={{display:"flex",alignItems:"center",gap:8}}>
+                <button className="btn" onClick={()=>setQty(c.item.id,c.qty-1)} style={{width:30,height:30,borderRadius:8,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                <span style={{fontSize:15,fontWeight:800,minWidth:22,textAlign:"center",color:"var(--red)"}}>{c.qty}</span>
+                <button className="btn" onClick={()=>add(c.item)} style={{width:30,height:30,borderRadius:8,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                <span style={{fontSize:14,fontWeight:700,color:"var(--red)",minWidth:72,textAlign:"right"}}>{fmt(c.item.precio*c.qty)}</span>
+              </div>
+            </div>
+          ))}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"14px 0 0",fontSize:20,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",color:"var(--text)"}}>
+            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(total)}</span>
+          </div>
+        </Card>
+        <Card>
+          <Label>TUS DATOS</Label>
+          {[{k:"nombre",l:"Nombre *",p:"¿Cómo te llamás?"},{k:"telefono",l:"Teléfono",p:"(opcional)"}].map(f=>(
+            <div key={f.k} style={{marginBottom:12}}>
+              <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{f.l}</div>
+              <input value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p}
+                style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
+            </div>
+          ))}
+        </Card>
+        <Card>
+          <Label>TIPO DE PEDIDO</Label>
+          <div style={{display:"flex",gap:8,marginBottom:form.tipo==="delivery"?16:0}}>
+            {[{v:"retiro",l:"🏃 Retiro en local"},{v:"delivery",l:"🛵 Delivery"}].map(t=>(
+              <button key={t.v} className="btn" onClick={()=>setForm(p=>({...p,tipo:t.v}))}
+                style={{flex:1,padding:"13px 0",borderRadius:12,fontSize:14,fontWeight:700,background:form.tipo===t.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.tipo===t.v?"var(--red)":"var(--border)"}`,color:form.tipo===t.v?"var(--red)":"var(--text3)",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{t.l}</button>
+            ))}
+          </div>
+          {form.tipo==="delivery"&&(
+            <div className="fade-in">
+              <div style={{height:1,background:"var(--border)",margin:"0 0 16px"}}/>
+              <div style={{display:"flex",gap:8,marginBottom:12}}>
+                <div style={{flex:2}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Calle *</div>
+                  <input value={form.calle} onChange={e=>setForm(p=>({...p,calle:e.target.value}))} placeholder="Ej: Av. San Martín"
+                    style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${form.calle.trim()?"var(--red-border)":"var(--border)"}`,borderRadius:10,fontSize:14}}/>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Número *</div>
+                  <input value={form.numero} onChange={e=>setForm(p=>({...p,numero:e.target.value}))} placeholder="1234"
+                    style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${form.numero.trim()?"var(--red-border)":"var(--border)"}`,borderRadius:10,fontSize:14}}/>
+                </div>
+              </div>
+              <div style={{display:"flex",gap:8,marginBottom:8}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Piso / Depto</div>
+                  <input value={form.piso} onChange={e=>setForm(p=>({...p,piso:e.target.value}))} placeholder="Ej: 3° B"
+                    style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
+                </div>
+                <div style={{flex:2}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Barrio / Localidad</div>
+                  <input value={form.barrio} onChange={e=>setForm(p=>({...p,barrio:e.target.value}))} placeholder="Ej: Hudson, Berazategui..."
+                    style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
+                </div>
+              </div>
+              {(!form.calle.trim()||!form.numero.trim())&&<div style={{fontSize:12,color:"var(--red)",marginTop:6}}>⚠ Completá calle y número para continuar</div>}
+            </div>
+          )}
+          {form.tipo==="retiro"&&<div style={{marginTop:8,background:"var(--bg2)",borderRadius:10,padding:"10px 14px",border:"1px solid var(--border)",fontSize:12,color:"var(--text3)"}}>📍 Retirás en <strong style={{color:"var(--text2)"}}>Hudson Plaza Comercial, Berazategui</strong></div>}
+        </Card>
+        <Card>
+          <Label>MÉTODO DE PAGO</Label>
+          <div style={{display:"flex",flexDirection:"column",gap:8}}>
+            {PAGOS.map(p=>(
+              <button key={p.v} className="btn" onClick={()=>setForm(f=>({...f,pago:p.v}))}
+                style={{padding:"13px 16px",borderRadius:12,background:form.pago===p.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.pago===p.v?"var(--red)":"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all .2s"}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <div style={{width:20,height:20,borderRadius:"50%",background:form.pago===p.v?"var(--red)":"transparent",border:`2px solid ${form.pago===p.v?"var(--red)":"var(--border2)"}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                    {form.pago===p.v&&<div style={{width:7,height:7,borderRadius:"50%",background:"#fff"}}/>}
+                  </div>
+                  <span style={{fontSize:14,fontWeight:600,color:form.pago===p.v?"var(--red)":"var(--text2)"}}>{p.l}</span>
+                </div>
+                <span style={{fontSize:12,color:"var(--text4)"}}>{p.desc}</span>
+              </button>
+            ))}
+          </div>
+        </Card>
+        <Card>
+          <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOTAS ADICIONALES (opcional)</div>
+          <textarea value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} placeholder="Alergias, aclaraciones, referencias para llegar..." rows={3}
+            style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,resize:"none",lineHeight:1.6}}/>
+        </Card>
+        <button className="btn" onClick={placeOrder} disabled={!canConfirm||loading}
+          style={{width:"100%",padding:"16px 0",borderRadius:14,fontSize:18,fontWeight:800,background:canConfirm?"var(--red)":"var(--border)",color:canConfirm?"#fff":"var(--text4)",boxShadow:canConfirm?"0 8px 24px var(--red-glow)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
+          {loading?"ENVIANDO PEDIDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
+        </button>
+      </div>
+    </div>
+  );
+
+  /* MENÚ PRINCIPAL */
+  return (
+    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",paddingBottom:90,background:"var(--bg2)"}}>
+      <div style={{background:"var(--red)",padding:"18px 18px 16px"}}>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={onLogoClick}>
+            <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.4)",flexShrink:0}}/>
+            <div>
+              <div className="sh" style={{fontSize:26,color:"#fff",lineHeight:1,letterSpacing:1}}>SHAKO SUSHI</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>📍 {CONFIG.ubicacion}</div>
+            </div>
+          </div>
+          {count>0&&(
+            <button className="btn" onClick={()=>setStep("checkout")}
+              style={{background:"#fff",borderRadius:40,padding:"9px 14px",display:"flex",alignItems:"center",gap:8,color:"var(--red)",fontSize:14,fontWeight:800,boxShadow:"0 4px 12px rgba(0,0,0,.15)"}}>
+              🛒 <span style={{background:"var(--red)",color:"#fff",borderRadius:20,padding:"1px 7px",fontSize:12,fontWeight:700}}>{count}</span>
+              <span style={{fontSize:12}}>·</span><span>{fmt(total)}</span>
+            </button>
+          )}
+        </div>
+        <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
+          <div style={{width:7,height:7,borderRadius:"50%",background:"#4ADE80",boxShadow:"0 0 6px #4ADE80"}}/>
+          <span style={{fontSize:12,color:"rgba(255,255,255,.9)",fontWeight:600}}>Abierto hoy</span>
+          <span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>·</span>
+          <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>{CONFIG.horario}</span>
+        </div>
+      </div>
+      <div ref={tabsRef} style={{position:"sticky",top:0,background:"rgba(255,255,255,.98)",backdropFilter:"blur(14px)",borderBottom:"1px solid var(--border)",zIndex:9,overflowX:"auto",display:"flex",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+        {menuVis.map(c=>(
+          <button key={c.id} data-tid={c.id} className="btn" onClick={()=>scrollTo(c.id)}
+            style={{padding:"12px 14px",fontSize:12,fontWeight:700,borderRadius:0,borderBottom:activeCat===c.id?"3px solid var(--red)":"3px solid transparent",color:activeCat===c.id?"var(--red)":"var(--text3)",background:"transparent",transition:"all .2s",flexShrink:0,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,textTransform:"uppercase"}}>
+            {c.emoji} {c.nombre}
+          </button>
+        ))}
+      </div>
+      {menuVis.map(cat=>(
+        <div key={cat.id} ref={el=>sRefs.current[cat.id]=el} data-cat={cat.id}>
+          <div style={{padding:"20px 18px 8px",display:"flex",alignItems:"baseline",gap:10}}>
+            <span style={{fontSize:20}}>{cat.emoji}</span>
+            <div>
+              <div className="sh" style={{fontSize:22,color:"var(--text)"}}>{cat.nombre}</div>
+              {cat.desc&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{cat.desc}</div>}
+            </div>
+          </div>
+          {cat.items.map(item=>{
+            const qty=getQty(item.id);
+            return(
+              <div key={item.id} style={{margin:"0 14px 8px",background:"var(--surface)",border:`2px solid ${qty>0?"var(--red)":"var(--border)"}`,borderRadius:14,overflow:"hidden",display:"flex",transition:"border .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+                {item.imagen&&(
+                  <div style={{width:90,minWidth:90,overflow:"hidden"}}>
+                    <img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.parentNode.style.display="none";}}/>
+                  </div>
+                )}
+                <div style={{flex:1,padding:"13px 14px",display:"flex",alignItems:"center",gap:12,minWidth:0}}>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:15,fontWeight:600,lineHeight:1.35,color:"var(--text)"}}>{item.nombre}</div>
+                    {item.desc&&<div style={{fontSize:12,color:"var(--text3)",lineHeight:1.5,marginTop:3}}>{item.desc}</div>}
+                    <div className="sh" style={{fontSize:18,color:"var(--red)",marginTop:6}}>{fmt(item.precio)}</div>
+                  </div>
+                  {qty===0
+                    ?<button className="btn" onClick={()=>add(item)} style={{width:40,height:40,borderRadius:10,background:"var(--red-light)",border:"2px solid var(--red-border)",color:"var(--red)",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:700}}>+</button>
+                    :<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                      <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:32,height:32,borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                      <span style={{fontSize:17,fontWeight:900,minWidth:22,textAlign:"center",color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}>{qty}</span>
+                      <button className="btn" onClick={()=>add(item)} style={{width:32,height:32,borderRadius:9,background:"var(--red)",color:"#fff",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                    </div>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ))}
+      {count>0&&(
+        <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"10px 14px",background:"rgba(255,255,255,.97)",backdropFilter:"blur(18px)",borderTop:"1px solid var(--border)",zIndex:20}}>
+          <button className="btn" onClick={()=>setStep("checkout")}
+            style={{width:"100%",padding:"14px 20px",borderRadius:14,background:"var(--red)",color:"#fff",fontSize:17,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 6px 20px var(--red-glow)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+            <span style={{background:"rgba(255,255,255,.25)",borderRadius:20,padding:"3px 11px",fontSize:14}}>{count}</span>
+            <span>VER PEDIDO</span><span>{fmt(total)}</span>
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══ ADMIN VIEW ════════════════════════════════════════════════ */
+function AdminView({ onExit, menu, saveMenu }) {
+  const [orders,     setOrders]     = useState([]);
+  const [filter,     setFilter]     = useState("activos");
+  const [expandedId, setExpandedId] = useState(null);
+
+  /* Carga inicial + suscripción real-time */
+  useEffect(() => {
+    const load = async () => {
+      const { data } = await supabase.from("orders").select("*").order("created_at", {ascending:false});
+      if (data) setOrders(data);
+    };
+    load();
+
+    const channel = supabase.channel("orders-realtime")
+      .on("postgres_changes", {event:"*", schema:"public", table:"orders"}, () => load())
+      .subscribe();
+
+    return () => supabase.removeChannel(channel);
+  }, []);
+
+  const updateStatus = async (order, ns) => {
+    await supabase.from("orders").update({status:ns}).eq("id", order.id);
+    setOrders(p => p.map(o => o.id===order.id ? {...o,status:ns} : o));
+  };
+  const deleteOrder = async (id) => {
+    await supabase.from("orders").delete().eq("id", id);
+    setOrders(p => p.filter(o => o.id!==id));
+  };
+
+  const hoy = new Date(); hoy.setHours(0,0,0,0);
+  const ordersHoy = orders.filter(o => o.created_at >= hoy.getTime());
+  const entH      = ordersHoy.filter(o => o.status === "entregado");
+  const totDia = entH.reduce((s,o)=>s+o.total,0);
+  const totEf  = entH.filter(o=>o.pago==="efectivo").reduce((s,o)=>s+o.total,0);
+  const totTr  = entH.filter(o=>o.pago==="transferencia").reduce((s,o)=>s+o.total,0);
+  const totTj  = entH.filter(o=>o.pago==="tarjeta").reduce((s,o)=>s+o.total,0);
+  const totDel = entH.filter(o=>o.tipo==="delivery").reduce((s,o)=>s+o.total,0);
+  const totRet = entH.filter(o=>o.tipo==="retiro").reduce((s,o)=>s+o.total,0);
+  const proyect = ordersHoy.reduce((s,o)=>s+o.total,0);
+  const prodMap = {};
+  entH.forEach(o => o.items.forEach(c => {
+    if (!prodMap[c.item.nombre]) prodMap[c.item.nombre]={nombre:c.item.nombre,qty:0,total:0};
+    prodMap[c.item.nombre].qty   += c.qty;
+    prodMap[c.item.nombre].total += c.item.precio*c.qty;
+  }));
+  const topProds  = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0,8);
+  const todayStr  = new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
+  const filtered  = orders.filter(o => filter==="activos"?["nuevo","preparando","listo"].includes(o.status):filter==="entregados"?o.status==="entregado":o.status===filter);
+  const counts    = {
+    nuevo:     orders.filter(o=>o.status==="nuevo").length,
+    preparando:orders.filter(o=>o.status==="preparando").length,
+    listo:     orders.filter(o=>o.status==="listo").length,
+    entregado: orders.filter(o=>o.status==="entregado").length,
+  };
+
+  const TABS = [
+    {key:"activos",     label:"Activos",   val:counts.nuevo+counts.preparando+counts.listo, color:"var(--text)"},
+    {key:"nuevo",       label:"🔴 Nuevos", val:counts.nuevo,       color:"#CC1F1F"},
+    {key:"preparando",  label:"🟡 Prep.",  val:counts.preparando,  color:"#D97706"},
+    {key:"listo",       label:"🟢 Listos", val:counts.listo,       color:"#16A34A"},
+    {key:"entregados",  label:"Historial", val:counts.entregado,   color:"var(--text3)"},
+    {key:"facturacion", label:"💰 Caja",   val:null,               color:"#D97706"},
+    {key:"editor",      label:"✏️ Menú",   val:null,               color:"#7C3AED"},
+  ];
+
+  return (
+    <div style={{minHeight:"100vh",background:"var(--bg2)"}}>
+      <div style={{background:"var(--red)",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <img src={LOGO_SRC} alt="Shako" style={{width:40,height:40,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,.4)"}}/>
+          <div>
+            <div className="sh" style={{fontSize:18,color:"#fff"}}>PANEL DE COCINA</div>
+            <div style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>Shako Sushi</div>
+          </div>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <div style={{fontSize:12,color:"rgba(255,255,255,.8)",display:"flex",alignItems:"center",gap:5}}>
+            <span style={{width:6,height:6,borderRadius:"50%",background:"#4ADE80",display:"inline-block",boxShadow:"0 0 5px #4ADE80"}}/>En vivo
+          </div>
+          <button className="btn" onClick={onExit} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.3)",borderRadius:8,padding:"7px 16px",color:"#fff",fontSize:13,fontWeight:600}}>Salir</button>
+        </div>
+      </div>
+
+      <div style={{display:"flex",background:"var(--surface)",borderBottom:"1px solid var(--border)",overflowX:"auto",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>
+        {TABS.map(f=>(
+          <button key={f.key} className="btn" onClick={()=>setFilter(f.key)}
+            style={{flex:1,minWidth:48,padding:"12px 4px",textAlign:"center",borderBottom:filter===f.key?"3px solid var(--red)":"3px solid transparent",background:"transparent",transition:"all .2s",flexShrink:0}}>
+            {f.val!==null
+              ?<div className="sh" style={{fontSize:20,color:filter===f.key?"var(--red)":f.val>0?f.color:"var(--text4)"}}>{f.val}</div>
+              :<div style={{fontSize:16,color:filter===f.key?"var(--red)":"var(--text4)"}}>{f.key==="facturacion"?"💰":"✏️"}</div>}
+            <div style={{fontSize:10,color:filter===f.key?"var(--red)":"var(--text4)",marginTop:1,whiteSpace:"nowrap",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{f.label}</div>
+          </button>
+        ))}
+      </div>
+
+      {filter==="editor" && <MenuEditor menu={menu} saveMenu={saveMenu}/>}
+
+      {filter==="facturacion" && (
+        <div className="fade-in" style={{padding:14,paddingBottom:40}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+            <div>
+              <div className="sh" style={{fontSize:24,color:"var(--text)"}}>FACTURACIÓN DEL DÍA</div>
+              <div style={{fontSize:12,color:"var(--text3)",marginTop:2,textTransform:"capitalize"}}>{todayStr}</div>
+            </div>
+            <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"6px 14px",textAlign:"center"}}>
+              <div style={{fontSize:10,color:"#92400E",letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>PEDIDOS HOY</div>
+              <div className="sh" style={{fontSize:26,color:"#D97706"}}>{ordersHoy.length}</div>
+            </div>
+          </div>
+          <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:16,padding:"20px 20px 16px",marginBottom:12}}>
+            <div style={{fontSize:11,color:"#16A34A",fontWeight:700,letterSpacing:2,marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif"}}>TOTAL COBRADO (ENTREGADOS)</div>
+            <div className="sh" style={{fontSize:36,color:"#16A34A"}}>{fmt(totDia)}</div>
+            <div style={{marginTop:8,fontSize:12,color:"var(--text3)",display:"flex",alignItems:"center",gap:6}}>
+              <span style={{color:"#D97706"}}>⏳</span><span>Proyectado con pedidos en curso:</span>
+              <span style={{color:"#D97706",fontWeight:700}}>{fmt(proyect)}</span>
+            </div>
+          </div>
+          <Card style={{marginBottom:12}}>
+            <Label>DESGLOSE POR PAGO</Label>
+            {[
+              {label:"💵 Efectivo",     total:totEf, count:entH.filter(o=>o.pago==="efectivo").length,     color:"#16A34A",bg:"#F0FDF4",border:"#BBF7D0"},
+              {label:"📲 Transferencia",total:totTr, count:entH.filter(o=>o.pago==="transferencia").length,color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
+              {label:"💳 Tarjeta",      total:totTj, count:entH.filter(o=>o.pago==="tarjeta").length,      color:"#2563EB",bg:"#EFF6FF",border:"#BFDBFE"},
+            ].map(p=>(
+              <div key={p.label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",borderRadius:12,background:p.bg,border:`1px solid ${p.border}`,marginBottom:8}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  <span style={{fontSize:14,fontWeight:700,color:p.color,fontFamily:"'Barlow Condensed',sans-serif"}}>{p.label}</span>
+                  <span style={{fontSize:11,color:"var(--text3)",background:"var(--bg2)",padding:"2px 8px",borderRadius:20,border:"1px solid var(--border)"}}>{p.count} pedido{p.count!==1?"s":""}</span>
+                </div>
+                <span className="sh" style={{fontSize:18,color:p.color}}>{fmt(p.total)}</span>
+              </div>
+            ))}
+            {totDia>0&&(
+              <div style={{marginTop:10,height:8,borderRadius:8,background:"var(--bg2)",overflow:"hidden",display:"flex",border:"1px solid var(--border)"}}>
+                {totEf>0&&<div style={{width:`${(totEf/totDia*100).toFixed(1)}%`,background:"#16A34A"}}/>}
+                {totTr>0&&<div style={{width:`${(totTr/totDia*100).toFixed(1)}%`,background:"#D97706"}}/>}
+                {totTj>0&&<div style={{width:`${(totTj/totDia*100).toFixed(1)}%`,background:"#2563EB"}}/>}
+              </div>
+            )}
+          </Card>
+          <div style={{display:"flex",gap:10,marginBottom:12}}>
+            {[
+              {label:"🏃 Retiro",  total:totRet, count:entH.filter(o=>o.tipo==="retiro").length,   color:"#7C3AED",bg:"#FAF5FF",border:"#E9D5FF"},
+              {label:"🛵 Delivery",total:totDel, count:entH.filter(o=>o.tipo==="delivery").length, color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
+            ].map(t=>(
+              <div key={t.label} style={{flex:1,background:t.bg,border:`1px solid ${t.border}`,borderRadius:14,padding:"14px 16px"}}>
+                <div className="sh" style={{fontSize:14,color:t.color,marginBottom:4}}>{t.label}</div>
+                <div className="sh" style={{fontSize:22,color:t.color}}>{fmt(t.total)}</div>
+                <div style={{fontSize:12,color:"var(--text3)",marginTop:3}}>{t.count} pedido{t.count!==1?"s":""}</div>
+              </div>
+            ))}
+          </div>
+          <Card style={{marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div>
+              <div style={{fontSize:11,color:"var(--text3)",letterSpacing:1.5,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>TICKET PROMEDIO</div>
+              <div className="sh" style={{fontSize:26,color:"var(--red)"}}>{entH.length>0?fmt(Math.round(totDia/entH.length)):"—"}</div>
+            </div>
+            <div style={{width:1,height:40,background:"var(--border)"}}/>
+            <div style={{textAlign:"right"}}>
+              <div style={{fontSize:11,color:"var(--text3)",letterSpacing:1.5,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>UNIDADES VENDIDAS</div>
+              <div className="sh" style={{fontSize:26,color:"var(--text2)"}}>{entH.reduce((s,o)=>s+o.items.reduce((a,c)=>a+c.qty,0),0)}</div>
+            </div>
+          </Card>
+          {topProds.length>0&&(
+            <Card style={{marginBottom:12}}>
+              <Label>🏆 PRODUCTOS MÁS VENDIDOS</Label>
+              {topProds.map((p,i)=>(
+                <div key={p.nombre} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<topProds.length-1?"1px solid var(--border)":"none"}}>
+                  <div style={{width:24,height:24,borderRadius:8,background:i===0?"#FEF3C7":i===1?"#F3F4F6":"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:i===0?"#D97706":i===1?"#6B7280":"var(--text4)",flexShrink:0,fontFamily:"'Barlow Condensed',sans-serif",border:"1px solid var(--border)"}}>{i+1}</div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"var(--text)"}}>{p.nombre}</div>
+                    <div style={{fontSize:11,color:"var(--text3)",marginTop:1}}>{fmt(p.total)} · {p.qty} unid.</div>
+                  </div>
+                  <div style={{width:70,height:5,borderRadius:5,background:"var(--bg2)",overflow:"hidden",flexShrink:0,border:"1px solid var(--border)"}}>
+                    <div style={{height:"100%",background:i===0?"#D97706":i===1?"#9CA3AF":"var(--red)",width:`${(p.qty/topProds[0].qty*100).toFixed(0)}%`}}/>
+                  </div>
+                </div>
+              ))}
+            </Card>
+          )}
+          <Card>
+            <Label>TODOS LOS PEDIDOS DE HOY</Label>
+            {ordersHoy.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--text4)",fontSize:14}}>Todavía no hay pedidos hoy</div>}
+            {ordersHoy.map((o,i)=>{
+              const est=ESTADOS[o.status];
+              return(
+                <div key={o.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<ordersHoy.length-1?"1px solid var(--border)":"none"}}>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:est.ring,flexShrink:0,boxShadow:`0 0 4px ${est.ring}`}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                      <span style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{o.nombre}</span>
+                      <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
+                      <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.bg,padding:"1px 6px",borderRadius:20}}>{est.label}</span>
+                    </div>
+                    <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
+                      {new Date(o.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · {o.items.reduce((s,c)=>s+c.qty,0)} items
+                      {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"}</span>}
+                      {o.tipo==="delivery"&&<span style={{marginLeft:4,color:"#D97706"}}>· 🛵</span>}
+                    </div>
+                  </div>
+                  <span className="sh" style={{fontSize:15,color:o.status==="entregado"?"#16A34A":"var(--text3)",flexShrink:0}}>{fmt(o.total)}</span>
+                </div>
+              );
+            })}
+            {entH.length>0&&(
+              <div style={{display:"flex",justifyContent:"space-between",padding:"14px 0 0",fontWeight:800,fontSize:16,borderTop:"1px solid var(--border)",marginTop:4,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                <span style={{color:"var(--text3)"}}>Total cobrado</span>
+                <span style={{color:"#16A34A"}}>{fmt(totDia)}</span>
+              </div>
+            )}
+          </Card>
+        </div>
+      )}
+
+      {!["editor","facturacion"].includes(filter)&&(
+        <div style={{padding:"12px 12px 40px"}}>
+          {filtered.length===0&&(
+            <div style={{textAlign:"center",padding:"48px 20px",color:"var(--text3)"}}>
+              <img src={LOGO_SRC} alt="" style={{width:60,height:60,borderRadius:"50%",objectFit:"cover",opacity:.3,marginBottom:12}}/>
+              <div className="sh" style={{fontSize:18,marginBottom:4,color:"var(--text2)"}}>Sin pedidos</div>
+              <div style={{fontSize:13}}>No hay pedidos en esta categoría</div>
+            </div>
+          )}
+          {filtered.map(order=>{
+            const est=ESTADOS[order.status]; const isExp=expandedId===order.id;
+            return(
+              <div key={order.id} className={order.status==="nuevo"?"pulse-new":""}
+                style={{background:"var(--surface)",border:`2px solid ${isExp?est.ring:order.status==="nuevo"?"rgba(204,31,31,.3)":"var(--border)"}`,borderRadius:16,marginBottom:10,overflow:"hidden",transition:"all .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:order.id)}>
+                  <div style={{width:10,height:10,borderRadius:"50%",background:est.ring,boxShadow:`0 0 6px ${est.ring}`,flexShrink:0}}/>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{display:"flex",alignItems:"center",gap:8}}>
+                      <span className="sh" style={{fontSize:15,color:"var(--text)"}}>#{order.id.slice(-6).toUpperCase()}</span>
+                      <span style={{fontSize:12,fontWeight:700,color:est.color,background:est.bg,padding:"2px 8px",borderRadius:20}}>{est.label}</span>
+                      {order.tipo==="delivery"&&<span style={{fontSize:11,color:"#D97706",background:"#FFFBEB",padding:"2px 6px",borderRadius:20,fontWeight:600}}>🛵 Delivery</span>}
+                    </div>
+                    <div style={{fontSize:13,color:"var(--text3)",marginTop:3}}>{order.nombre} · {timeAgo(order.created_at)}</div>
+                  </div>
+                  <div style={{textAlign:"right"}}>
+                    <div className="sh" style={{fontSize:17,color:"var(--red)"}}>{fmt(order.total)}</div>
+                    <div style={{fontSize:11,color:"var(--text4)",marginTop:1}}>{order.items.reduce((s,c)=>s+c.qty,0)} items</div>
+                  </div>
+                  <span style={{color:"var(--text4)",fontSize:13}}>{isExp?"▲":"▼"}</span>
+                </div>
+                {isExp&&(
+                  <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
+                    <div style={{paddingTop:12,marginBottom:10}}>
+                      {order.items.map(c=>(
+                        <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
+                          <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
+                          <span style={{color:"var(--text3)"}}>{fmt(c.item.precio*c.qty)}</span>
+                        </div>
+                      ))}
+                    </div>
+                    {order.telefono&&(
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                        <span style={{fontSize:13,color:"var(--text3)"}}>📞 {order.telefono}</span>
+                        <a href={`https://wa.me/54${order.telefono.replace(/\D/g,"")}`} target="_blank" rel="noreferrer"
+                          style={{color:"#16A34A",fontSize:12,textDecoration:"none",background:"#F0FDF4",border:"1px solid #BBF7D0",padding:"2px 8px",borderRadius:20,fontWeight:600}}>WhatsApp →</a>
+                      </div>
+                    )}
+                    {order.tipo==="delivery"&&order.calle&&(
+                      <div style={{fontSize:13,background:"#FFFBEB",borderRadius:10,padding:"9px 13px",marginBottom:10,border:"1px solid #FDE68A",display:"flex",gap:8}}>
+                        <span>🛵</span>
+                        <div>
+                          <div style={{color:"#D97706",fontSize:11,fontWeight:700,marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>DIRECCIÓN DE ENTREGA</div>
+                          <div style={{color:"var(--text2)"}}>{order.calle} {order.numero}{order.piso?`, ${order.piso}`:""}</div>
+                          {order.barrio&&<div style={{color:"var(--text3)",fontSize:12,marginTop:1}}>{order.barrio}</div>}
+                        </div>
+                      </div>
+                    )}
+                    {order.notas&&(
+                      <div style={{fontSize:13,color:"var(--text2)",background:"var(--bg2)",borderRadius:10,padding:"10px 14px",marginBottom:12,borderLeft:`3px solid ${est.ring}`,lineHeight:1.5}}>
+                        💬 <em>{order.notas}</em>
+                      </div>
+                    )}
+                    <div style={{display:"flex",gap:8,marginTop:10}}>
+                      {est.next&&<button className="btn" onClick={()=>updateStatus(order,est.next)} style={{flex:1,padding:"12px 0",borderRadius:12,background:est.bg,border:`1px solid ${est.ring}`,color:est.color,fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{est.nextLabel} →</button>}
+                      {order.status==="entregado"&&<button className="btn" onClick={()=>deleteOrder(order.id)} style={{padding:"12px 16px",borderRadius:12,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:600}}>Eliminar</button>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══ MENU EDITOR ══════════════════════════════════════════════ */
+function MenuEditor({ menu, saveMenu }) {
+  const [expandedCat, setExpandedCat] = useState(null);
+  const [editId,      setEditId]      = useState(null);
+  const [saved,       setSaved]       = useState(false);
+
+  const editCatId  = editId?.split(":")[0];
+  const editItemId = editId?.split(":")[1];
+  const editCat    = editCatId  ? menu.find(c=>c.id===editCatId)  : null;
+  const editItem   = editCat    ? editCat.items.find(i=>i.id===editItemId) : null;
+
+  const updCat  = (catId,ch)       => saveMenu(menu.map(c=>c.id===catId?{...c,...ch}:c));
+  const updItem = (catId,itemId,ch)=> saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.map(i=>i.id===itemId?{...i,...ch}:i)}:c));
+  const delItem = (catId,itemId)   => { saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.filter(i=>i.id!==itemId)}:c)); if(editItemId===itemId)setEditId(null); };
+  const addItem = (catId)          => { const ni={id:genId(),nombre:"Nuevo producto",desc:"",precio:0}; saveMenu(menu.map(c=>c.id===catId?{...c,items:[...c.items,ni]}:c)); setEditId(`${catId}:${ni.id}`); setExpandedCat(catId); };
+  const addCat  = ()               => { const nc={id:genId(),nombre:"Nueva categoría",emoji:"🍴",desc:"",items:[]}; saveMenu([...menu,nc]); setExpandedCat(nc.id); };
+  const delCat  = (catId)          => { if(!window.confirm("¿Eliminar esta categoría y todos sus productos?"))return; saveMenu(menu.filter(c=>c.id!==catId)); if(expandedCat===catId)setExpandedCat(null); };
+  const handleFile = (catId,itemId,file) => { if(!file)return; const r=new FileReader(); r.onload=e=>updItem(catId,itemId,{imagen:e.target.result}); r.readAsDataURL(file); };
+  const flash = () => { setSaved(true); setTimeout(()=>setSaved(false),2000); };
+
+  return (
+    <div className="fade-in" style={{padding:14,paddingBottom:40}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div>
+          <div className="sh" style={{fontSize:24,color:"var(--text)"}}>EDITOR DEL MENÚ</div>
+          <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>Tocá cualquier producto para editarlo</div>
+        </div>
+        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+          {saved&&<span className="fade-in" style={{fontSize:12,color:"#16A34A",fontWeight:700}}>✓ Guardado</span>}
+          <button className="btn" onClick={flash} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"8px 16px",color:"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>GUARDAR</button>
+        </div>
+      </div>
+      {editItem&&(
+        <div className="slide-up" style={{background:"var(--surface)",border:"2px solid #E9D5FF",borderRadius:16,padding:16,marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+            <span className="sh" style={{fontSize:16,color:"#7C3AED"}}>✏️ EDITANDO PRODUCTO</span>
+            <button className="btn" onClick={()=>setEditId(null)} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 12px",color:"var(--text3)",fontSize:13,fontWeight:600}}>✕ Cerrar</button>
+          </div>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:8,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>IMAGEN DEL PRODUCTO</div>
+            <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+              <div style={{width:88,height:88,borderRadius:10,overflow:"hidden",flexShrink:0,background:"var(--bg2)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+                {editItem.imagen
+                  ?<><img src={editItem.imagen} alt="preview" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
+                    <button className="btn" onClick={()=>updItem(editCatId,editItemId,{imagen:""})}
+                      style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                  </>
+                  :<span style={{color:"var(--text4)",fontSize:28}}>📷</span>}
+              </div>
+              <div style={{flex:1,display:"flex",flexDirection:"column",gap:8}}>
+                <label className="upload-btn">
+                  <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(editCatId,editItemId,e.target.files[0])}/>
+                  📤 Subir foto
+                </label>
+                <div style={{textAlign:"center",fontSize:11,color:"var(--text4)"}}>— o pegá una URL —</div>
+                <input value={editItem.imagen||""} onChange={e=>updItem(editCatId,editItemId,{imagen:e.target.value})}
+                  placeholder="https://mi-foto.com/imagen.jpg"
+                  style={{width:"100%",padding:"9px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:12}}/>
+              </div>
+            </div>
+          </div>
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOMBRE *</div>
+            <input value={editItem.nombre} onChange={e=>updItem(editCatId,editItemId,{nombre:e.target.value})}
+              style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,fontWeight:600}}/>
+          </div>
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCRIPCIÓN</div>
+            <textarea value={editItem.desc||""} onChange={e=>updItem(editCatId,editItemId,{desc:e.target.value})} rows={2}
+              style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,resize:"none",lineHeight:1.5}}/>
+          </div>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>PRECIO ($)</div>
+            <input type="number" min="0" step="100" value={editItem.precio} onChange={e=>updItem(editCatId,editItemId,{precio:Number(e.target.value)})}
+              style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:20,fontWeight:800,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+          </div>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:"var(--bg2)",borderRadius:10,border:"1px solid var(--border)",marginBottom:12}}>
+            <div>
+              <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>Disponible en el menú</div>
+              <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>Si está desactivado no aparece a los clientes</div>
+            </div>
+            <div onClick={()=>updItem(editCatId,editItemId,{disponible:editItem.disponible===false})}
+              style={{width:44,height:24,borderRadius:12,background:editItem.disponible!==false?"var(--red)":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
+              <div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:editItem.disponible!==false?"23px":"3px",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+            </div>
+          </div>
+          <button className="btn" onClick={()=>delItem(editCatId,editItemId)}
+            style={{width:"100%",padding:"10px 0",borderRadius:10,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+            🗑 ELIMINAR ESTE PRODUCTO
+          </button>
+        </div>
+      )}
+      {menu.map(cat=>(
+        <div key={cat.id} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,marginBottom:10,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer",borderBottom:expandedCat===cat.id?"1px solid var(--border)":"none"}}
+            onClick={()=>setExpandedCat(expandedCat===cat.id?null:cat.id)}>
+            <input value={cat.emoji} onChange={e=>updCat(cat.id,{emoji:e.target.value})} onClick={e=>e.stopPropagation()}
+              style={{width:36,padding:"4px 0",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,fontSize:18,textAlign:"center"}}/>
+            <input value={cat.nombre} onChange={e=>updCat(cat.id,{nombre:e.target.value})} onClick={e=>e.stopPropagation()}
+              style={{flex:1,padding:"7px 10px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,fontSize:14,fontWeight:700,color:"var(--text)"}}/>
+            <span style={{fontSize:11,color:"var(--text4)",whiteSpace:"nowrap"}}>{cat.items.length} prod.</span>
+            <span style={{color:"var(--text4)",fontSize:13}}>{expandedCat===cat.id?"▲":"▼"}</span>
+          </div>
+          {expandedCat===cat.id&&(
+            <div className="fade-in" style={{padding:"8px 10px 12px",background:"var(--bg2)"}}>
+              <div style={{marginBottom:10}}>
+                <input value={cat.desc||""} onChange={e=>updCat(cat.id,{desc:e.target.value})} placeholder="Descripción de la categoría (opcional)"
+                  style={{width:"100%",padding:"8px 12px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:9,fontSize:12,color:"var(--text2)"}}/>
+              </div>
+              {cat.items.map(item=>(
+                <div key={item.id} onClick={()=>setEditId(editId===`${cat.id}:${item.id}`?null:`${cat.id}:${item.id}`)}
+                  style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",marginBottom:6,background:editId===`${cat.id}:${item.id}`?"#FAF5FF":"var(--surface)",border:`1px solid ${editId===`${cat.id}:${item.id}`?"#E9D5FF":"var(--border)"}`,transition:"all .2s"}}>
+                  <div style={{width:38,height:38,borderRadius:8,overflow:"hidden",flexShrink:0,background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid var(--border)"}}>
+                    {item.imagen
+                      ?<img src={item.imagen} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
+                      :<span style={{color:"var(--text4)",fontSize:16}}>📷</span>}
+                  </div>
+                  <div style={{flex:1,minWidth:0}}>
+                    <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:item.disponible===false?"var(--text4)":"var(--text)"}}>
+                      {item.disponible===false?"🚫 ":""}{item.nombre}
+                    </div>
+                    <div className="sh" style={{fontSize:13,color:"var(--red)",marginTop:1}}>{fmt(item.precio)}</div>
+                  </div>
+                  <span style={{fontSize:12,color:"#7C3AED",flexShrink:0}}>✏️</span>
+                </div>
+              ))}
+              <div style={{display:"flex",gap:8,marginTop:8}}>
+                <button className="btn" onClick={()=>addItem(cat.id)}
+                  style={{flex:1,padding:"10px 0",borderRadius:10,background:"var(--red-light)",border:"1px dashed var(--red-border)",color:"var(--red)",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+                  + AGREGAR PRODUCTO
+                </button>
+                <button className="btn" onClick={()=>delCat(cat.id)}
+                  style={{padding:"10px 14px",borderRadius:10,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13}}>🗑</button>
+              </div>
+            </div>
+          )}
+        </div>
+      ))}
+      <button className="btn" onClick={addCat}
+        style={{width:"100%",padding:"13px 0",borderRadius:14,background:"transparent",border:"1.5px dashed var(--border2)",color:"var(--text3)",fontSize:14,fontWeight:700,marginTop:4,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+        + AGREGAR CATEGORÍA
+      </button>
+    </div>
+  );
+}
