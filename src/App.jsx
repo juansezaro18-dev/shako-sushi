@@ -176,7 +176,7 @@ export default function App() {
   const [pin,    setPin]    = useState("");
   const [pinErr, setPinErr] = useState(false);
   const [menu,   setMenu]   = useState(MENU_DEFAULT);
-  const [menuLoaded, setMenuLoaded] = useState(false);
+  const [menuLoaded, setMenuLoaded] = useState(true);
   const clicks = useRef(0);
   const clickTimer = useRef(null);
 
@@ -954,4 +954,5 @@ function MenuEditor({ menu, saveMenu }) {
     </div>
   );
 }
+
 
