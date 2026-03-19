@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { supabase } from "./supabase.js";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  import.meta.env.VITE_SUPABASE_URL,
+  import.meta.env.VITE_SUPABASE_ANON_KEY
+);
 
 const LOGO_SRC = "/logo.png";
 
@@ -97,10 +102,10 @@ const MENU_DEFAULT = [
     {id:"ad3",nombre:"Pepinos encurtidos", desc:"Pepinos encurtidos en sushizu.", precio:4000},
   ]},
   { id:"bebidas", nombre:"Bebidas", emoji:"🥤", desc:"", items:[
-    {id:"be1",nombre:"Coca Cola (1,5L)",        desc:"",precio:6000},{id:"be2",nombre:"Coca Cola Zero (1,5L)", desc:"",precio:6000},
-    {id:"be3",nombre:"Coca Cola (500ml)",        desc:"",precio:4000},{id:"be4",nombre:"Coca Cola Zero (500ml)",desc:"",precio:4000},
-    {id:"be5",nombre:"Sprite (1L)",              desc:"",precio:6000},{id:"be6",nombre:"Sprite (500ml)",        desc:"",precio:4000},
-    {id:"be7",nombre:"Agua Gasificada (500ml)",  desc:"",precio:4000},{id:"be8",nombre:"Agua Sin Gas (500ml)",  desc:"",precio:4000},
+    {id:"be1",nombre:"Coca Cola (1,5L)",       desc:"",precio:6000},{id:"be2",nombre:"Coca Cola Zero (1,5L)",desc:"",precio:6000},
+    {id:"be3",nombre:"Coca Cola (500ml)",       desc:"",precio:4000},{id:"be4",nombre:"Coca Cola Zero (500ml)",desc:"",precio:4000},
+    {id:"be5",nombre:"Sprite (1L)",             desc:"",precio:6000},{id:"be6",nombre:"Sprite (500ml)",       desc:"",precio:4000},
+    {id:"be7",nombre:"Agua Gasificada (500ml)", desc:"",precio:4000},{id:"be8",nombre:"Agua Sin Gas (500ml)", desc:"",precio:4000},
   ]},
   { id:"cervezas", nombre:"Cervezas", emoji:"🍺", desc:"Cervezas Goyeneche", items:[
     {id:"ce1", nombre:"Goyeneche APA (500ml)",       desc:"",precio:5000},{id:"ce2", nombre:"Goyeneche Blonde (500ml)",   desc:"",precio:5000},
@@ -117,10 +122,9 @@ const MENU_DEFAULT = [
   ]},
 ];
 
-/* ══ HELPERS ═══════════════════════════════════════════════════ */
 const fmt     = (n) => `$${Number(n).toLocaleString("es-AR")}`;
 const genId   = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-const timeAgo = (ts) => { const d=Math.floor((Date.now()-ts)/1000); return d<60?`${d}s`:d<3600?`${Math.floor(d/60)}min`:`${Math.floor(d/3600)}h`; };
+const timeAgo = (ts) => { const d=Math.floor((Date.now()-Number(ts))/1000); return d<60?`${d}s`:d<3600?`${Math.floor(d/60)}min`:`${Math.floor(d/3600)}h`; };
 
 const ESTADOS = {
   nuevo:     {label:"Nuevo",      next:"preparando", nextLabel:"Empezar preparación",  color:"#CC1F1F", bg:"rgba(204,31,31,.1)",   ring:"#CC1F1F"},
@@ -129,7 +133,6 @@ const ESTADOS = {
   entregado: {label:"Entregado",  next:null,         nextLabel:null,                    color:"#9CA3AF", bg:"rgba(156,163,175,.1)", ring:"#9CA3AF"},
 };
 
-/* ══ GLOBAL STYLES ═════════════════════════════════════════════ */
 const GS = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap');
@@ -161,7 +164,6 @@ const GS = () => (
   `}</style>
 );
 
-/* ══ SHARED COMPONENTS ═════════════════════════════════════════ */
 const Card  = ({children, style={}}) => (
   <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14,boxShadow:"0 1px 4px rgba(0,0,0,.04)",...style}}>{children}</div>
 );
@@ -169,30 +171,24 @@ const Label = ({children}) => (
   <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:12,fontFamily:"'Barlow Condensed',sans-serif"}}>{children}</div>
 );
 
-/* ══ APP ROOT ══════════════════════════════════════════════════ */
 export default function App() {
-  const [mode,   setMode]   = useState("customer");
-  const [showPin,setShowPin]= useState(false);
-  const [pin,    setPin]    = useState("");
-  const [pinErr, setPinErr] = useState(false);
-  const [menu,   setMenu]   = useState(MENU_DEFAULT);
-  const [menuLoaded, setMenuLoaded] = useState(true);
-  const clicks = useRef(0);
-  const clickTimer = useRef(null);
+  const [mode,    setMode]    = useState("customer");
+  const [showPin, setShowPin] = useState(false);
+  const [pin,     setPin]     = useState("");
+  const [pinErr,  setPinErr]  = useState(false);
+  const [menu,    setMenu]    = useState(MENU_DEFAULT);
+  const clicks    = useRef(0);
+  const clickTimer= useRef(null);
 
-  /* Cargar menú desde Supabase al iniciar */
   useEffect(() => {
     supabase.from("menu_config").select("data").eq("id",1).maybeSingle()
-      .then(({data}) => {
-        if (data?.data) setMenu(data.data);
-        setMenuLoaded(true);
-      })
-      .catch(() => setMenuLoaded(true));
+      .then(({data}) => { if (data?.data) setMenu(data.data); })
+      .catch(() => {});
   }, []);
 
   const saveMenu = async (m) => {
     setMenu(m);
-    await supabase.from("menu_config").upsert({id:1, data:m});
+    supabase.from("menu_config").upsert({id:1, data:m}).then(()=>{});
   };
 
   const onLogoClick = () => {
@@ -206,15 +202,6 @@ export default function App() {
     if (pin === CONFIG.adminPin) { setMode("admin"); setShowPin(false); setPin(""); setPinErr(false); }
     else { setPinErr(true); setPin(""); setTimeout(() => setPinErr(false), 700); }
   };
-
-  if (!menuLoaded) return (
-    <>
-      <GS/>
-      <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg2)"}}>
-        <img src={LOGO_SRC} alt="Shako" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",opacity:.6}}/>
-      </div>
-    </>
-  );
 
   return (
     <>
@@ -242,16 +229,15 @@ export default function App() {
   );
 }
 
-/* ══ CUSTOMER VIEW ═════════════════════════════════════════════ */
 function CustomerView({ onLogoClick, menu }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
-  const [activeCat, setActiveCat] = useState(menuVis[0]?.id);
-  const [cart,      setCart]      = useState([]);
-  const [step,      setStep]      = useState("menu");
-  const [form,      setForm]      = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",piso:"",barrio:"",pago:"efectivo"});
-  const [loading,   setLoading]   = useState(false);
-  const [orderId,   setOrderId]   = useState(null);
-  const [orderTotal,setOrderTotal]= useState(0);
+  const [activeCat,  setActiveCat]  = useState(menuVis[0]?.id);
+  const [cart,       setCart]       = useState([]);
+  const [step,       setStep]       = useState("menu");
+  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",piso:"",barrio:"",pago:"efectivo"});
+  const [loading,    setLoading]    = useState(false);
+  const [orderId,    setOrderId]    = useState(null);
+  const [orderTotal, setOrderTotal] = useState(0);
   const tabsRef = useRef(null);
   const sRefs   = useRef({});
 
@@ -278,15 +264,17 @@ function CustomerView({ onLogoClick, menu }) {
   const placeOrder = async () => {
     if (!canConfirm) return;
     setLoading(true);
-    const order = {
-      id: genId(),
-      ...form,
-      items: cart,
-      total,
-      status: "nuevo",
-      created_at: Date.now(),
-    };
-    supabase.from("orders").insert(order).then(() => {}); setOrderId(order.id); setOrderTotal(order.total); setCart([]); setStep("confirm"); setLoading(false);
+    const order = { id:genId(), ...form, items:cart, total, status:"nuevo", created_at:Date.now() };
+    // Mostrar confirmación al instante
+    setOrderId(order.id);
+    setOrderTotal(order.total);
+    setCart([]);
+    setStep("confirm");
+    setLoading(false);
+    // Guardar en Supabase en segundo plano
+    supabase.from("orders").insert(order).then(({error}) => {
+      if (error) console.error("Error guardando pedido:", error);
+    });
   };
 
   const PAGOS = [
@@ -295,7 +283,6 @@ function CustomerView({ onLogoClick, menu }) {
     {v:"tarjeta",       l:"💳 Tarjeta",        desc:"Débito o crédito en el local"},
   ];
 
-  /* CONFIRMACIÓN */
   if (step === "confirm") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
       <div className="slide-up">
@@ -315,7 +302,6 @@ function CustomerView({ onLogoClick, menu }) {
     </div>
   );
 
-  /* CHECKOUT */
   if (step === "checkout") return (
     <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"var(--bg2)"}}>
       <div style={{position:"sticky",top:0,background:"rgba(255,255,255,.97)",backdropFilter:"blur(14px)",borderBottom:"1px solid var(--border)",padding:"14px 16px",display:"flex",alignItems:"center",gap:12,zIndex:10}}>
@@ -358,7 +344,7 @@ function CustomerView({ onLogoClick, menu }) {
           <div style={{display:"flex",gap:8,marginBottom:form.tipo==="delivery"?16:0}}>
             {[{v:"retiro",l:"🏃 Retiro en local"},{v:"delivery",l:"🛵 Delivery"}].map(t=>(
               <button key={t.v} className="btn" onClick={()=>setForm(p=>({...p,tipo:t.v}))}
-                style={{flex:1,padding:"13px 0",borderRadius:12,fontSize:14,fontWeight:700,background:form.tipo===t.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.tipo===t.v?"var(--red)":"var(--border)"}`,color:form.tipo===t.v?"var(--red)":"var(--text3)",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{t.l}</button>
+                style={{flex:1,padding:"13px 0",borderRadius:12,fontSize:14,fontWeight:700,background:form.tipo===t.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.tipo===t.v?"var(--red)":"var(--border)"}`,color:form.tipo===t.v?"var(--red)":"var(--text3)",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif"}}>{t.l}</button>
             ))}
           </div>
           {form.tipo==="delivery"&&(
@@ -417,13 +403,12 @@ function CustomerView({ onLogoClick, menu }) {
         </Card>
         <button className="btn" onClick={placeOrder} disabled={!canConfirm||loading}
           style={{width:"100%",padding:"16px 0",borderRadius:14,fontSize:18,fontWeight:800,background:canConfirm?"var(--red)":"var(--border)",color:canConfirm?"#fff":"var(--text4)",boxShadow:canConfirm?"0 8px 24px var(--red-glow)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
-          {loading?"ENVIANDO PEDIDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
+          {loading?"ENVIANDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
         </button>
       </div>
     </div>
   );
 
-  /* MENÚ PRINCIPAL */
   return (
     <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",paddingBottom:90,background:"var(--bg2)"}}>
       <div style={{background:"var(--red)",padding:"18px 18px 16px"}}>
@@ -471,11 +456,7 @@ function CustomerView({ onLogoClick, menu }) {
             const qty=getQty(item.id);
             return(
               <div key={item.id} style={{margin:"0 14px 8px",background:"var(--surface)",border:`2px solid ${qty>0?"var(--red)":"var(--border)"}`,borderRadius:14,overflow:"hidden",display:"flex",transition:"border .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
-                {item.imagen&&(
-                  <div style={{width:90,minWidth:90,overflow:"hidden"}}>
-                    <img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.parentNode.style.display="none";}}/>
-                  </div>
-                )}
+                {item.imagen&&<div style={{width:90,minWidth:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.parentNode.style.display="none";}}/></div>}
                 <div style={{flex:1,padding:"13px 14px",display:"flex",alignItems:"center",gap:12,minWidth:0}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:15,fontWeight:600,lineHeight:1.35,color:"var(--text)"}}>{item.nombre}</div>
@@ -508,62 +489,62 @@ function CustomerView({ onLogoClick, menu }) {
   );
 }
 
-/* ══ ADMIN VIEW ════════════════════════════════════════════════ */
 function AdminView({ onExit, menu, saveMenu }) {
   const [orders,     setOrders]     = useState([]);
   const [filter,     setFilter]     = useState("activos");
   const [expandedId, setExpandedId] = useState(null);
 
-  /* Carga inicial + suscripción real-time */
-  useEffect(() => {
-    const load = async () => {
-      const { data } = await supabase.from("orders").select("*").order("id", {ascending:false});
-      if (data) setOrders(data);
-    };
-    load();
-
-    const channel = supabase.channel("orders-realtime")
-      .on("postgres_changes", {event:"*", schema:"public", table:"orders"}, () => load())
-      .subscribe();
-
-    return () => supabase.removeChannel(channel);
+  const loadOrders = useCallback(async () => {
+    const { data, error } = await supabase.from("orders").select("*").order("created_at", {ascending:false});
+    if (!error && data) setOrders(data);
   }, []);
 
+  useEffect(() => {
+    loadOrders();
+    // Polling cada 5 segundos como fallback
+    const iv = setInterval(loadOrders, 5000);
+    // Realtime
+    const channel = supabase.channel("orders-rt")
+      .on("postgres_changes", {event:"*", schema:"public", table:"orders"}, () => loadOrders())
+      .subscribe();
+    return () => { clearInterval(iv); supabase.removeChannel(channel); };
+  }, [loadOrders]);
+
   const updateStatus = async (order, ns) => {
-    await supabase.from("orders").update({status:ns}).eq("id", order.id);
     setOrders(p => p.map(o => o.id===order.id ? {...o,status:ns} : o));
+    await supabase.from("orders").update({status:ns}).eq("id", order.id);
   };
   const deleteOrder = async (id) => {
-    await supabase.from("orders").delete().eq("id", id);
     setOrders(p => p.filter(o => o.id!==id));
+    await supabase.from("orders").delete().eq("id", id);
   };
 
   const hoy = new Date(); hoy.setHours(0,0,0,0);
-  const ordersHoy = orders.filter(o => o.created_at >= hoy.getTime());
-  const entH      = ordersHoy.filter(o => o.status === "entregado");
-  const totDia = entH.reduce((s,o)=>s+o.total,0);
-  const totEf  = entH.filter(o=>o.pago==="efectivo").reduce((s,o)=>s+o.total,0);
-  const totTr  = entH.filter(o=>o.pago==="transferencia").reduce((s,o)=>s+o.total,0);
-  const totTj  = entH.filter(o=>o.pago==="tarjeta").reduce((s,o)=>s+o.total,0);
-  const totDel = entH.filter(o=>o.tipo==="delivery").reduce((s,o)=>s+o.total,0);
-  const totRet = entH.filter(o=>o.tipo==="retiro").reduce((s,o)=>s+o.total,0);
-  const proyect = ordersHoy.reduce((s,o)=>s+o.total,0);
+  const hoyTs = hoy.getTime();
+  const ordersHoy = orders.filter(o => Number(o.created_at) >= hoyTs);
+  const entH   = ordersHoy.filter(o => o.status === "entregado");
+  const totDia = entH.reduce((s,o)=>s+Number(o.total),0);
+  const totEf  = entH.filter(o=>o.pago==="efectivo").reduce((s,o)=>s+Number(o.total),0);
+  const totTr  = entH.filter(o=>o.pago==="transferencia").reduce((s,o)=>s+Number(o.total),0);
+  const totTj  = entH.filter(o=>o.pago==="tarjeta").reduce((s,o)=>s+Number(o.total),0);
+  const totDel = entH.filter(o=>o.tipo==="delivery").reduce((s,o)=>s+Number(o.total),0);
+  const totRet = entH.filter(o=>o.tipo==="retiro").reduce((s,o)=>s+Number(o.total),0);
+  const proyect = ordersHoy.reduce((s,o)=>s+Number(o.total),0);
   const prodMap = {};
-  entH.forEach(o => o.items.forEach(c => {
+  entH.forEach(o => o.items?.forEach(c => {
     if (!prodMap[c.item.nombre]) prodMap[c.item.nombre]={nombre:c.item.nombre,qty:0,total:0};
     prodMap[c.item.nombre].qty   += c.qty;
     prodMap[c.item.nombre].total += c.item.precio*c.qty;
   }));
-  const topProds  = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0,8);
-  const todayStr  = new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
-  const filtered  = orders.filter(o => filter==="activos"?["nuevo","preparando","listo"].includes(o.status):filter==="entregados"?o.status==="entregado":o.status===filter);
-  const counts    = {
+  const topProds = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0,8);
+  const todayStr = new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
+  const filtered = orders.filter(o => filter==="activos"?["nuevo","preparando","listo"].includes(o.status):filter==="entregados"?o.status==="entregado":o.status===filter);
+  const counts   = {
     nuevo:     orders.filter(o=>o.status==="nuevo").length,
     preparando:orders.filter(o=>o.status==="preparando").length,
     listo:     orders.filter(o=>o.status==="listo").length,
     entregado: orders.filter(o=>o.status==="entregado").length,
   };
-
   const TABS = [
     {key:"activos",     label:"Activos",   val:counts.nuevo+counts.preparando+counts.listo, color:"var(--text)"},
     {key:"nuevo",       label:"🔴 Nuevos", val:counts.nuevo,       color:"#CC1F1F"},
@@ -591,7 +572,6 @@ function AdminView({ onExit, menu, saveMenu }) {
           <button className="btn" onClick={onExit} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.3)",borderRadius:8,padding:"7px 16px",color:"#fff",fontSize:13,fontWeight:600}}>Salir</button>
         </div>
       </div>
-
       <div style={{display:"flex",background:"var(--surface)",borderBottom:"1px solid var(--border)",overflowX:"auto",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>
         {TABS.map(f=>(
           <button key={f.key} className="btn" onClick={()=>setFilter(f.key)}
@@ -669,7 +649,7 @@ function AdminView({ onExit, menu, saveMenu }) {
             <div style={{width:1,height:40,background:"var(--border)"}}/>
             <div style={{textAlign:"right"}}>
               <div style={{fontSize:11,color:"var(--text3)",letterSpacing:1.5,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>UNIDADES VENDIDAS</div>
-              <div className="sh" style={{fontSize:26,color:"var(--text2)"}}>{entH.reduce((s,o)=>s+o.items.reduce((a,c)=>a+c.qty,0),0)}</div>
+              <div className="sh" style={{fontSize:26,color:"var(--text2)"}}>{entH.reduce((s,o)=>s+(o.items?.reduce((a,c)=>a+c.qty,0)||0),0)}</div>
             </div>
           </Card>
           {topProds.length>0&&(
@@ -693,10 +673,10 @@ function AdminView({ onExit, menu, saveMenu }) {
             <Label>TODOS LOS PEDIDOS DE HOY</Label>
             {ordersHoy.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--text4)",fontSize:14}}>Todavía no hay pedidos hoy</div>}
             {ordersHoy.map((o,i)=>{
-              const est=ESTADOS[o.status];
+              const est=ESTADOS[o.status]||ESTADOS.nuevo;
               return(
                 <div key={o.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<ordersHoy.length-1?"1px solid var(--border)":"none"}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:est.ring,flexShrink:0,boxShadow:`0 0 4px ${est.ring}`}}/>
+                  <div style={{width:8,height:8,borderRadius:"50%",background:est.ring,flexShrink:0}}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
                       <span style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{o.nombre}</span>
@@ -704,7 +684,7 @@ function AdminView({ onExit, menu, saveMenu }) {
                       <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.bg,padding:"1px 6px",borderRadius:20}}>{est.label}</span>
                     </div>
                     <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
-                      {new Date(o.created_at).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · {o.items.reduce((s,c)=>s+c.qty,0)} items
+                      {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · {o.items?.reduce((s,c)=>s+c.qty,0)||0} items
                       {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"}</span>}
                       {o.tipo==="delivery"&&<span style={{marginLeft:4,color:"#D97706"}}>· 🛵</span>}
                     </div>
@@ -733,7 +713,7 @@ function AdminView({ onExit, menu, saveMenu }) {
             </div>
           )}
           {filtered.map(order=>{
-            const est=ESTADOS[order.status]; const isExp=expandedId===order.id;
+            const est=ESTADOS[order.status]||ESTADOS.nuevo; const isExp=expandedId===order.id;
             return(
               <div key={order.id} className={order.status==="nuevo"?"pulse-new":""}
                 style={{background:"var(--surface)",border:`2px solid ${isExp?est.ring:order.status==="nuevo"?"rgba(204,31,31,.3)":"var(--border)"}`,borderRadius:16,marginBottom:10,overflow:"hidden",transition:"all .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
@@ -749,14 +729,14 @@ function AdminView({ onExit, menu, saveMenu }) {
                   </div>
                   <div style={{textAlign:"right"}}>
                     <div className="sh" style={{fontSize:17,color:"var(--red)"}}>{fmt(order.total)}</div>
-                    <div style={{fontSize:11,color:"var(--text4)",marginTop:1}}>{order.items.reduce((s,c)=>s+c.qty,0)} items</div>
+                    <div style={{fontSize:11,color:"var(--text4)",marginTop:1}}>{order.items?.reduce((s,c)=>s+c.qty,0)||0} items</div>
                   </div>
                   <span style={{color:"var(--text4)",fontSize:13}}>{isExp?"▲":"▼"}</span>
                 </div>
                 {isExp&&(
                   <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
                     <div style={{paddingTop:12,marginBottom:10}}>
-                      {order.items.map(c=>(
+                      {order.items?.map(c=>(
                         <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
                           <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
                           <span style={{color:"var(--text3)"}}>{fmt(c.item.precio*c.qty)}</span>
@@ -800,23 +780,20 @@ function AdminView({ onExit, menu, saveMenu }) {
   );
 }
 
-/* ══ MENU EDITOR ══════════════════════════════════════════════ */
 function MenuEditor({ menu, saveMenu }) {
   const [expandedCat, setExpandedCat] = useState(null);
   const [editId,      setEditId]      = useState(null);
   const [saved,       setSaved]       = useState(false);
-
   const editCatId  = editId?.split(":")[0];
   const editItemId = editId?.split(":")[1];
   const editCat    = editCatId  ? menu.find(c=>c.id===editCatId)  : null;
   const editItem   = editCat    ? editCat.items.find(i=>i.id===editItemId) : null;
-
-  const updCat  = (catId,ch)       => saveMenu(menu.map(c=>c.id===catId?{...c,...ch}:c));
-  const updItem = (catId,itemId,ch)=> saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.map(i=>i.id===itemId?{...i,...ch}:i)}:c));
-  const delItem = (catId,itemId)   => { saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.filter(i=>i.id!==itemId)}:c)); if(editItemId===itemId)setEditId(null); };
-  const addItem = (catId)          => { const ni={id:genId(),nombre:"Nuevo producto",desc:"",precio:0}; saveMenu(menu.map(c=>c.id===catId?{...c,items:[...c.items,ni]}:c)); setEditId(`${catId}:${ni.id}`); setExpandedCat(catId); };
-  const addCat  = ()               => { const nc={id:genId(),nombre:"Nueva categoría",emoji:"🍴",desc:"",items:[]}; saveMenu([...menu,nc]); setExpandedCat(nc.id); };
-  const delCat  = (catId)          => { if(!window.confirm("¿Eliminar esta categoría y todos sus productos?"))return; saveMenu(menu.filter(c=>c.id!==catId)); if(expandedCat===catId)setExpandedCat(null); };
+  const updCat  = (catId,ch)        => saveMenu(menu.map(c=>c.id===catId?{...c,...ch}:c));
+  const updItem = (catId,itemId,ch) => saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.map(i=>i.id===itemId?{...i,...ch}:i)}:c));
+  const delItem = (catId,itemId)    => { saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.filter(i=>i.id!==itemId)}:c)); if(editItemId===itemId)setEditId(null); };
+  const addItem = (catId)           => { const ni={id:genId(),nombre:"Nuevo producto",desc:"",precio:0}; saveMenu(menu.map(c=>c.id===catId?{...c,items:[...c.items,ni]}:c)); setEditId(`${catId}:${ni.id}`); setExpandedCat(catId); };
+  const addCat  = ()                => { const nc={id:genId(),nombre:"Nueva categoría",emoji:"🍴",desc:"",items:[]}; saveMenu([...menu,nc]); setExpandedCat(nc.id); };
+  const delCat  = (catId)           => { if(!window.confirm("¿Eliminar esta categoría?"))return; saveMenu(menu.filter(c=>c.id!==catId)); if(expandedCat===catId)setExpandedCat(null); };
   const handleFile = (catId,itemId,file) => { if(!file)return; const r=new FileReader(); r.onload=e=>updItem(catId,itemId,{imagen:e.target.result}); r.readAsDataURL(file); };
   const flash = () => { setSaved(true); setTimeout(()=>setSaved(false),2000); };
 
@@ -829,7 +806,7 @@ function MenuEditor({ menu, saveMenu }) {
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {saved&&<span className="fade-in" style={{fontSize:12,color:"#16A34A",fontWeight:700}}>✓ Guardado</span>}
-          <button className="btn" onClick={flash} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"8px 16px",color:"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>GUARDAR</button>
+          <button className="btn" onClick={flash} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"8px 16px",color:"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>GUARDAR</button>
         </div>
       </div>
       {editItem&&(
@@ -839,24 +816,18 @@ function MenuEditor({ menu, saveMenu }) {
             <button className="btn" onClick={()=>setEditId(null)} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 12px",color:"var(--text3)",fontSize:13,fontWeight:600}}>✕ Cerrar</button>
           </div>
           <div style={{marginBottom:14}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:8,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>IMAGEN DEL PRODUCTO</div>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:8,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>IMAGEN</div>
             <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
               <div style={{width:88,height:88,borderRadius:10,overflow:"hidden",flexShrink:0,background:"var(--bg2)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
                 {editItem.imagen
                   ?<><img src={editItem.imagen} alt="preview" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
-                    <button className="btn" onClick={()=>updItem(editCatId,editItemId,{imagen:""})}
-                      style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-                  </>
-                  :<span style={{color:"var(--text4)",fontSize:28}}>📷</span>}
+                    <button className="btn" onClick={()=>updItem(editCatId,editItemId,{imagen:""})} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                  </>:<span style={{color:"var(--text4)",fontSize:28}}>📷</span>}
               </div>
               <div style={{flex:1,display:"flex",flexDirection:"column",gap:8}}>
-                <label className="upload-btn">
-                  <input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(editCatId,editItemId,e.target.files[0])}/>
-                  📤 Subir foto
-                </label>
+                <label className="upload-btn"><input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(editCatId,editItemId,e.target.files[0])}/>📤 Subir foto</label>
                 <div style={{textAlign:"center",fontSize:11,color:"var(--text4)"}}>— o pegá una URL —</div>
-                <input value={editItem.imagen||""} onChange={e=>updItem(editCatId,editItemId,{imagen:e.target.value})}
-                  placeholder="https://mi-foto.com/imagen.jpg"
+                <input value={editItem.imagen||""} onChange={e=>updItem(editCatId,editItemId,{imagen:e.target.value})} placeholder="https://foto.com/imagen.jpg"
                   style={{width:"100%",padding:"9px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:12}}/>
               </div>
             </div>
@@ -887,7 +858,7 @@ function MenuEditor({ menu, saveMenu }) {
             </div>
           </div>
           <button className="btn" onClick={()=>delItem(editCatId,editItemId)}
-            style={{width:"100%",padding:"10px 0",borderRadius:10,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+            style={{width:"100%",padding:"10px 0",borderRadius:10,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
             🗑 ELIMINAR ESTE PRODUCTO
           </button>
         </div>
@@ -906,16 +877,16 @@ function MenuEditor({ menu, saveMenu }) {
           {expandedCat===cat.id&&(
             <div className="fade-in" style={{padding:"8px 10px 12px",background:"var(--bg2)"}}>
               <div style={{marginBottom:10}}>
-                <input value={cat.desc||""} onChange={e=>updCat(cat.id,{desc:e.target.value})} placeholder="Descripción de la categoría (opcional)"
+                <input value={cat.desc||""} onChange={e=>updCat(cat.id,{desc:e.target.value})} placeholder="Descripción (opcional)"
                   style={{width:"100%",padding:"8px 12px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:9,fontSize:12,color:"var(--text2)"}}/>
               </div>
               {cat.items.map(item=>(
                 <div key={item.id} onClick={()=>setEditId(editId===`${cat.id}:${item.id}`?null:`${cat.id}:${item.id}`)}
-                  style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",marginBottom:6,background:editId===`${cat.id}:${item.id}`?"#FAF5FF":"var(--surface)",border:`1px solid ${editId===`${cat.id}:${item.id}`?"#E9D5FF":"var(--border)"}`,transition:"all .2s"}}>
+                  style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",marginBottom:6,
+                    background:editId===`${cat.id}:${item.id}`?"#FAF5FF":"var(--surface)",
+                    border:`1px solid ${editId===`${cat.id}:${item.id}`?"#E9D5FF":"var(--border)"}`,transition:"all .2s"}}>
                   <div style={{width:38,height:38,borderRadius:8,overflow:"hidden",flexShrink:0,background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid var(--border)"}}>
-                    {item.imagen
-                      ?<img src={item.imagen} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
-                      :<span style={{color:"var(--text4)",fontSize:16}}>📷</span>}
+                    {item.imagen?<img src={item.imagen} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>:<span style={{color:"var(--text4)",fontSize:16}}>📷</span>}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:item.disponible===false?"var(--text4)":"var(--text)"}}>
@@ -928,7 +899,7 @@ function MenuEditor({ menu, saveMenu }) {
               ))}
               <div style={{display:"flex",gap:8,marginTop:8}}>
                 <button className="btn" onClick={()=>addItem(cat.id)}
-                  style={{flex:1,padding:"10px 0",borderRadius:10,background:"var(--red-light)",border:"1px dashed var(--red-border)",color:"var(--red)",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+                  style={{flex:1,padding:"10px 0",borderRadius:10,background:"var(--red-light)",border:"1px dashed var(--red-border)",color:"var(--red)",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
                   + AGREGAR PRODUCTO
                 </button>
                 <button className="btn" onClick={()=>delCat(cat.id)}
@@ -939,14 +910,9 @@ function MenuEditor({ menu, saveMenu }) {
         </div>
       ))}
       <button className="btn" onClick={addCat}
-        style={{width:"100%",padding:"13px 0",borderRadius:14,background:"transparent",border:"1.5px dashed var(--border2)",color:"var(--text3)",fontSize:14,fontWeight:700,marginTop:4,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+        style={{width:"100%",padding:"13px 0",borderRadius:14,background:"transparent",border:"1.5px dashed var(--border2)",color:"var(--text3)",fontSize:14,fontWeight:700,marginTop:4,fontFamily:"'Barlow Condensed',sans-serif"}}>
         + AGREGAR CATEGORÍA
       </button>
     </div>
   );
 }
-
-
-
-
-
