@@ -439,7 +439,7 @@ function CustomerView({ menu }) {
       <div style={{background:"#111111",padding:"18px 18px 16px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.4)",flexShrink:0}}/>
+            <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.9)",flexShrink:0}}/>
             <div>
               <div className="sh" style={{fontSize:26,color:"#fff",lineHeight:1,letterSpacing:1}}>SHAKO SUSHI</div>
               <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>📍 {CONFIG.ubicacion}</div>
@@ -464,7 +464,7 @@ function CustomerView({ menu }) {
         {menuVis.map(c=>(
           <button key={c.id} data-tid={c.id} className="btn" onClick={()=>scrollTo(c.id)}
             style={{padding:"12px 14px",fontSize:12,fontWeight:700,borderRadius:0,borderBottom:activeCat===c.id?"3px solid var(--red)":"3px solid transparent",color:activeCat===c.id?"var(--red)":"var(--text3)",background:"transparent",transition:"all .2s",flexShrink:0,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,textTransform:"uppercase"}}>
-            {c.emoji} {c.nombre}
+            {c.nombre}
           </button>
         ))}
       </div>
@@ -941,4 +941,7 @@ function MenuEditor({ menu, saveMenu }) {
     </div>
   );
 }
+
+
+
 
