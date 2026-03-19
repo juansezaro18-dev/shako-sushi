@@ -172,13 +172,8 @@ const Label = ({children}) => (
 );
 
 export default function App() {
-  const [mode,    setMode]    = useState("customer");
-  const [showPin, setShowPin] = useState(false);
-  const [pin,     setPin]     = useState("");
-  const [pinErr,  setPinErr]  = useState(false);
-  const [menu,    setMenu]    = useState(MENU_DEFAULT);
-  const clicks    = useRef(0);
-  const clickTimer= useRef(null);
+  const isAdmin = window.location.pathname === "/admin";
+  const [menu, setMenu] = useState(MENU_DEFAULT);
 
   useEffect(() => {
     supabase.from("menu_config").select("data").eq("id",1).maybeSingle()
@@ -191,45 +186,75 @@ export default function App() {
     supabase.from("menu_config").upsert({id:1, data:m}).then(()=>{});
   };
 
-  const onLogoClick = () => {
-    clicks.current += 1;
-    clearTimeout(clickTimer.current);
-    if (clicks.current >= 3) { clicks.current=0; setShowPin(true); return; }
-    clickTimer.current = setTimeout(() => { clicks.current=0; }, 1800);
-  };
-
-  const submitPin = () => {
-    if (pin === CONFIG.adminPin) { setMode("admin"); setShowPin(false); setPin(""); setPinErr(false); }
-    else { setPinErr(true); setPin(""); setTimeout(() => setPinErr(false), 700); }
-  };
-
   return (
     <>
       <GS/>
-      {showPin && (
-        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:9999,backdropFilter:"blur(4px)"}}>
-          <div className="scale-in" style={{background:"#fff",borderRadius:20,padding:36,width:300,textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.15)"}}>
-            <img src={LOGO_SRC} alt="Shako Sushi" style={{width:72,height:72,borderRadius:"50%",objectFit:"cover",marginBottom:16}}/>
-            <div className="sh" style={{fontSize:22,color:"var(--text)",marginBottom:4}}>Panel Admin</div>
-            <div style={{fontSize:13,color:"var(--text3)",marginBottom:22}}>Ingresá tu PIN para continuar</div>
-            <input type="password" inputMode="numeric" maxLength={6} value={pin}
-              onChange={e=>setPin(e.target.value)} onKeyDown={e=>e.key==="Enter"&&submitPin()} autoFocus
-              style={{width:"100%",padding:"13px 18px",background:pinErr?"rgba(204,31,31,.05)":"var(--bg2)",border:`2px solid ${pinErr?"var(--red)":"var(--border)"}`,borderRadius:12,fontSize:24,letterSpacing:10,textAlign:"center",marginBottom:14,transition:"all .2s"}}/>
-            <div style={{display:"flex",gap:8}}>
-              <button className="btn" onClick={()=>{setShowPin(false);setPin("");}} style={{flex:1,padding:"11px 0",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:12,color:"var(--text3)",fontSize:14,fontWeight:600}}>Cancelar</button>
-              <button className="btn" onClick={submitPin} style={{flex:1,padding:"11px 0",background:"var(--red)",borderRadius:12,color:"#fff",fontSize:14,fontWeight:700}}>Ingresar</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {mode === "customer"
-        ? <CustomerView onLogoClick={onLogoClick} menu={menu}/>
-        : <AdminView onExit={()=>setMode("customer")} menu={menu} saveMenu={saveMenu}/>}
+      {isAdmin
+        ? <AdminLogin menu={menu} saveMenu={saveMenu}/>
+        : <CustomerView menu={menu}/>}
     </>
   );
 }
 
-function CustomerView({ onLogoClick, menu }) {
+function AdminLogin({ menu, saveMenu }) {
+  const [authed,  setAuthed]  = useState(false);
+  const [pin,     setPin]     = useState("");
+  const [pinErr,  setPinErr]  = useState(false);
+  const [shake,   setShake]   = useState(false);
+
+  const submitPin = () => {
+    if (pin === CONFIG.adminPin) {
+      setAuthed(true);
+    } else {
+      setPinErr(true);
+      setShake(true);
+      setPin("");
+      setTimeout(() => { setPinErr(false); setShake(false); }, 700);
+    }
+  };
+
+  if (authed) return <AdminView onExit={()=>{ window.location.href="/"; }} menu={menu} saveMenu={saveMenu}/>;
+
+  return (
+    <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg2)"}}>
+      <div className="scale-in" style={{background:"#fff",borderRadius:24,padding:40,width:320,textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.1)",border:"1px solid var(--border)"}}>
+        <img src={LOGO_SRC} alt="Shako Sushi" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",marginBottom:20,boxShadow:"0 4px 16px var(--red-glow)"}}/>
+        <div className="sh" style={{fontSize:24,color:"var(--text)",marginBottom:4}}>Panel de Cocina</div>
+        <div style={{fontSize:13,color:"var(--text3)",marginBottom:28}}>Ingresá tu PIN para continuar</div>
+        <input
+          type="password"
+          inputMode="numeric"
+          maxLength={6}
+          value={pin}
+          onChange={e=>setPin(e.target.value)}
+          onKeyDown={e=>e.key==="Enter"&&submitPin()}
+          autoFocus
+          placeholder="• • • • • •"
+          style={{
+            width:"100%",padding:"16px 18px",
+            background:pinErr?"rgba(204,31,31,.05)":"var(--bg2)",
+            border:`2px solid ${pinErr?"var(--red)":"var(--border)"}`,
+            borderRadius:14,fontSize:28,letterSpacing:12,textAlign:"center",
+            marginBottom:14,transition:"all .2s",
+            animation:shake?"shake .3s":"none",
+            outline:"none",color:"var(--text)",fontFamily:"monospace"
+          }}
+        />
+        {pinErr&&<div style={{fontSize:12,color:"var(--red)",marginBottom:10,fontWeight:600}}>PIN incorrecto</div>}
+        <button
+          className="btn"
+          onClick={submitPin}
+          style={{width:"100%",padding:"14px 0",background:"var(--red)",borderRadius:14,color:"#fff",fontSize:16,fontWeight:800,boxShadow:"0 6px 20px var(--red-glow)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}
+        >
+          INGRESAR
+        </button>
+        <style>{`@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}`}</style>
+      </div>
+    </div>
+  );
+}
+
+function CustomerView({ menu }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   const [activeCat,  setActiveCat]  = useState(menuVis[0]?.id);
   const [cart,       setCart]       = useState([]);
@@ -413,7 +438,7 @@ function CustomerView({ onLogoClick, menu }) {
     <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",paddingBottom:90,background:"var(--bg2)"}}>
       <div style={{background:"var(--red)",padding:"18px 18px 16px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12,cursor:"pointer"}} onClick={onLogoClick}>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
             <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.4)",flexShrink:0}}/>
             <div>
               <div className="sh" style={{fontSize:26,color:"#fff",lineHeight:1,letterSpacing:1}}>SHAKO SUSHI</div>
