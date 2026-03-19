@@ -436,13 +436,13 @@ function CustomerView({ menu }) {
 
   return (
     <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",paddingBottom:90,background:"var(--bg2)"}}>
-      <div style={{background:"#111111",padding:"18px 18px 16px"}}>
+      <div style={{background:"var(--red)",padding:"18px 18px 16px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.9)",flexShrink:0}}/>
+            <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.4)",flexShrink:0}}/>
             <div>
               <div className="sh" style={{fontSize:26,color:"#fff",lineHeight:1,letterSpacing:1}}>SHAKO SUSHI</div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>📍 {CONFIG.ubicacion}</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>{CONFIG.ubicacion}</div>
             </div>
           </div>
           {count>0&&(
@@ -460,22 +460,29 @@ function CustomerView({ menu }) {
           <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>{CONFIG.horario}</span>
         </div>
       </div>
-      <div ref={tabsRef} style={{position:"sticky",top:0,background:"rgba(255,255,255,.98)",backdropFilter:"blur(14px)",borderBottom:"1px solid var(--border)",zIndex:9,overflowX:"auto",display:"flex",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
-        {menuVis.map(c=>(
-          <button key={c.id} data-tid={c.id} className="btn" onClick={()=>scrollTo(c.id)}
-            style={{padding:"12px 14px",fontSize:12,fontWeight:700,borderRadius:0,borderBottom:activeCat===c.id?"3px solid var(--red)":"3px solid transparent",color:activeCat===c.id?"var(--red)":"var(--text3)",background:"transparent",transition:"all .2s",flexShrink:0,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,textTransform:"uppercase"}}>
-            {c.nombre}
-          </button>
-        ))}
+      <div ref={tabsRef} style={{position:"sticky",top:0,background:"rgba(255,255,255,.98)",backdropFilter:"blur(14px)",borderBottom:"1px solid var(--border)",zIndex:9,overflowX:"auto",display:"flex",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(0,0,0,.06)",padding:"0 2px"}}>
+        {menuVis.map(c=>{
+          const active=activeCat===c.id;
+          const COLORS={rolls:"#CC1F1F",nigiri:"#E07B39",combinados:"#7C3AED",temaki:"#16A34A",teppan:"#D97706",ceviche:"#0EA5E9",wok:"#EA580C",aperitivos:"#DC2626",vegetarianos:"#16A34A",salsas:"#CA8A04",adicionales:"#6B7280",bebidas:"#2563EB",cervezas:"#D97706",postres:"#DB2777"};
+          const col=COLORS[c.id]||"#CC1F1F";
+          return(
+            <button key={c.id} data-tid={c.id} className="btn" onClick={()=>scrollTo(c.id)}
+              style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"8px 8px 6px",borderRadius:0,borderBottom:active?"3px solid "+col:"3px solid transparent",background:"transparent",transition:"all .2s",flexShrink:0,minWidth:58}}>
+              <div style={{width:34,height:34,borderRadius:9,background:active?col+"18":"var(--surface2)",border:"1.5px solid "+(active?col:"var(--border)"),display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s"}}>
+                <span style={{fontSize:15,lineHeight:1}}>{c.emoji}</span>
+              </div>
+              <span style={{fontSize:9,fontWeight:700,color:active?col:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.3,textTransform:"uppercase",lineHeight:1.1,maxWidth:54,textAlign:"center",whiteSpace:"normal"}}>
+                {c.nombre.length>8?c.nombre.split(" ")[0]:c.nombre}
+              </span>
+            </button>
+          );
+        })}
       </div>
       {menuVis.map(cat=>(
         <div key={cat.id} ref={el=>sRefs.current[cat.id]=el} data-cat={cat.id}>
-          <div style={{padding:"20px 18px 8px",display:"flex",alignItems:"baseline",gap:10}}>
-            <span style={{fontSize:20}}>{cat.emoji}</span>
-            <div>
-              <div className="sh" style={{fontSize:22,color:"var(--text)"}}>{cat.nombre}</div>
-              {cat.desc&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{cat.desc}</div>}
-            </div>
+          <div style={{padding:"20px 18px 8px"}}>
+            <div className="sh" style={{fontSize:22,color:"var(--text)"}}>{cat.nombre}</div>
+            {cat.desc&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{cat.desc}</div>}
           </div>
           {cat.items.map(item=>{
             const qty=getQty(item.id);
@@ -941,7 +948,3 @@ function MenuEditor({ menu, saveMenu }) {
     </div>
   );
 }
-
-
-
-
