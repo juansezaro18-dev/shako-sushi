@@ -286,7 +286,7 @@ function CustomerView({ onLogoClick, menu }) {
       status: "nuevo",
       created_at: Date.now(),
     };
-    supabase.from("orders").insert(order); setOrderId(order.id); setOrderTotal(order.total); setCart([]); setStep("confirm"); setLoading(false);
+    supabase.from("orders").insert(order).then(() => {}); setOrderId(order.id); setOrderTotal(order.total); setCart([]); setStep("confirm"); setLoading(false);
   };
 
   const PAGOS = [
@@ -517,7 +517,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   /* Carga inicial + suscripción real-time */
   useEffect(() => {
     const load = async () => {
-      const { data } = await supabase.from("orders").select("*").order("created_at", {ascending:false});
+      const { data } = await supabase.from("orders").select("*").order("id", {ascending:false});
       if (data) setOrders(data);
     };
     load();
@@ -945,6 +945,8 @@ function MenuEditor({ menu, saveMenu }) {
     </div>
   );
 }
+
+
 
 
 
