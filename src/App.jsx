@@ -436,7 +436,7 @@ function CustomerView({ menu }) {
 
   return (
     <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",paddingBottom:90,background:"var(--bg2)"}}>
-      <div style={{background:"var(--red)",padding:"18px 18px 16px"}}>
+      <div style={{background:"#111111",padding:"18px 18px 16px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
             <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.4)",flexShrink:0}}/>
@@ -941,3 +941,4 @@ function MenuEditor({ menu, saveMenu }) {
     </div>
   );
 }
+
