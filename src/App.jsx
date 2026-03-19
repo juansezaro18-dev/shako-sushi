@@ -286,16 +286,7 @@ function CustomerView({ onLogoClick, menu }) {
       status: "nuevo",
       created_at: Date.now(),
     };
-    const { error } = await supabase.from("orders").insert(order);
-    if (!error) {
-      setOrderId(order.id);
-      setOrderTotal(order.total);
-      setCart([]);
-      setStep("confirm");
-    } else {
-      alert("Error al enviar el pedido. Intentá de nuevo.");
-    }
-    setLoading(false);
+    supabase.from("orders").insert(order); setOrderId(order.id); setOrderTotal(order.total); setCart([]); setStep("confirm"); setLoading(false);
   };
 
   const PAGOS = [
@@ -954,5 +945,6 @@ function MenuEditor({ menu, saveMenu }) {
     </div>
   );
 }
+
 
 
