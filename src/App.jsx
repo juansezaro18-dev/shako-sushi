@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -14,100 +14,100 @@ const CONFIG = {
 };
 
 const MENU_DEFAULT = [
-  { id:"rolls", nombre:"Rolls", emoji:"ðŸ£", desc:"ClÃ¡sicos, Especiales y Calientes", items:[
-    {id:"r1", nombre:"Namazake (10u.)",              desc:"Makis de SalmÃ³n.",                                                                precio:16000},
-    {id:"r2", nombre:"Maki Philadelphia (10u.)",      desc:"Makis de SalmÃ³n y queso Philadelphia.",                                        precio:17000},
+  { id:"rolls", nombre:"Rolls", emoji:"🍣", desc:"Clásicos, Especiales y Calientes", items:[
+    {id:"r1", nombre:"Namazake (10u.)",              desc:"Makis de Salmón.",                                                                precio:16000},
+    {id:"r2", nombre:"Maki Philadelphia (10u.)",      desc:"Makis de Salmón y queso Philadelphia.",                                        precio:17000},
     {id:"r3", nombre:"Futo Maki (8u.)",               desc:"Langostinos, Tamagoyaki, Zanahoria, Hongos Shitake y Pepino.",                 precio:17000},
-    {id:"r4", nombre:"Philadelphia (8u.)",             desc:"Arroz por fuera, SalmÃ³n, Palta y Philadelphia.",                              precio:17000},
+    {id:"r4", nombre:"Philadelphia (8u.)",             desc:"Arroz por fuera, Salmón, Palta y Philadelphia.",                              precio:17000},
     {id:"r5", nombre:"California (8u.)",               desc:"Arroz por fuera, Kanikama y Palta.",                                          precio:15000},
-    {id:"r6", nombre:"New York (8u.)",                 desc:"Arroz por fuera, SalmÃ³n y Palta.",                                            precio:17000},
+    {id:"r6", nombre:"New York (8u.)",                 desc:"Arroz por fuera, Salmón y Palta.",                                            precio:17000},
     {id:"r7", nombre:"California Especial (8u.)",      desc:"Kanikama, Palta y Philadelphia.",                                             precio:15000},
-    {id:"r8", nombre:"Philadelphia Especial (8u.)",    desc:"SalmÃ³n, Palta y Philadelphia. Cubierto con ciboulette.",                      precio:17000},
+    {id:"r8", nombre:"Philadelphia Especial (8u.)",    desc:"Salmón, Palta y Philadelphia. Cubierto con ciboulette.",                      precio:17000},
     {id:"r9", nombre:"Ebi Philadelphia (8u.)",         desc:"Langostinos, Palta y queso Philadelphia.",                                    precio:17000},
-    {id:"r10",nombre:"Ebi Pinku (8u.)",                desc:"Langostinos, Palta, envuelto en SalmÃ³n Rosado.",                              precio:17000},
-    {id:"r11",nombre:"Ebi Butterfly (8u.)",            desc:"Langostinos, Pepino, cubierto por SalmÃ³n crudo y Palta.",                     precio:17000},
-    {id:"r12",nombre:"Magetzu Roll (8u.)",             desc:"Langostinos, Kanikama y Pepino, envuelto en SalmÃ³n ahumado.",                 precio:17000},
-    {id:"r13",nombre:"Guacamole Roll (8u.)",           desc:"SalmÃ³n, Echalotte y Guacamole. Crocante de Won Ton.",                         precio:17000},
-    {id:"r14",nombre:"Ginger Roll (8u.)",              desc:"SalmÃ³n cocido, Ciboulette, Pepino, Philadelphia. SÃ©samo.",                    precio:17000},
-    {id:"r15",nombre:"Tuna Roll (8u.)",                desc:"AtÃºn cocido, Ciboulette, Pepino, Philadelphia. SÃ©samo.",                      precio:17000},
-    {id:"r16",nombre:"Supremo Roll (8u.)",             desc:"SalmÃ³n Rosado, Palta, Philadelphia. PralinÃ© Almendras, Caviar. MaracuyÃ¡.",    precio:18000},
-    {id:"r17",nombre:"Vegetariano (8u.)",              desc:"Palta, Philadelphia, Pepino, Zanahoria. SÃ©samo.",                             precio:15000},
+    {id:"r10",nombre:"Ebi Pinku (8u.)",                desc:"Langostinos, Palta, envuelto en Salmón Rosado.",                              precio:17000},
+    {id:"r11",nombre:"Ebi Butterfly (8u.)",            desc:"Langostinos, Pepino, cubierto por Salmón crudo y Palta.",                     precio:17000},
+    {id:"r12",nombre:"Magetzu Roll (8u.)",             desc:"Langostinos, Kanikama y Pepino, envuelto en Salmón ahumado.",                 precio:17000},
+    {id:"r13",nombre:"Guacamole Roll (8u.)",           desc:"Salmón, Echalotte y Guacamole. Crocante de Won Ton.",                         precio:17000},
+    {id:"r14",nombre:"Ginger Roll (8u.)",              desc:"Salmón cocido, Ciboulette, Pepino, Philadelphia. Sésamo.",                    precio:17000},
+    {id:"r15",nombre:"Tuna Roll (8u.)",                desc:"Atún cocido, Ciboulette, Pepino, Philadelphia. Sésamo.",                      precio:17000},
+    {id:"r16",nombre:"Supremo Roll (8u.)",             desc:"Salmón Rosado, Palta, Philadelphia. Praliné Almendras, Caviar. Maracuyá.",    precio:18000},
+    {id:"r17",nombre:"Vegetariano (8u.)",              desc:"Palta, Philadelphia, Pepino, Zanahoria. Sésamo.",                             precio:15000},
     {id:"r18",nombre:"Samurai Roll (8u.)",             desc:"Langostinos, Philadelphia, Berenjena grillada, Bonito y salsa Teriyaki.",      precio:17000},
-    {id:"r19",nombre:"Ceviche Roll (8u.)",             desc:"Langostino, Palta, AtÃºn Rojo y Ceviche de SalmÃ³n Rosado.",                    precio:19000},
-    {id:"r20",nombre:"Crocante Sake (8u.)",            desc:"SalmÃ³n Rosado, SalmÃ³n ahumado, Pepino, Palta, Philadelphia. Panko. Teriyaki.", precio:19000},
-    {id:"r21",nombre:"Crocante Passion (8u.)",         desc:"SalmÃ³n Rosado, Langostino, Tamagoyaki, Pepino. Panko, Coco, Almendras. MaracuyÃ¡.",precio:19000},
-    {id:"r22",nombre:"Kamikaze (8u.)",                 desc:"Langostino frito en Panko. SÃ©samo tostado. Salsa Tonkatsu.",                  precio:17000},
-    {id:"r23",nombre:"Spicy (8u.)",                    desc:"Langostino frito, Palta, SalmÃ³n grillado, Shishito Garashi y Teriyaki.",       precio:19000},
-    {id:"r24",nombre:"Dragon Sake (8u.)",              desc:"SalmÃ³n en pasta de tempura, Philadelphia, Pepino. Envuelto en Tamagoyaki.",    precio:19000},
+    {id:"r19",nombre:"Ceviche Roll (8u.)",             desc:"Langostino, Palta, Atún Rojo y Ceviche de Salmón Rosado.",                    precio:19000},
+    {id:"r20",nombre:"Crocante Sake (8u.)",            desc:"Salmón Rosado, Salmón ahumado, Pepino, Palta, Philadelphia. Panko. Teriyaki.", precio:19000},
+    {id:"r21",nombre:"Crocante Passion (8u.)",         desc:"Salmón Rosado, Langostino, Tamagoyaki, Pepino. Panko, Coco, Almendras. Maracuyá.",precio:19000},
+    {id:"r22",nombre:"Kamikaze (8u.)",                 desc:"Langostino frito en Panko. Sésamo tostado. Salsa Tonkatsu.",                  precio:17000},
+    {id:"r23",nombre:"Spicy (8u.)",                    desc:"Langostino frito, Palta, Salmón grillado, Shishito Garashi y Teriyaki.",       precio:19000},
+    {id:"r24",nombre:"Dragon Sake (8u.)",              desc:"Salmón en pasta de tempura, Philadelphia, Pepino. Envuelto en Tamagoyaki.",    precio:19000},
     {id:"r25",nombre:"Avocado Roll (8u.)",             desc:"Arroz, Alga Nori, Philadelphia y Langostinos. Envuelto en Palta.",             precio:17000},
-    {id:"r26",nombre:"Buenos Aires Smoke Roll (8u.)",  desc:"Palta, SalmÃ³n, Langostinos, Philadelphia. SalmÃ³n Ahumado y Salsa Buenos Aires.",precio:19000},
-    {id:"r27",nombre:"Tempura Phila (8u.)",            desc:"SalmÃ³n, Palta, Philadelphia. Masa de Tempura frita.",                         precio:18000},
-    {id:"r28",nombre:"Roll Lenguado Acevichado (8u.)", desc:"Langostino, Philadelphia de albaca y AjÃ­ Amarillo. Lenguado curado y Ceviche.",precio:19000},
+    {id:"r26",nombre:"Buenos Aires Smoke Roll (8u.)",  desc:"Palta, Salmón, Langostinos, Philadelphia. Salmón Ahumado y Salsa Buenos Aires.",precio:19000},
+    {id:"r27",nombre:"Tempura Phila (8u.)",            desc:"Salmón, Palta, Philadelphia. Masa de Tempura frita.",                         precio:18000},
+    {id:"r28",nombre:"Roll Lenguado Acevichado (8u.)", desc:"Langostino, Philadelphia de albaca y Ají Amarillo. Lenguado curado y Ceviche.",precio:19000},
   ]},
-  { id:"nigiri", nombre:"Nigiri, Geisha & Sashimi", emoji:"ðŸŸ", desc:"Bocados premium", items:[
+  { id:"nigiri", nombre:"Nigiri, Geisha & Sashimi", emoji:"🐟", desc:"Bocados premium", items:[
     {id:"n1",nombre:"Nigiri (6u.)",   desc:"Diferentes sabores sobre bocadito de arroz.",                precio:14000},
     {id:"n2",nombre:"Geishas (6u.)",  desc:"Rolls sin arroz, varios sabores.",                           precio:17000},
-    {id:"n3",nombre:"Sashimi (15u.)", desc:"Cortes de SalmÃ³n crudo, Pulpo, AtÃºn Rojo y/o Langostinos.", precio:57000},
+    {id:"n3",nombre:"Sashimi (15u.)", desc:"Cortes de Salmón crudo, Pulpo, Atún Rojo y/o Langostinos.", precio:57000},
   ]},
-  { id:"combinados", nombre:"Combinados", emoji:"ðŸŽ", desc:"Combinados de Sushi", items:[
-    {id:"c1",nombre:"Premium",      desc:"Nigiris de SalmÃ³n y AtÃºn. Sashimi. Ceviche Roll. Pinku Ahumado. Supremo Roll.", precio:46000},
-    {id:"c2",nombre:"Cocido+Crudo", desc:"Nigiris de SalmÃ³n y Langostinos, Philadelphia Roll, Ebi Philadelphia + 1 a elecciÃ³n.", precio:37000},
-    {id:"c3",nombre:"Todo SalmÃ³n",  desc:"Sashimi, Nigiris, Geishas, Philadelphia Roll, New York.", precio:41000},
+  { id:"combinados", nombre:"Combinados", emoji:"🎁", desc:"Combinados de Sushi", items:[
+    {id:"c1",nombre:"Premium",      desc:"Nigiris de Salmón y Atún. Sashimi. Ceviche Roll. Pinku Ahumado. Supremo Roll.", precio:46000},
+    {id:"c2",nombre:"Cocido+Crudo", desc:"Nigiris de Salmón y Langostinos, Philadelphia Roll, Ebi Philadelphia + 1 a elección.", precio:37000},
+    {id:"c3",nombre:"Todo Salmón",  desc:"Sashimi, Nigiris, Geishas, Philadelphia Roll, New York.", precio:41000},
   ]},
-  { id:"temaki", nombre:"Temaki y Chirashi", emoji:"ðŸŒ®", desc:"Cono o ensalada", items:[
-    {id:"tm1",nombre:"Temaki (2u.)",  desc:"Sake: SalmÃ³n crudo, Philadelphia, Palta. / Ebi: Langostinos, Pepino, Palta.", precio:20000},
-    {id:"tm2",nombre:"Poke Bowl",     desc:"Arroz, AtÃºn rojo, Palta, Cebolla morada, Tomate, Pepino.", precio:48000},
-    {id:"tm3",nombre:"Chirashi",      desc:"Arroz, SalmÃ³n ahumado, SalmÃ³n crudo, Kanikama, Langostinos, Tamagoyaki...", precio:44000},
-    {id:"tm4",nombre:"Ensalada Sake", desc:"Arroz, SalmÃ³n, Palta y Queso Philadelphia.", precio:38000},
+  { id:"temaki", nombre:"Temaki y Chirashi", emoji:"🌮", desc:"Cono o ensalada", items:[
+    {id:"tm1",nombre:"Temaki (2u.)",  desc:"Sake: Salmón crudo, Philadelphia, Palta. / Ebi: Langostinos, Pepino, Palta.", precio:20000},
+    {id:"tm2",nombre:"Poke Bowl",     desc:"Arroz, Atún rojo, Palta, Cebolla morada, Tomate, Pepino.", precio:48000},
+    {id:"tm3",nombre:"Chirashi",      desc:"Arroz, Salmón ahumado, Salmón crudo, Kanikama, Langostinos, Tamagoyaki...", precio:44000},
+    {id:"tm4",nombre:"Ensalada Sake", desc:"Arroz, Salmón, Palta y Queso Philadelphia.", precio:38000},
   ]},
-  { id:"teppan", nombre:"Teppan", emoji:"ðŸ³", desc:"Cocina a la plancha", items:[
-    {id:"tp1",nombre:"Yakimeshi",       desc:"Arroz a la plancha con vegetales e ingredientes a elecciÃ³n.", precio:23000},
-    {id:"tp2",nombre:"SalmÃ³n Teriyaki", desc:"SalmÃ³n a la plancha laqueado con teriyaki, arroz y vegetales.", precio:52000},
+  { id:"teppan", nombre:"Teppan", emoji:"🍳", desc:"Cocina a la plancha", items:[
+    {id:"tp1",nombre:"Yakimeshi",       desc:"Arroz a la plancha con vegetales e ingredientes a elección.", precio:23000},
+    {id:"tp2",nombre:"Salmón Teriyaki", desc:"Salmón a la plancha laqueado con teriyaki, arroz y vegetales.", precio:52000},
     {id:"tp3",nombre:"Oishi",           desc:"Langostinos rebozados en panko. Arroz yamani, verduras y hongos.", precio:38000},
-    {id:"tp4",nombre:"Cerdo Tonkatsu",  desc:"Cerdo rebozado en panko, salsa tonkatsu y sÃ©samo. Repollo y nabo.", precio:44000},
+    {id:"tp4",nombre:"Cerdo Tonkatsu",  desc:"Cerdo rebozado en panko, salsa tonkatsu y sésamo. Repollo y nabo.", precio:44000},
   ]},
-  { id:"ceviche", nombre:"Ceviche", emoji:"ðŸ‹", desc:"", items:[
+  { id:"ceviche", nombre:"Ceviche", emoji:"🍋", desc:"", items:[
     {id:"cv1",nombre:"Ceviche", desc:"Pescado o marisco crudo marinado en jugo de lima, rocoto, cebolla morada y cilantro.", precio:42000},
   ]},
-  { id:"wok", nombre:"Wok", emoji:"ðŸ¥¢", desc:"Platos al Wok", items:[
-    {id:"w1",nombre:"Yakisoba",   desc:"Fideos soba salteados con vegetales e ingredientes a elecciÃ³n.", precio:23000},
-    {id:"w2",nombre:"Chop Suey", desc:"Vegetales salteados al wok con salsa de soja e ingredientes a elecciÃ³n.", precio:23000},
+  { id:"wok", nombre:"Wok", emoji:"🥢", desc:"Platos al Wok", items:[
+    {id:"w1",nombre:"Yakisoba",   desc:"Fideos soba salteados con vegetales e ingredientes a elección.", precio:23000},
+    {id:"w2",nombre:"Chop Suey", desc:"Vegetales salteados al wok con salsa de soja e ingredientes a elección.", precio:23000},
     {id:"w3",nombre:"Chap Chae", desc:"Fideos de arroz, lomo, pollo, vegetales, huevo y hongos salteados al wok.", precio:25000},
   ]},
-  { id:"aperitivos", nombre:"Aperitivos Calientes", emoji:"ðŸ”¥", desc:"", items:[
+  { id:"aperitivos", nombre:"Aperitivos Calientes", emoji:"🔥", desc:"", items:[
     {id:"a1",nombre:"Ika Rabas",                        desc:"Aros fritos de Calamar.", precio:21000},
     {id:"a2",nombre:"Gyozas (5u.)",                     desc:"5 Empanadas de cerdo y vegetales a la plancha.", precio:8000},
     {id:"a3",nombre:"Spring Rolls de Carne (2u.)",      desc:"2 Arrolladitos primavera de carne con Salsa agridulce.", precio:6000},
     {id:"a4",nombre:"Spring Rolls Vegetarianos (2u.)",  desc:"2 Arrolladitos primavera vegetarianos con Salsa agridulce.", precio:6000},
     {id:"a5",nombre:"Ebi Furai (9u.)",                  desc:"9 Langostinos apanados en Panko y Fritos.", precio:24000},
-    {id:"a6",nombre:"Ostras Frescas FlambÃ©e (5u.)",     desc:"5 Ostras frescas, estilo Acevichadas y Flambeadas.", precio:15000},
+    {id:"a6",nombre:"Ostras Frescas Flambée (5u.)",     desc:"5 Ostras frescas, estilo Acevichadas y Flambeadas.", precio:15000},
     {id:"a7",nombre:"Ostras Empanadas (5u.)",            desc:"5 Ostras empanadas en Panko, con Salsa de miel y Mostaza.", precio:15000},
   ]},
-  { id:"vegetarianos", nombre:"Vegetarianos", emoji:"ðŸ¥‘", desc:"Sushi vegetariano", items:[
+  { id:"vegetarianos", nombre:"Vegetarianos", emoji:"🥑", desc:"Sushi vegetariano", items:[
     {id:"v1",nombre:"Roll Vegetariano",     desc:"Arroz, Alga nori, Philadelphia, Pepino, Palta y Zanahoria.", precio:15000},
     {id:"v2",nombre:"Maki Vegetariano",     desc:"Alga Nori, Arroz, Palta, Pepino, Tomate, Cebolla morada y Tamago.", precio:16000},
     {id:"v3",nombre:"Geishas Vegetarianas", desc:"Berenjena grill, Tamago, Philadelphia, Palta, Pepino, Zanahoria y Ciboulette.", precio:16000},
   ]},
-  { id:"salsas", nombre:"Salsas", emoji:"ðŸ«™", desc:"", items:[
+  { id:"salsas", nombre:"Salsas", emoji:"🫙", desc:"", items:[
     {id:"s1",nombre:"Soja Extra",         desc:"", precio:3000},
     {id:"s2",nombre:"Salsa Agridulce",    desc:"Para Spring Rolls.", precio:2000},
     {id:"s3",nombre:"Salsa Teriyaki",     desc:"A base de salsa de soja agridulce y Sake.", precio:3000},
-    {id:"s4",nombre:"Salsa Buenos Aires", desc:"Soja, miel y semillas de sÃ©samo.", precio:3000},
+    {id:"s4",nombre:"Salsa Buenos Aires", desc:"Soja, miel y semillas de sésamo.", precio:3000},
     {id:"s5",nombre:"Salsa Tonkatzu",     desc:"", precio:3000},
-    {id:"s6",nombre:"Salsa MaracuyÃ¡",     desc:"", precio:3000},
+    {id:"s6",nombre:"Salsa Maracuyá",     desc:"", precio:3000},
   ]},
-  { id:"adicionales", nombre:"Adicionales", emoji:"âž•", desc:"", items:[
+  { id:"adicionales", nombre:"Adicionales", emoji:"➕", desc:"", items:[
     {id:"ad1",nombre:"Wasabi extra",       desc:"", precio:4000},
     {id:"ad2",nombre:"Gari (Jengibre)",    desc:"Jengibre encurtido para limpiar paladar.", precio:4000},
     {id:"ad3",nombre:"Pepinos encurtidos", desc:"Pepinos encurtidos en sushizu.", precio:4000},
   ]},
-  { id:"bebidas", nombre:"Bebidas", emoji:"ðŸ¥¤", desc:"", items:[
+  { id:"bebidas", nombre:"Bebidas", emoji:"🥤", desc:"", items:[
     {id:"be1",nombre:"Coca Cola (1,5L)",       desc:"",precio:6000},{id:"be2",nombre:"Coca Cola Zero (1,5L)",desc:"",precio:6000},
     {id:"be3",nombre:"Coca Cola (500ml)",       desc:"",precio:4000},{id:"be4",nombre:"Coca Cola Zero (500ml)",desc:"",precio:4000},
     {id:"be5",nombre:"Sprite (1L)",             desc:"",precio:6000},{id:"be6",nombre:"Sprite (500ml)",       desc:"",precio:4000},
     {id:"be7",nombre:"Agua Gasificada (500ml)", desc:"",precio:4000},{id:"be8",nombre:"Agua Sin Gas (500ml)", desc:"",precio:4000},
   ]},
-  { id:"cervezas", nombre:"Cervezas", emoji:"ðŸº", desc:"Cervezas Goyeneche", items:[
+  { id:"cervezas", nombre:"Cervezas", emoji:"🍺", desc:"Cervezas Goyeneche", items:[
     {id:"ce1", nombre:"Goyeneche APA (500ml)",       desc:"",precio:5000},{id:"ce2", nombre:"Goyeneche Blonde (500ml)",   desc:"",precio:5000},
     {id:"ce3", nombre:"Goyeneche Doble IPA (500ml)", desc:"",precio:7000},{id:"ce4", nombre:"Goyeneche Golden (500ml)",  desc:"",precio:4000},
     {id:"ce5", nombre:"Goyeneche Hazy (500ml)",      desc:"",precio:8000},{id:"ce6", nombre:"Goyeneche Honey (500ml)",   desc:"",precio:4000},
@@ -115,10 +115,10 @@ const MENU_DEFAULT = [
     {id:"ce9", nombre:"Goyeneche Porter (500ml)",     desc:"",precio:5000},{id:"ce10",nombre:"Goyeneche Scottish (500ml)",desc:"",precio:5000},
     {id:"ce11",nombre:"Goyeneche Tripel (500ml)",     desc:"",precio:6000},
   ]},
-  { id:"postres", nombre:"Postres", emoji:"ðŸ«", desc:"", items:[
-    {id:"po1",nombre:"Franui â€” Chocolate con frambuesa",desc:"",precio:10000},
-    {id:"po2",nombre:"Franui â€” Chocolate de leche",     desc:"",precio:10000},
-    {id:"po3",nombre:"Franui â€” Chocolate amargo",       desc:"",precio:10000},
+  { id:"postres", nombre:"Postres", emoji:"🍫", desc:"", items:[
+    {id:"po1",nombre:"Franui — Chocolate con frambuesa",desc:"",precio:10000},
+    {id:"po2",nombre:"Franui — Chocolate de leche",     desc:"",precio:10000},
+    {id:"po3",nombre:"Franui — Chocolate amargo",       desc:"",precio:10000},
   ]},
 ];
 
@@ -130,26 +130,26 @@ const timeAgo = (ts) => { const d=Math.floor((Date.now()-Number(ts))/1000); retu
 const parseDireccion = (dir) => {
   if (!dir) return {calle:"", nro:"", entreCalle:"", barrio:""};
   dir = dir.trim().replace(/^[!%#@$,./]+/, "").trim();
-  // CASE 1: Barrio privado / fincas / lotes â€” put everything in calle
+  // CASE 1: Barrio privado / fincas / lotes — put everything in calle
   if (/\b(FINCA|ALTOS|LOTE|MZN|MZAN|MANZANA|MNA|UF|TORRE\d|RESERVA|CARMENCITO|VILLALOBOS|GREEN)\b/i.test(dir)) {
     return {calle:dir, nro:"", entreCalle:"", barrio:""};
   }
-  // CASE 2: "X N NRO E/ A Y B  BARRIO" â€” most common La Plata format
-  let m = dir.match(/^(.*?)\s+N(?:RO|Â°|Âº|\.?)?\s*(\d{3,5})\s+(?:E[/ ]|ENTRE)\s*(.+?)\s{2,}([\w][\w\s]*)$/i);
+  // CASE 2: "X N NRO E/ A Y B  BARRIO" — most common La Plata format
+  let m = dir.match(/^(.*?)\s+N(?:RO|°|º|\.?)?\s*(\d{3,5})\s+(?:E[/ ]|ENTRE)\s*(.+?)\s{2,}([\w][\w\s]*)$/i);
   if (m) return {calle:m[1].trim(), nro:m[2], entreCalle:m[3].trim(), barrio:m[4].trim()};
   // CASE 2b: "X N NRO E/ A Y B" without barrio
-  m = dir.match(/^(.*?)\s+N(?:RO|Â°|Âº|\.?)?\s*(\d{3,5})\s+(?:E[/ ]|ENTRE)\s*(.+)$/i);
+  m = dir.match(/^(.*?)\s+N(?:RO|°|º|\.?)?\s*(\d{3,5})\s+(?:E[/ ]|ENTRE)\s*(.+)$/i);
   if (m) return {calle:m[1].trim(), nro:m[2], entreCalle:m[3].trim(), barrio:""};
-  // CASE 3: "X N NRO BARRIO" â€” no entre calles
-  m = dir.match(/^(.*?)\s+N(?:RO|Â°|Âº|\.?)?\s*(\d{3,5})\s*(.*)$/i);
+  // CASE 3: "X N NRO BARRIO" — no entre calles
+  m = dir.match(/^(.*?)\s+N(?:RO|°|º|\.?)?\s*(\d{3,5})\s*(.*)$/i);
   if (m) return {calle:m[1].trim(), nro:m[2], entreCalle:"", barrio:m[3].trim()};
-  // CASE 4: "NUM1 NUM2 BARRIO" â€” La Plata short "471 1470 City Bell"
+  // CASE 4: "NUM1 NUM2 BARRIO" — La Plata short "471 1470 City Bell"
   m = dir.match(/^(\d{1,4})\s+(\d{3,5})\s*(.*)$/);
   if (m) return {calle:m[1], nro:m[2], entreCalle:"", barrio:m[3].trim()};
-  // CASE 5: "X E/ A Y B" â€” intersection, no house number
+  // CASE 5: "X E/ A Y B" — intersection, no house number
   m = dir.match(/^(.*?)\s+(?:E[/ ]|ENTRE|ESQ\.?)\s*(.+)$/i);
   if (m) return {calle:m[1].trim(), nro:"", entreCalle:m[2].trim(), barrio:""};
-  // CASE 6: anything else â€” all in calle
+  // CASE 6: anything else — all in calle
   return {calle:dir, nro:"", entreCalle:"", barrio:""};
 };
 
@@ -158,9 +158,9 @@ const parseDireccion = (dir) => {
 
 
 const ESTADOS = {
-  nuevo:     {label:"Nuevo",      next:"preparando", nextLabel:"Empezar preparaciÃ³n",  color:"#CC1F1F", bg:"rgba(204,31,31,.1)",   ring:"#CC1F1F"},
-  preparando:{label:"Preparando", next:"listo",      nextLabel:"Marcar como listo âœ“",  color:"#D97706", bg:"rgba(217,119,6,.1)",   ring:"#D97706"},
-  listo:     {label:"Listo âœ“",   next:"entregado",  nextLabel:"Entregar / Despachar",  color:"#16A34A", bg:"rgba(22,163,74,.1)",   ring:"#16A34A"},
+  nuevo:     {label:"Nuevo",      next:"preparando", nextLabel:"Empezar preparación",  color:"#CC1F1F", bg:"rgba(204,31,31,.1)",   ring:"#CC1F1F"},
+  preparando:{label:"Preparando", next:"listo",      nextLabel:"Marcar como listo ✓",  color:"#D97706", bg:"rgba(217,119,6,.1)",   ring:"#D97706"},
+  listo:     {label:"Listo ✓",   next:"entregado",  nextLabel:"Entregar / Despachar",  color:"#16A34A", bg:"rgba(22,163,74,.1)",   ring:"#16A34A"},
   entregado: {label:"Entregado",  next:null,         nextLabel:null,                    color:"#9CA3AF", bg:"rgba(156,163,175,.1)", ring:"#9CA3AF"},
 };
 
@@ -291,7 +291,7 @@ function AdminLogin({ menu, saveMenu }) {
       <div className="scale-in" style={{background:"#fff",borderRadius:24,padding:40,width:320,textAlign:"center",boxShadow:"0 20px 60px rgba(0,0,0,.1)",border:"1px solid var(--border)"}}>
         <img src={LOGO_SRC} alt="Shako Sushi" style={{width:80,height:80,borderRadius:"50%",objectFit:"cover",marginBottom:20,boxShadow:"0 4px 16px var(--red-glow)"}}/>
         <div className="sh" style={{fontSize:24,color:"var(--text)",marginBottom:4}}>Panel de Cocina</div>
-        <div style={{fontSize:13,color:"var(--text3)",marginBottom:28}}>IngresÃ¡ tu PIN para continuar</div>
+        <div style={{fontSize:13,color:"var(--text3)",marginBottom:28}}>Ingresá tu PIN para continuar</div>
         <input
           type="password"
           inputMode="numeric"
@@ -300,7 +300,7 @@ function AdminLogin({ menu, saveMenu }) {
           onChange={e=>setPin(e.target.value)}
           onKeyDown={e=>e.key==="Enter"&&submitPin()}
           autoFocus
-          placeholder="â€¢ â€¢ â€¢ â€¢ â€¢ â€¢"
+          placeholder="• • • • • •"
           style={{
             width:"100%",padding:"16px 18px",
             background:pinErr?"rgba(204,31,31,.05)":"var(--bg2)",
@@ -411,7 +411,7 @@ function CustomerView({ menu, cajaStatus }) {
     if (!canConfirm) return;
     setLoading(true);
     const order = { id:genId(), ...form, items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaQR };
-    // Mostrar confirmaciÃ³n al instante
+    // Mostrar confirmación al instante
     setOrderId(order.id);
     setOrderTotal(order.total);
     setCart([]);
@@ -425,12 +425,12 @@ function CustomerView({ menu, cajaStatus }) {
   };
 
   const PAGOS = [
-    {v:"efectivo",      l:"ðŸ’µ Efectivo",      desc:"PagÃ¡s al recibir / retirar"},
-    {v:"transferencia", l:"ðŸ“² Transferencia",  desc:"Te mandamos el CBU al confirmar"},
-    {v:"tarjeta",       l:"ðŸ’³ Tarjeta",        desc:"DÃ©bito o crÃ©dito en el local"},
+    {v:"efectivo",      l:"💵 Efectivo",      desc:"Pagás al recibir / retirar"},
+    {v:"transferencia", l:"📲 Transferencia",  desc:"Te mandamos el CBU al confirmar"},
+    {v:"tarjeta",       l:"💳 Tarjeta",        desc:"Débito o crédito en el local"},
   ];
 
-  // Caja cerrada â€” mostrar pantalla de local cerrado
+  // Caja cerrada — mostrar pantalla de local cerrado
   if (cajaStatus === "cerrada") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
       <img src={LOGO_SRC} alt="Shako Sushi" style={{width:90,height:90,borderRadius:"50%",objectFit:"cover",marginBottom:20,opacity:.7}}/>
@@ -442,7 +442,7 @@ function CustomerView({ menu, cajaStatus }) {
       <div style={{display:"inline-flex",alignItems:"center",gap:8,background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:40,padding:"10px 22px"}}>
         <div style={{width:7,height:7,borderRadius:"50%",background:"#DC2626",boxShadow:"0 0 6px #DC2626"}}/>
         <span style={{fontSize:13,color:"var(--text3)",fontWeight:600}}>Cerrado</span>
-        <span style={{color:"var(--text4)"}}>Â·</span>
+        <span style={{color:"var(--text4)"}}>·</span>
         <span style={{fontSize:13,color:"var(--text3)"}}>{CONFIG.horario}</span>
       </div>
     </div>
@@ -452,12 +452,12 @@ function CustomerView({ menu, cajaStatus }) {
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
       <div className="slide-up">
         <img src={LOGO_SRC} alt="Shako Sushi" style={{width:100,height:100,borderRadius:"50%",objectFit:"cover",boxShadow:"0 8px 32px var(--red-glow)",marginBottom:20}}/>
-        <div className="sh" style={{fontSize:32,color:"var(--text)",marginBottom:8}}>Â¡Pedido enviado!</div>
+        <div className="sh" style={{fontSize:32,color:"var(--text)",marginBottom:8}}>¡Pedido enviado!</div>
         <div style={{color:"var(--text3)",fontSize:15,marginBottom:28,lineHeight:1.7}}>Tu pedido fue recibido en Shako Sushi.<br/>En breve comenzamos a prepararlo.</div>
         <div style={{display:"inline-flex",alignItems:"center",gap:10,background:"var(--red-light)",border:"1px solid var(--red-border)",borderRadius:40,padding:"10px 22px",marginBottom:36}}>
           <span style={{color:"var(--text3)",fontSize:13}}>Pedido</span>
           <span style={{color:"var(--red)",fontFamily:"monospace",fontSize:15,fontWeight:700}}>#{orderId?.slice(-6).toUpperCase()}</span>
-          <span style={{color:"var(--text4)"}}>Â·</span>
+          <span style={{color:"var(--text4)"}}>·</span>
           <span style={{color:"var(--text2)",fontSize:13}}>{fmt(orderTotal)}</span>
         </div><br/>
         <button className="btn" onClick={()=>setStep("menu")} style={{background:"var(--red)",color:"#fff",padding:"14px 40px",borderRadius:40,fontSize:16,fontWeight:700,boxShadow:"0 8px 24px var(--red-glow)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
@@ -470,8 +470,8 @@ function CustomerView({ menu, cajaStatus }) {
   if (step === "checkout") return (
     <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"var(--bg2)"}}>
       <div style={{position:"sticky",top:0,background:"rgba(255,255,255,.97)",backdropFilter:"blur(14px)",borderBottom:"1px solid var(--border)",padding:"14px 16px",display:"flex",alignItems:"center",gap:12,zIndex:10}}>
-        <button className="btn" onClick={()=>setStep("menu")} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"7px 16px",color:"var(--text2)",fontSize:14,fontWeight:600}}>â† Volver</button>
-        <span className="sh" style={{fontSize:20,color:"var(--text)"}}>ConfirmÃ¡ tu pedido</span>
+        <button className="btn" onClick={()=>setStep("menu")} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"7px 16px",color:"var(--text2)",fontSize:14,fontWeight:600}}>← Volver</button>
+        <span className="sh" style={{fontSize:20,color:"var(--text)"}}>Confirmá tu pedido</span>
       </div>
       <div style={{padding:16,paddingBottom:32}}>
         <Card>
@@ -483,7 +483,7 @@ function CustomerView({ menu, cajaStatus }) {
                 <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{fmt(c.item.precio)} c/u</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <button className="btn" onClick={()=>setQty(c.item.id,c.qty-1)} style={{width:30,height:30,borderRadius:8,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>âˆ’</button>
+                <button className="btn" onClick={()=>setQty(c.item.id,c.qty-1)} style={{width:30,height:30,borderRadius:8,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                 <span style={{fontSize:15,fontWeight:800,minWidth:22,textAlign:"center",color:"var(--red)"}}>{c.qty}</span>
                 <button className="btn" onClick={()=>add(c.item)} style={{width:30,height:30,borderRadius:8,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
                 <span style={{fontSize:14,fontWeight:700,color:"var(--red)",minWidth:72,textAlign:"right"}}>{fmt(c.item.precio*c.qty)}</span>
@@ -496,18 +496,18 @@ function CustomerView({ menu, cajaStatus }) {
         </Card>
         <Card>
           <Label>TUS DATOS</Label>
-          {/* DNI / TelÃ©fono para autocompletar */}
+          {/* DNI / Teléfono para autocompletar */}
           <div style={{marginBottom:14}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DNI O TELÃ‰FONO</div>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DNI O TELÉFONO</div>
             <div style={{position:"relative"}}>
-              <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="IngresÃ¡ tu DNI o telÃ©fono"
+              <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Ingresá tu DNI o teléfono"
                 style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:14,transition:"border .2s"}}/>
-              {dniLooking&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--text4)"}}>ðŸ”</span>}
-              {dniFound&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>âœ“</span>}
+              {dniLooking&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--text4)"}}>🔍</span>}
+              {dniFound&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>✓</span>}
             </div>
-            {dniFound&&<div style={{fontSize:11,color:"#16A34A",marginTop:5,fontWeight:600}}>âœ“ Cliente encontrado â€” datos completados automÃ¡ticamente</div>}
+            {dniFound&&<div style={{fontSize:11,color:"#16A34A",marginTop:5,fontWeight:600}}>✓ Cliente encontrado — datos completados automáticamente</div>}
           </div>
-          {[{k:"nombre",l:"Nombre *",p:"Â¿CÃ³mo te llamÃ¡s?"},{k:"telefono",l:"TelÃ©fono",p:"(opcional)"}].map(f=>(
+          {[{k:"nombre",l:"Nombre *",p:"¿Cómo te llamás?"},{k:"telefono",l:"Teléfono",p:"(opcional)"}].map(f=>(
             <div key={f.k} style={{marginBottom:12}}>
               <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{f.l}</div>
               <input value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p}
@@ -518,7 +518,7 @@ function CustomerView({ menu, cajaStatus }) {
         <Card>
           <Label>TIPO DE PEDIDO</Label>
           <div style={{display:"flex",gap:8,marginBottom:form.tipo==="delivery"?16:0}}>
-            {[{v:"retiro",l:"ðŸƒ Retiro en local"},{v:"delivery",l:"ðŸ›µ Delivery"}].map(t=>(
+            {[{v:"retiro",l:"🏃 Retiro en local"},{v:"delivery",l:"🛵 Delivery"}].map(t=>(
               <button key={t.v} className="btn" onClick={()=>setForm(p=>({...p,tipo:t.v}))}
                 style={{flex:1,padding:"13px 0",borderRadius:12,fontSize:14,fontWeight:700,background:form.tipo===t.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.tipo===t.v?"var(--red)":"var(--border)"}`,color:form.tipo===t.v?"var(--red)":"var(--text3)",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif"}}>{t.l}</button>
             ))}
@@ -529,11 +529,11 @@ function CustomerView({ menu, cajaStatus }) {
               <div style={{display:"flex",gap:8,marginBottom:12}}>
                 <div style={{flex:2}}>
                   <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Calle *</div>
-                  <input value={form.calle} onChange={e=>setForm(p=>({...p,calle:e.target.value}))} placeholder="Ej: Av. San MartÃ­n"
+                  <input value={form.calle} onChange={e=>setForm(p=>({...p,calle:e.target.value}))} placeholder="Ej: Av. San Martín"
                     style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${form.calle.trim()?"var(--red-border)":"var(--border)"}`,borderRadius:10,fontSize:14}}/>
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>NÃºmero *</div>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Número *</div>
                   <input value={form.numero} onChange={e=>setForm(p=>({...p,numero:e.target.value}))} placeholder="1234"
                     style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${form.numero.trim()?"var(--red-border)":"var(--border)"}`,borderRadius:10,fontSize:14}}/>
                 </div>
@@ -546,7 +546,7 @@ function CustomerView({ menu, cajaStatus }) {
               <div style={{display:"flex",gap:8,marginBottom:8}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Piso / Depto</div>
-                  <input value={form.piso} onChange={e=>setForm(p=>({...p,piso:e.target.value}))} placeholder="Ej: 3Â° B"
+                  <input value={form.piso} onChange={e=>setForm(p=>({...p,piso:e.target.value}))} placeholder="Ej: 3° B"
                     style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
                 </div>
                 <div style={{flex:2}}>
@@ -555,13 +555,13 @@ function CustomerView({ menu, cajaStatus }) {
                     style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
                 </div>
               </div>
-              {(!form.calle.trim()||!form.numero.trim())&&<div style={{fontSize:12,color:"var(--red)",marginTop:6}}>âš  CompletÃ¡ calle y nÃºmero para continuar</div>}
+              {(!form.calle.trim()||!form.numero.trim())&&<div style={{fontSize:12,color:"var(--red)",marginTop:6}}>⚠ Completá calle y número para continuar</div>}
             </div>
           )}
-          {form.tipo==="retiro"&&<div style={{marginTop:8,background:"var(--bg2)",borderRadius:10,padding:"10px 14px",border:"1px solid var(--border)",fontSize:12,color:"var(--text3)"}}>ðŸ“ RetirÃ¡s en <strong style={{color:"var(--text2)"}}>Hudson Plaza Comercial, Berazategui</strong></div>}
+          {form.tipo==="retiro"&&<div style={{marginTop:8,background:"var(--bg2)",borderRadius:10,padding:"10px 14px",border:"1px solid var(--border)",fontSize:12,color:"var(--text3)"}}>📍 Retirás en <strong style={{color:"var(--text2)"}}>Hudson Plaza Comercial, Berazategui</strong></div>}
         </Card>
         <Card>
-          <Label>MÃ‰TODO DE PAGO</Label>
+          <Label>MÉTODO DE PAGO</Label>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
             {PAGOS.map(p=>(
               <button key={p.v} className="btn" onClick={()=>setForm(f=>({...f,pago:p.v}))}
@@ -584,7 +584,7 @@ function CustomerView({ menu, cajaStatus }) {
         </Card>
         <button className="btn" onClick={placeOrder} disabled={!canConfirm||loading}
           style={{width:"100%",padding:"16px 0",borderRadius:14,fontSize:18,fontWeight:800,background:canConfirm?"var(--red)":"var(--border)",color:canConfirm?"#fff":"var(--text4)",boxShadow:canConfirm?"0 8px 24px var(--red-glow)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
-          {loading?"ENVIANDO...":`CONFIRMAR PEDIDO Â· ${fmt(total)}`}
+          {loading?"ENVIANDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
         </button>
       </div>
     </div>
@@ -598,14 +598,14 @@ function CustomerView({ menu, cajaStatus }) {
             <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.4)",flexShrink:0}}/>
             <div>
               <div className="sh" style={{fontSize:26,color:"#fff",lineHeight:1,letterSpacing:1}}>SHAKO SUSHI</div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>{mesaQR ? `ðŸª‘ Mesa ${mesaQR.replace("m","").replace("v","Vereda ")}` : CONFIG.ubicacion}</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>{mesaQR ? `🪑 Mesa ${mesaQR.replace("m","").replace("v","Vereda ")}` : CONFIG.ubicacion}</div>
             </div>
           </div>
           {count>0&&(
             <button className="btn" onClick={()=>setStep("checkout")}
               style={{background:"#fff",borderRadius:40,padding:"9px 14px",display:"flex",alignItems:"center",gap:8,color:"var(--red)",fontSize:14,fontWeight:800,boxShadow:"0 4px 12px rgba(0,0,0,.15)"}}>
-              ðŸ›’ <span style={{background:"var(--red)",color:"#fff",borderRadius:20,padding:"1px 7px",fontSize:12,fontWeight:700}}>{count}</span>
-              <span style={{fontSize:12}}>Â·</span><span>{fmt(total)}</span>
+              🛒 <span style={{background:"var(--red)",color:"#fff",borderRadius:20,padding:"1px 7px",fontSize:12,fontWeight:700}}>{count}</span>
+              <span style={{fontSize:12}}>·</span><span>{fmt(total)}</span>
             </button>
           )}
         </div>
@@ -615,7 +615,7 @@ function CustomerView({ menu, cajaStatus }) {
             <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
               <div style={{width:7,height:7,borderRadius:"50%",background:open?"#4ADE80":"#FF4757",boxShadow:open?"0 0 6px #4ADE80":"0 0 6px #FF4757"}}/>
               <span style={{fontSize:12,color:"rgba(255,255,255,.9)",fontWeight:600}}>{open?"Abierto ahora":"Cerrado"}</span>
-              <span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>Â·</span>
+              <span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>·</span>
               <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>{CONFIG.horario}</span>
             </div>
           );
@@ -626,7 +626,7 @@ function CustomerView({ menu, cajaStatus }) {
           <div style={{display:"flex",alignItems:"center",gap:10,background:"var(--bg2)",border:"1.5px solid var(--border)",borderRadius:12,padding:"9px 14px"}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
             <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar productos..." style={{flex:1,fontSize:14,color:"var(--text)",background:"transparent",border:"none",outline:"none",fontFamily:"'Barlow',sans-serif"}}/>
-            {search&&<button className="btn" onClick={()=>setSearch("")} style={{color:"var(--text4)",fontSize:16,lineHeight:1,padding:0,background:"transparent"}}>âœ•</button>}
+            {search&&<button className="btn" onClick={()=>setSearch("")} style={{color:"var(--text4)",fontSize:16,lineHeight:1,padding:0,background:"transparent"}}>✕</button>}
           </div>
         </div>
         <div ref={tabsRef} style={{overflowX:"auto",display:"flex",whiteSpace:"nowrap",padding:"2px 2px 0",borderBottom:"1px solid var(--border)"}}>
@@ -685,7 +685,7 @@ function CustomerView({ menu, cajaStatus }) {
                   {qty===0
                     ?<button className="btn" onClick={()=>add(item)} style={{width:40,height:40,borderRadius:10,background:"var(--red-light)",border:"2px solid var(--red-border)",color:"var(--red)",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:700}}>+</button>
                     :<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
-                      <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:32,height:32,borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>âˆ’</button>
+                      <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:32,height:32,borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                       <span style={{fontSize:17,fontWeight:900,minWidth:22,textAlign:"center",color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}>{qty}</span>
                       <button className="btn" onClick={()=>add(item)} style={{width:32,height:32,borderRadius:9,background:"var(--red)",color:"#fff",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
                     </div>}
@@ -785,7 +785,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   }, []);
 
   const loadHistorialCaja = useCallback(async () => {
-    // Ãšltimo mes de caja
+    // Último mes de caja
     const hace30 = new Date();
     hace30.setDate(hace30.getDate()-30);
     const desde = hace30.toISOString().split("T")[0];
@@ -835,7 +835,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   const updateStatus = async (order, ns) => {
     setOrders(p => p.map(o => o.id===order.id ? {...o,status:ns} : o));
     await supabase.from("orders").update({status:ns}).eq("id", order.id);
-    // Imprimir ticket automÃ¡ticamente cuando el pedido estÃ¡ listo
+    // Imprimir ticket automáticamente cuando el pedido está listo
     if (ns === "listo") printTicket({...order, status:"listo"});
   };
   const updatePago = async (order, pago) => {
@@ -875,12 +875,12 @@ function AdminView({ onExit, menu, saveMenu }) {
   };
   const TABS = [
     {key:"activos",     label:"Activos",   val:counts.nuevo+counts.preparando+counts.listo, color:"var(--text)"},
-    {key:"nuevo",       label:"ðŸ”´ Nuevos", val:counts.nuevo,       color:"#CC1F1F"},
-    {key:"preparando",  label:"ðŸŸ¡ Prep.",  val:counts.preparando,  color:"#D97706"},
-    {key:"listo",       label:"ðŸŸ¢ Listos", val:counts.listo,       color:"#16A34A"},
+    {key:"nuevo",       label:"🔴 Nuevos", val:counts.nuevo,       color:"#CC1F1F"},
+    {key:"preparando",  label:"🟡 Prep.",  val:counts.preparando,  color:"#D97706"},
+    {key:"listo",       label:"🟢 Listos", val:counts.listo,       color:"#16A34A"},
     {key:"entregados",  label:"Historial", val:counts.entregado,   color:"var(--text3)"},
     {key:"facturacion", label:"Caja",      val:null,               color:"#D97706"},
-    {key:"editor",      label:"MenÃº",      val:null,               color:"#7C3AED"},
+    {key:"editor",      label:"Menú",      val:null,               color:"#7C3AED"},
     {key:"nuevo_pedido", label:"Pedido",    val:null,               color:"#16A34A"},
     {key:"mesas",        label:"Mesas",     val:null,               color:"#0EA5E9"},
   ];
@@ -909,7 +909,7 @@ function AdminView({ onExit, menu, saveMenu }) {
             {f.val!==null
               ?<div className="sh" style={{fontSize:20,color:filter===f.key?"var(--red)":f.val>0?f.color:"var(--text4)"}}>{f.val}</div>
               :<div style={{fontSize:18,color:filter===f.key?"var(--red)":"var(--text4)"}}>
-                {f.key==="facturacion"?"ðŸ’°":f.key==="editor"?"âœï¸":"âž•"}
+                {f.key==="facturacion"?"💰":f.key==="editor"?"✏️":f.key==="mesas"?"🍽️":"🛒"}
               </div>}
             <div style={{fontSize:10,color:filter===f.key?"var(--red)":"var(--text4)",marginTop:1,whiteSpace:"nowrap",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{f.label}</div>
           </button>
@@ -922,7 +922,7 @@ function AdminView({ onExit, menu, saveMenu }) {
           <div style={{width:10,height:10,borderRadius:"50%",background:"#EA580C",flexShrink:0,boxShadow:"0 0 6px #EA580C"}}/>
           <div style={{flex:1}}>
             <div className="sh" style={{fontSize:14,color:"#EA580C"}}>CAJA CERRADA</div>
-            <div style={{fontSize:12,color:"#9A3412",marginTop:2}}>AbrÃ­ la caja antes de empezar a tomar pedidos â€” andÃ¡ a la tab ðŸ’° Caja</div>
+            <div style={{fontSize:12,color:"#9A3412",marginTop:2}}>Abrí la caja antes de empezar a tomar pedidos — andá a la tab 💰 Caja</div>
           </div>
           <button className="btn" onClick={()=>setFilter("facturacion")}
             style={{background:"#EA580C",borderRadius:10,padding:"7px 14px",color:"#fff",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0}}>
@@ -935,9 +935,9 @@ function AdminView({ onExit, menu, saveMenu }) {
 
       {filter==="facturacion" && (
         <div className="fade-in" style={{padding:14,paddingBottom:40}}>
-          {/* â”€â”€ ESTADO DE CAJA â”€â”€ */}
+          {/* ── ESTADO DE CAJA ── */}
           <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja}/>
-          {/* â”€â”€ TABS HOY / SEMANA / MES â”€â”€ */}
+          {/* ── TABS HOY / SEMANA / MES ── */}
           <div style={{display:"flex",gap:6,marginBottom:16,background:"var(--surface2)",borderRadius:12,padding:4}}>
             {[{k:"hoy",l:"Hoy"},{k:"semana",l:"Esta semana"},{k:"mes",l:"Este mes"},{k:"historial",l:"Historial"}].map(t=>(
               <button key={t.k} className="btn" onClick={()=>setCajaVista(t.k)}
@@ -948,7 +948,7 @@ function AdminView({ onExit, menu, saveMenu }) {
           {cajaVista==="hoy"&&<>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
             <div>
-              <div className="sh" style={{fontSize:24,color:"var(--text)"}}>FACTURACIÃ“N DEL DÃA</div>
+              <div className="sh" style={{fontSize:24,color:"var(--text)"}}>FACTURACIÓN DEL DÍA</div>
               <div style={{fontSize:12,color:"var(--text3)",marginTop:2,textTransform:"capitalize"}}>{todayStr}</div>
             </div>
             <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"6px 14px",textAlign:"center"}}>
@@ -960,16 +960,16 @@ function AdminView({ onExit, menu, saveMenu }) {
             <div style={{fontSize:11,color:"#16A34A",fontWeight:700,letterSpacing:2,marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif"}}>TOTAL COBRADO (ENTREGADOS)</div>
             <div className="sh" style={{fontSize:36,color:"#16A34A"}}>{fmt(totDia)}</div>
             <div style={{marginTop:8,fontSize:12,color:"var(--text3)",display:"flex",alignItems:"center",gap:6}}>
-              <span style={{color:"#D97706"}}>â³</span><span>Proyectado con pedidos en curso:</span>
+              <span style={{color:"#D97706"}}>⏳</span><span>Proyectado con pedidos en curso:</span>
               <span style={{color:"#D97706",fontWeight:700}}>{fmt(proyect)}</span>
             </div>
           </div>
           <Card style={{marginBottom:12}}>
             <Label>DESGLOSE POR PAGO</Label>
             {[
-              {label:"ðŸ’µ Efectivo",     total:totEf, count:entH.filter(o=>o.pago==="efectivo").length,     color:"#16A34A",bg:"#F0FDF4",border:"#BBF7D0"},
-              {label:"ðŸ“² Transferencia",total:totTr, count:entH.filter(o=>o.pago==="transferencia").length,color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
-              {label:"ðŸ’³ Tarjeta",      total:totTj, count:entH.filter(o=>o.pago==="tarjeta").length,      color:"#2563EB",bg:"#EFF6FF",border:"#BFDBFE"},
+              {label:"💵 Efectivo",     total:totEf, count:entH.filter(o=>o.pago==="efectivo").length,     color:"#16A34A",bg:"#F0FDF4",border:"#BBF7D0"},
+              {label:"📲 Transferencia",total:totTr, count:entH.filter(o=>o.pago==="transferencia").length,color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
+              {label:"💳 Tarjeta",      total:totTj, count:entH.filter(o=>o.pago==="tarjeta").length,      color:"#2563EB",bg:"#EFF6FF",border:"#BFDBFE"},
             ].map(p=>(
               <div key={p.label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",borderRadius:12,background:p.bg,border:`1px solid ${p.border}`,marginBottom:8}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -989,8 +989,8 @@ function AdminView({ onExit, menu, saveMenu }) {
           </Card>
           <div style={{display:"flex",gap:10,marginBottom:12}}>
             {[
-              {label:"ðŸƒ Retiro",  total:totRet, count:entH.filter(o=>o.tipo==="retiro").length,   color:"#7C3AED",bg:"#FAF5FF",border:"#E9D5FF"},
-              {label:"ðŸ›µ Delivery",total:totDel, count:entH.filter(o=>o.tipo==="delivery").length, color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
+              {label:"🏃 Retiro",  total:totRet, count:entH.filter(o=>o.tipo==="retiro").length,   color:"#7C3AED",bg:"#FAF5FF",border:"#E9D5FF"},
+              {label:"🛵 Delivery",total:totDel, count:entH.filter(o=>o.tipo==="delivery").length, color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
             ].map(t=>(
               <div key={t.label} style={{flex:1,background:t.bg,border:`1px solid ${t.border}`,borderRadius:14,padding:"14px 16px"}}>
                 <div className="sh" style={{fontSize:14,color:t.color,marginBottom:4}}>{t.label}</div>
@@ -1002,7 +1002,7 @@ function AdminView({ onExit, menu, saveMenu }) {
           <Card style={{marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
               <div style={{fontSize:11,color:"var(--text3)",letterSpacing:1.5,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>TICKET PROMEDIO</div>
-              <div className="sh" style={{fontSize:26,color:"var(--red)"}}>{entH.length>0?fmt(Math.round(totDia/entH.length)):"â€”"}</div>
+              <div className="sh" style={{fontSize:26,color:"var(--red)"}}>{entH.length>0?fmt(Math.round(totDia/entH.length)):"—"}</div>
             </div>
             <div style={{width:1,height:40,background:"var(--border)"}}/>
             <div style={{textAlign:"right"}}>
@@ -1012,13 +1012,13 @@ function AdminView({ onExit, menu, saveMenu }) {
           </Card>
           {topProds.length>0&&(
             <Card style={{marginBottom:12}}>
-              <Label>ðŸ† PRODUCTOS MÃS VENDIDOS</Label>
+              <Label>🏆 PRODUCTOS MÁS VENDIDOS</Label>
               {topProds.map((p,i)=>(
                 <div key={p.nombre} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<topProds.length-1?"1px solid var(--border)":"none"}}>
                   <div style={{width:24,height:24,borderRadius:8,background:i===0?"#FEF3C7":i===1?"#F3F4F6":"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:i===0?"#D97706":i===1?"#6B7280":"var(--text4)",flexShrink:0,fontFamily:"'Barlow Condensed',sans-serif",border:"1px solid var(--border)"}}>{i+1}</div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:"var(--text)"}}>{p.nombre}</div>
-                    <div style={{fontSize:11,color:"var(--text3)",marginTop:1}}>{fmt(p.total)} Â· {p.qty} unid.</div>
+                    <div style={{fontSize:11,color:"var(--text3)",marginTop:1}}>{fmt(p.total)} · {p.qty} unid.</div>
                   </div>
                   <div style={{width:70,height:5,borderRadius:5,background:"var(--bg2)",overflow:"hidden",flexShrink:0,border:"1px solid var(--border)"}}>
                     <div style={{height:"100%",background:i===0?"#D97706":i===1?"#9CA3AF":"var(--red)",width:`${(p.qty/topProds[0].qty*100).toFixed(0)}%`}}/>
@@ -1029,7 +1029,7 @@ function AdminView({ onExit, menu, saveMenu }) {
           )}
           <Card>
             <Label>TODOS LOS PEDIDOS DE HOY</Label>
-            {ordersHoy.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--text4)",fontSize:14}}>TodavÃ­a no hay pedidos hoy</div>}
+            {ordersHoy.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--text4)",fontSize:14}}>Todavía no hay pedidos hoy</div>}
             {ordersHoy.map((o,i)=>{
               const est=ESTADOS[o.status]||ESTADOS.nuevo;
               return(
@@ -1042,9 +1042,9 @@ function AdminView({ onExit, menu, saveMenu }) {
                       <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.bg,padding:"1px 6px",borderRadius:20}}>{est.label}</span>
                     </div>
                     <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
-                      {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} Â· {o.items?.reduce((s,c)=>s+c.qty,0)||0} items
-                      {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":"#2563EB"}}>Â· {o.pago==="efectivo"?"ðŸ’µ":o.pago==="transferencia"?"ðŸ“²":"ðŸ’³"}</span>}
-                      {o.tipo==="delivery"&&<span style={{marginLeft:4,color:"#D97706"}}>Â· ðŸ›µ</span>}
+                      {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · {o.items?.reduce((s,c)=>s+c.qty,0)||0} items
+                      {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"}</span>}
+                      {o.tipo==="delivery"&&<span style={{marginLeft:4,color:"#D97706"}}>· 🛵</span>}
                     </div>
                   </div>
                   <span className="sh" style={{fontSize:15,color:o.status==="entregado"?"#16A34A":"var(--text3)",flexShrink:0}}>{fmt(o.total)}</span>
@@ -1074,7 +1074,7 @@ function AdminView({ onExit, menu, saveMenu }) {
             <div style={{textAlign:"center",padding:"48px 20px",color:"var(--text3)"}}>
               <img src={LOGO_SRC} alt="" style={{width:60,height:60,borderRadius:"50%",objectFit:"cover",opacity:.3,marginBottom:12}}/>
               <div className="sh" style={{fontSize:18,marginBottom:4,color:"var(--text2)"}}>Sin pedidos</div>
-              <div style={{fontSize:13}}>No hay pedidos en esta categorÃ­a</div>
+              <div style={{fontSize:13}}>No hay pedidos en esta categoría</div>
             </div>
           )}
           {filtered.map(order=>{
@@ -1088,38 +1088,38 @@ function AdminView({ onExit, menu, saveMenu }) {
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
                       <span className="sh" style={{fontSize:15,color:"var(--text)"}}>#{order.id.slice(-6).toUpperCase()}</span>
                       <span style={{fontSize:12,fontWeight:700,color:est.color,background:est.bg,padding:"2px 8px",borderRadius:20}}>{est.label}</span>
-                      {order.tipo==="delivery"&&<span style={{fontSize:11,color:"#D97706",background:"#FFFBEB",padding:"2px 6px",borderRadius:20,fontWeight:600}}>ðŸ›µ Delivery</span>}
+                      {order.tipo==="delivery"&&<span style={{fontSize:11,color:"#D97706",background:"#FFFBEB",padding:"2px 6px",borderRadius:20,fontWeight:600}}>🛵 Delivery</span>}
                     </div>
-                    <div style={{fontSize:13,color:"var(--text3)",marginTop:3}}>{order.nombre} Â· {timeAgo(order.created_at)}</div>
+                    <div style={{fontSize:13,color:"var(--text3)",marginTop:3}}>{order.nombre} · {timeAgo(order.created_at)}</div>
                   </div>
                   <div style={{textAlign:"right"}}>
                     <div className="sh" style={{fontSize:17,color:"var(--red)"}}>{fmt(order.total)}</div>
                     <div style={{fontSize:11,color:"var(--text4)",marginTop:1}}>{order.items?.reduce((s,c)=>s+c.qty,0)||0} items</div>
                   </div>
-                  <span style={{color:"var(--text4)",fontSize:13}}>{isExp?"â–²":"â–¼"}</span>
+                  <span style={{color:"var(--text4)",fontSize:13}}>{isExp?"▲":"▼"}</span>
                 </div>
                 {isExp&&(
                   <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
                     <div style={{paddingTop:12,marginBottom:10}}>
                       {order.items?.map(c=>(
                         <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
-                          <span style={{color:"var(--text2)"}}>{c.qty}Ã— {c.item.nombre}</span>
+                          <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
                           <span style={{color:"var(--text3)"}}>{fmt(c.item.precio*c.qty)}</span>
                         </div>
                       ))}
                     </div>
                     {order.telefono&&(
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                        <span style={{fontSize:13,color:"var(--text3)"}}>ðŸ“ž {order.telefono}</span>
+                        <span style={{fontSize:13,color:"var(--text3)"}}>📞 {order.telefono}</span>
                         <a href={`https://wa.me/54${order.telefono.replace(/\D/g,"")}`} target="_blank" rel="noreferrer"
-                          style={{color:"#16A34A",fontSize:12,textDecoration:"none",background:"#F0FDF4",border:"1px solid #BBF7D0",padding:"2px 8px",borderRadius:20,fontWeight:600}}>WhatsApp â†’</a>
+                          style={{color:"#16A34A",fontSize:12,textDecoration:"none",background:"#F0FDF4",border:"1px solid #BBF7D0",padding:"2px 8px",borderRadius:20,fontWeight:600}}>WhatsApp →</a>
                       </div>
                     )}
                     {order.tipo==="delivery"&&order.calle&&(
                       <div style={{fontSize:13,background:"#FFFBEB",borderRadius:10,padding:"9px 13px",marginBottom:10,border:"1px solid #FDE68A",display:"flex",gap:8}}>
-                        <span>ðŸ›µ</span>
+                        <span>🛵</span>
                         <div>
-                          <div style={{color:"#D97706",fontSize:11,fontWeight:700,marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>DIRECCIÃ“N DE ENTREGA</div>
+                          <div style={{color:"#D97706",fontSize:11,fontWeight:700,marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>DIRECCIÓN DE ENTREGA</div>
                           <div style={{color:"var(--text2)"}}>{order.calle} {order.numero}{order.entreCalle?` e/ ${order.entreCalle}`:""}{order.piso?`, ${order.piso}`:""}</div>
                           {order.barrio&&<div style={{color:"var(--text3)",fontSize:12,marginTop:1}}>{order.barrio}</div>}
                         </div>
@@ -1127,14 +1127,14 @@ function AdminView({ onExit, menu, saveMenu }) {
                     )}
                     {order.notas&&(
                       <div style={{fontSize:13,color:"var(--text2)",background:"var(--bg2)",borderRadius:10,padding:"10px 14px",marginBottom:12,borderLeft:`3px solid ${est.ring}`,lineHeight:1.5}}>
-                        ðŸ’¬ <em>{order.notas}</em>
+                        💬 <em>{order.notas}</em>
                       </div>
                     )}
-                    {/* Cambio de mÃ©todo de pago */}
+                    {/* Cambio de método de pago */}
                     <div style={{marginTop:10,marginBottom:8}}>
-                      <div style={{fontSize:10,color:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:6}}>MÃ‰TODO DE PAGO</div>
+                      <div style={{fontSize:10,color:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:6}}>MÉTODO DE PAGO</div>
                       <div style={{display:"flex",gap:6}}>
-                        {[{v:"efectivo",l:"ðŸ’µ Efectivo"},{v:"transferencia",l:"ðŸ“² Transf."},{v:"tarjeta",l:"ðŸ’³ Tarjeta"}].map(p=>(
+                        {[{v:"efectivo",l:"💵 Efectivo"},{v:"transferencia",l:"📲 Transf."},{v:"tarjeta",l:"💳 Tarjeta"}].map(p=>(
                           <button key={p.v} className="btn" onClick={()=>updatePago(order,p.v)}
                             style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:11,fontWeight:700,
                               background:order.pago===p.v?"var(--red-light)":"var(--bg2)",
@@ -1147,8 +1147,8 @@ function AdminView({ onExit, menu, saveMenu }) {
                       </div>
                     </div>
                     <div style={{display:"flex",gap:8,marginTop:6}}>
-                      {est.next&&<button className="btn" onClick={()=>updateStatus(order,est.next)} style={{flex:1,padding:"12px 0",borderRadius:12,background:est.bg,border:`1px solid ${est.ring}`,color:est.color,fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{est.nextLabel} â†’</button>}
-                      <button className="btn" onClick={()=>printTicket(order)} style={{padding:"12px 14px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>ðŸ–¨ï¸ Ticket</button>
+                      {est.next&&<button className="btn" onClick={()=>updateStatus(order,est.next)} style={{flex:1,padding:"12px 0",borderRadius:12,background:est.bg,border:`1px solid ${est.ring}`,color:est.color,fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{est.nextLabel} →</button>}
+                      <button className="btn" onClick={()=>printTicket(order)} style={{padding:"12px 14px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>🖨️ Ticket</button>
                       {order.status==="entregado"&&<button className="btn" onClick={()=>deleteOrder(order.id)} style={{padding:"12px 16px",borderRadius:12,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:600}}>Eliminar</button>}
                     </div>
                   </div>
@@ -1174,8 +1174,8 @@ function MenuEditor({ menu, saveMenu }) {
   const updItem = (catId,itemId,ch) => saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.map(i=>i.id===itemId?{...i,...ch}:i)}:c));
   const delItem = (catId,itemId)    => { saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.filter(i=>i.id!==itemId)}:c)); if(editItemId===itemId)setEditId(null); };
   const addItem = (catId)           => { const ni={id:genId(),nombre:"Nuevo producto",desc:"",precio:0}; saveMenu(menu.map(c=>c.id===catId?{...c,items:[...c.items,ni]}:c)); setEditId(`${catId}:${ni.id}`); setExpandedCat(catId); };
-  const addCat  = ()                => { const nc={id:genId(),nombre:"Nueva categorÃ­a",emoji:"ðŸ´",desc:"",items:[]}; saveMenu([...menu,nc]); setExpandedCat(nc.id); };
-  const delCat  = (catId)           => { if(!window.confirm("Â¿Eliminar esta categorÃ­a?"))return; saveMenu(menu.filter(c=>c.id!==catId)); if(expandedCat===catId)setExpandedCat(null); };
+  const addCat  = ()                => { const nc={id:genId(),nombre:"Nueva categoría",emoji:"🍴",desc:"",items:[]}; saveMenu([...menu,nc]); setExpandedCat(nc.id); };
+  const delCat  = (catId)           => { if(!window.confirm("¿Eliminar esta categoría?"))return; saveMenu(menu.filter(c=>c.id!==catId)); if(expandedCat===catId)setExpandedCat(null); };
   const handleFile = (catId,itemId,file) => { if(!file)return; const r=new FileReader(); r.onload=e=>updItem(catId,itemId,{imagen:e.target.result}); r.readAsDataURL(file); };
   const flash = () => { setSaved(true); setTimeout(()=>setSaved(false),2000); };
 
@@ -1183,19 +1183,19 @@ function MenuEditor({ menu, saveMenu }) {
     <div className="fade-in" style={{padding:14,paddingBottom:40}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div>
-          <div className="sh" style={{fontSize:24,color:"var(--text)"}}>EDITOR DEL MENÃš</div>
-          <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>TocÃ¡ cualquier producto para editarlo</div>
+          <div className="sh" style={{fontSize:24,color:"var(--text)"}}>EDITOR DEL MENÚ</div>
+          <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>Tocá cualquier producto para editarlo</div>
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          {saved&&<span className="fade-in" style={{fontSize:12,color:"#16A34A",fontWeight:700}}>âœ“ Guardado</span>}
+          {saved&&<span className="fade-in" style={{fontSize:12,color:"#16A34A",fontWeight:700}}>✓ Guardado</span>}
           <button className="btn" onClick={flash} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"8px 16px",color:"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>GUARDAR</button>
         </div>
       </div>
       {editItem&&(
         <div className="slide-up" style={{background:"var(--surface)",border:"2px solid #E9D5FF",borderRadius:16,padding:16,marginBottom:16}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-            <span className="sh" style={{fontSize:16,color:"#7C3AED"}}>âœï¸ EDITANDO PRODUCTO</span>
-            <button className="btn" onClick={()=>setEditId(null)} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 12px",color:"var(--text3)",fontSize:13,fontWeight:600}}>âœ• Cerrar</button>
+            <span className="sh" style={{fontSize:16,color:"#7C3AED"}}>✏️ EDITANDO PRODUCTO</span>
+            <button className="btn" onClick={()=>setEditId(null)} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 12px",color:"var(--text3)",fontSize:13,fontWeight:600}}>✕ Cerrar</button>
           </div>
           <div style={{marginBottom:14}}>
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:8,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>IMAGEN</div>
@@ -1203,12 +1203,12 @@ function MenuEditor({ menu, saveMenu }) {
               <div style={{width:88,height:88,borderRadius:10,overflow:"hidden",flexShrink:0,background:"var(--bg2)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
                 {editItem.imagen
                   ?<><img src={editItem.imagen} alt="preview" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
-                    <button className="btn" onClick={()=>updItem(editCatId,editItemId,{imagen:""})} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>âœ•</button>
-                  </>:<span style={{color:"var(--text4)",fontSize:28}}>ðŸ“·</span>}
+                    <button className="btn" onClick={()=>updItem(editCatId,editItemId,{imagen:""})} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                  </>:<span style={{color:"var(--text4)",fontSize:28}}>📷</span>}
               </div>
               <div style={{flex:1,display:"flex",flexDirection:"column",gap:8}}>
-                <label className="upload-btn"><input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(editCatId,editItemId,e.target.files[0])}/>ðŸ“¤ Subir foto</label>
-                <div style={{textAlign:"center",fontSize:11,color:"var(--text4)"}}>â€” o pegÃ¡ una URL â€”</div>
+                <label className="upload-btn"><input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(editCatId,editItemId,e.target.files[0])}/>📤 Subir foto</label>
+                <div style={{textAlign:"center",fontSize:11,color:"var(--text4)"}}>— o pegá una URL —</div>
                 <input value={editItem.imagen||""} onChange={e=>updItem(editCatId,editItemId,{imagen:e.target.value})} placeholder="https://foto.com/imagen.jpg"
                   style={{width:"100%",padding:"9px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:12}}/>
               </div>
@@ -1220,7 +1220,7 @@ function MenuEditor({ menu, saveMenu }) {
               style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,fontWeight:600}}/>
           </div>
           <div style={{marginBottom:12}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCRIPCIÃ“N</div>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCRIPCIÓN</div>
             <textarea value={editItem.desc||""} onChange={e=>updItem(editCatId,editItemId,{desc:e.target.value})} rows={2}
               style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,resize:"none",lineHeight:1.5}}/>
           </div>
@@ -1231,8 +1231,8 @@ function MenuEditor({ menu, saveMenu }) {
           </div>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:"var(--bg2)",borderRadius:10,border:"1px solid var(--border)",marginBottom:12}}>
             <div>
-              <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>Disponible en el menÃº</div>
-              <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>Si estÃ¡ desactivado no aparece a los clientes</div>
+              <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>Disponible en el menú</div>
+              <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>Si está desactivado no aparece a los clientes</div>
             </div>
             <div onClick={()=>updItem(editCatId,editItemId,{disponible:editItem.disponible===false})}
               style={{width:44,height:24,borderRadius:12,background:editItem.disponible!==false?"var(--red)":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
@@ -1241,7 +1241,7 @@ function MenuEditor({ menu, saveMenu }) {
           </div>
           <button className="btn" onClick={()=>delItem(editCatId,editItemId)}
             style={{width:"100%",padding:"10px 0",borderRadius:10,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-            ðŸ—‘ ELIMINAR ESTE PRODUCTO
+            🗑 ELIMINAR ESTE PRODUCTO
           </button>
         </div>
       )}
@@ -1254,12 +1254,12 @@ function MenuEditor({ menu, saveMenu }) {
             <input value={cat.nombre} onChange={e=>updCat(cat.id,{nombre:e.target.value})} onClick={e=>e.stopPropagation()}
               style={{flex:1,padding:"7px 10px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,fontSize:14,fontWeight:700,color:"var(--text)"}}/>
             <span style={{fontSize:11,color:"var(--text4)",whiteSpace:"nowrap"}}>{cat.items.length} prod.</span>
-            <span style={{color:"var(--text4)",fontSize:13}}>{expandedCat===cat.id?"â–²":"â–¼"}</span>
+            <span style={{color:"var(--text4)",fontSize:13}}>{expandedCat===cat.id?"▲":"▼"}</span>
           </div>
           {expandedCat===cat.id&&(
             <div className="fade-in" style={{padding:"8px 10px 12px",background:"var(--bg2)"}}>
               <div style={{marginBottom:10}}>
-                <input value={cat.desc||""} onChange={e=>updCat(cat.id,{desc:e.target.value})} placeholder="DescripciÃ³n (opcional)"
+                <input value={cat.desc||""} onChange={e=>updCat(cat.id,{desc:e.target.value})} placeholder="Descripción (opcional)"
                   style={{width:"100%",padding:"8px 12px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:9,fontSize:12,color:"var(--text2)"}}/>
               </div>
               {cat.items.map(item=>(
@@ -1268,15 +1268,15 @@ function MenuEditor({ menu, saveMenu }) {
                     background:editId===`${cat.id}:${item.id}`?"#FAF5FF":"var(--surface)",
                     border:`1px solid ${editId===`${cat.id}:${item.id}`?"#E9D5FF":"var(--border)"}`,transition:"all .2s"}}>
                   <div style={{width:38,height:38,borderRadius:8,overflow:"hidden",flexShrink:0,background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid var(--border)"}}>
-                    {item.imagen?<img src={item.imagen} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>:<span style={{color:"var(--text4)",fontSize:16}}>ðŸ“·</span>}
+                    {item.imagen?<img src={item.imagen} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>:<span style={{color:"var(--text4)",fontSize:16}}>📷</span>}
                   </div>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:item.disponible===false?"var(--text4)":"var(--text)"}}>
-                      {item.disponible===false?"ðŸš« ":""}{item.nombre}
+                      {item.disponible===false?"🚫 ":""}{item.nombre}
                     </div>
                     <div className="sh" style={{fontSize:13,color:"var(--red)",marginTop:1}}>{fmt(item.precio)}</div>
                   </div>
-                  <span style={{fontSize:12,color:"#7C3AED",flexShrink:0}}>âœï¸</span>
+                  <span style={{fontSize:12,color:"#7C3AED",flexShrink:0}}>✏️</span>
                 </div>
               ))}
               <div style={{display:"flex",gap:8,marginTop:8}}>
@@ -1285,7 +1285,7 @@ function MenuEditor({ menu, saveMenu }) {
                   + AGREGAR PRODUCTO
                 </button>
                 <button className="btn" onClick={()=>delCat(cat.id)}
-                  style={{padding:"10px 14px",borderRadius:10,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13}}>ðŸ—‘</button>
+                  style={{padding:"10px 14px",borderRadius:10,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13}}>🗑</button>
               </div>
             </div>
           )}
@@ -1293,13 +1293,13 @@ function MenuEditor({ menu, saveMenu }) {
       ))}
       <button className="btn" onClick={addCat}
         style={{width:"100%",padding:"13px 0",borderRadius:14,background:"transparent",border:"1.5px dashed var(--border2)",color:"var(--text3)",fontSize:14,fontWeight:700,marginTop:4,fontFamily:"'Barlow Condensed',sans-serif"}}>
-        + AGREGAR CATEGORÃA
+        + AGREGAR CATEGORÍA
       </button>
     </div>
   );
 }
 
-/* â•â• CAJA WIDGET â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* ══ CAJA WIDGET ══════════════════════════════════════════════ */
 function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
   const [showForm, setShowForm] = useState(false);
   const [monto,    setMonto]    = useState("");
@@ -1322,7 +1322,7 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
             <div className="sh" style={{fontSize:18,color:abierta?"#16A34A":"#DC2626"}}>{caja?`CAJA ${abierta?"ABIERTA":"CERRADA"}`:"SIN CAJA HOY"}</div>
             {caja&&<div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
               {abierta?`Apertura: ${caja.hora_apertura}`:`Cierre: ${caja.hora_cierre}`}
-              {caja.monto_apertura>0&&` Â· Efectivo inicial: $${Number(caja.monto_apertura).toLocaleString("es-AR")}`}
+              {caja.monto_apertura>0&&` · Efectivo inicial: $${Number(caja.monto_apertura).toLocaleString("es-AR")}`}
             </div>}
           </div>
         </div>
@@ -1345,7 +1345,7 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
           </div>
           <div style={{marginBottom:14}}>
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>NOTAS (opcional)</div>
-            <textarea value={notas} onChange={e=>setNotas(e.target.value)} rows={2} placeholder="Observaciones del dÃ­a..."
+            <textarea value={notas} onChange={e=>setNotas(e.target.value)} rows={2} placeholder="Observaciones del día..."
               style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,resize:"none",lineHeight:1.5}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
@@ -1362,7 +1362,7 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
   );
 }
 
-/* â•â• NUEVO PEDIDO DESDE ADMIN â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* ══ NUEVO PEDIDO DESDE ADMIN ═════════════════════════════════ */
 function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   const [cart,     setCart]     = useState([]);
@@ -1414,19 +1414,19 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
     setLoading(false);
   };
 
-  const PAGOS=[{v:"efectivo",l:"ðŸ’µ Efectivo"},{v:"transferencia",l:"ðŸ“² Transferencia"},{v:"tarjeta",l:"ðŸ’³ Tarjeta"}];
+  const PAGOS=[{v:"efectivo",l:"💵 Efectivo"},{v:"transferencia",l:"📲 Transferencia"},{v:"tarjeta",l:"💳 Tarjeta"}];
 
   return (
     <div className="fade-in" style={{padding:14,paddingBottom:40}}>
       {mesaId&&(
         <div style={{background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:20}}>ðŸª‘</span>
+          <span style={{fontSize:20}}>🪑</span>
           <div className="sh" style={{fontSize:16,color:"#2563EB"}}>PEDIDO PARA MESA {mesaId.toUpperCase().replace("M","")}</div>
         </div>
       )}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div className="sh" style={{fontSize:22,color:"var(--text)"}}>NUEVO PEDIDO</div>
-        <button className="btn" onClick={onClose} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"7px 16px",color:"var(--text3)",fontSize:13,fontWeight:600}}>â† Volver</button>
+        <button className="btn" onClick={onClose} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"7px 16px",color:"var(--text3)",fontSize:13,fontWeight:600}}>← Volver</button>
       </div>
 
       {/* Buscador de productos */}
@@ -1450,7 +1450,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
                     {qty===0
                       ?<button className="btn" onClick={()=>add(item)} style={{width:32,height:32,borderRadius:8,background:"var(--red-light)",border:"1px solid var(--red-border)",color:"var(--red)",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
                       :<div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:28,height:28,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>âˆ’</button>
+                        <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:28,height:28,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                         <span style={{fontSize:14,fontWeight:800,minWidth:18,textAlign:"center",color:"var(--red)"}}>{qty}</span>
                         <button className="btn" onClick={()=>add(item)} style={{width:28,height:28,borderRadius:7,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
                       </div>}
@@ -1468,7 +1468,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
           <div className="sh" style={{fontSize:13,color:"#16A34A",marginBottom:8}}>PRODUCTOS SELECCIONADOS</div>
           {cart.map(c=>(
             <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid #BBF7D0"}}>
-              <span>{c.qty}Ã— {c.item.nombre}</span>
+              <span>{c.qty}× {c.item.nombre}</span>
               <span style={{fontWeight:700}}>{fmt(c.item.precio*c.qty)}</span>
             </div>
           ))}
@@ -1482,14 +1482,14 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:14,marginBottom:14}}>
         <div className="sh" style={{fontSize:13,color:"var(--red)",marginBottom:12,letterSpacing:1}}>DATOS DEL CLIENTE</div>
         <div style={{marginBottom:10}}>
-          <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>DNI O TELÃ‰FONO</div>
+          <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>DNI O TELÉFONO</div>
           <div style={{position:"relative"}}>
             <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Para autocompletar datos"
               style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:13}}/>
-            {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"#16A34A",fontSize:14}}>âœ“</span>}
+            {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"#16A34A",fontSize:14}}>✓</span>}
           </div>
         </div>
-        {[{k:"nombre",l:"Nombre *",p:"Nombre del cliente"},{k:"telefono",l:"TelÃ©fono",p:"(opcional)"}].map(f=>(
+        {[{k:"nombre",l:"Nombre *",p:"Nombre del cliente"},{k:"telefono",l:"Teléfono",p:"(opcional)"}].map(f=>(
           <div key={f.k} style={{marginBottom:10}}>
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{f.l}</div>
             <input value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p}
@@ -1497,7 +1497,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
           </div>
         ))}
         <div style={{display:"flex",gap:8,marginBottom:10}}>
-          {[{v:"retiro",l:"ðŸƒ Retiro"},{v:"delivery",l:"ðŸ›µ Delivery"}].map(t=>(
+          {[{v:"retiro",l:"🏃 Retiro"},{v:"delivery",l:"🛵 Delivery"}].map(t=>(
             <button key={t.v} className="btn" onClick={()=>setForm(p=>({...p,tipo:t.v}))}
               style={{flex:1,padding:"10px 0",borderRadius:10,fontSize:13,fontWeight:700,background:form.tipo===t.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.tipo===t.v?"var(--red)":"var(--border)"}`,color:form.tipo===t.v?"var(--red)":"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif"}}>{t.l}</button>
           ))}
@@ -1511,7 +1511,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
                   style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
               </div>
               <div style={{flex:1}}>
-                <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>NÃºmero</div>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Número</div>
                 <input value={form.numero} onChange={e=>setForm(p=>({...p,numero:e.target.value}))} placeholder="Nro"
                   style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
               </div>
@@ -1524,7 +1524,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
           </div>
         )}
         <div style={{marginTop:10}}>
-          <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>MÃ‰TODO DE PAGO</div>
+          <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>MÉTODO DE PAGO</div>
           <div style={{display:"flex",gap:6}}>
             {PAGOS.map(p=>(
               <button key={p.v} className="btn" onClick={()=>setForm(f=>({...f,pago:p.v}))}
@@ -1541,13 +1541,13 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
 
       <button className="btn" onClick={placeOrder} disabled={!cart.length||!form.nombre.trim()||loading}
         style={{width:"100%",padding:"15px 0",borderRadius:14,fontSize:17,fontWeight:800,background:cart.length&&form.nombre.trim()?"#16A34A":"var(--border)",color:cart.length&&form.nombre.trim()?"#fff":"var(--text4)",boxShadow:cart.length&&form.nombre.trim()?"0 6px 20px rgba(22,163,74,.3)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
-        {loading?"CREANDO PEDIDO...":`CONFIRMAR PEDIDO Â· ${fmt(total)}`}
+        {loading?"CREANDO PEDIDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
       </button>
     </div>
   );
 }
 
-/* â•â• HISTORIAL CAJA RESUMEN (SEMANA / MES) â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* ══ HISTORIAL CAJA RESUMEN (SEMANA / MES) ════════════════════ */
 function HistorialCajaResumen({ historial, vista, orders }) {
   const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
   const now = new Date();
@@ -1580,8 +1580,8 @@ function HistorialCajaResumen({ historial, vista, orders }) {
         {[
           {l:vista==="semana"?"TOTAL SEMANA":"TOTAL MES",    v:fmt(totalVentas),  bg:"#F0FDF4",bc:"#BBF7D0",c:"#16A34A"},
           {l:"PROMEDIO DIARIO",  v:fmt(promDiario),  bg:"#EFF6FF",bc:"#BFDBFE",c:"#2563EB"},
-          {l:"DÃAS TRABAJADOS",  v:`${diasAbiertos}/${dias}`, bg:"#FAF5FF",bc:"#E9D5FF",c:"#7C3AED"},
-          {l:"MEJOR DÃA",        v:maxDia?.fecha?new Date(maxDia.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"short",day:"numeric",month:"short"}):"â€”", bg:"#FEF3C7",bc:"#FDE68A",c:"#D97706"},
+          {l:"DÍAS TRABAJADOS",  v:`${diasAbiertos}/${dias}`, bg:"#FAF5FF",bc:"#E9D5FF",c:"#7C3AED"},
+          {l:"MEJOR DÍA",        v:maxDia?.fecha?new Date(maxDia.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"short",day:"numeric",month:"short"}):"—", bg:"#FEF3C7",bc:"#FDE68A",c:"#D97706"},
         ].map(k=>(
           <div key={k.l} style={{background:k.bg,border:`1px solid ${k.bc}`,borderRadius:12,padding:"12px 14px"}}>
             <div style={{fontSize:9,fontWeight:700,color:k.c,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,marginBottom:4}}>{k.l}</div>
@@ -1590,11 +1590,11 @@ function HistorialCajaResumen({ historial, vista, orders }) {
         ))}
       </div>
 
-      {/* GrÃ¡fico de barras */}
+      {/* Gráfico de barras */}
       {filtrado.length > 0 && (
         <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
           <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:14,fontFamily:"'Barlow Condensed',sans-serif"}}>
-            VENTAS POR DÃA
+            VENTAS POR DÍA
           </div>
           <div style={{display:"flex",alignItems:"flex-end",gap:4,height:120,overflowX:"auto",paddingBottom:8}}>
             {[...filtrado].reverse().map(c=>{
@@ -1618,7 +1618,7 @@ function HistorialCajaResumen({ historial, vista, orders }) {
             })}
           </div>
           <div style={{fontSize:10,color:"var(--text4)",marginTop:4,display:"flex",alignItems:"center",gap:8}}>
-            <span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:"#D97706",display:"inline-block"}}/> Caja aÃºn abierta</span>
+            <span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:"#D97706",display:"inline-block"}}/> Caja aún abierta</span>
             <span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:2,background:"var(--red)",display:"inline-block"}}/> Hoy</span>
           </div>
         </div>
@@ -1626,15 +1626,15 @@ function HistorialCajaResumen({ historial, vista, orders }) {
 
       {filtrado.length === 0 && (
         <div style={{textAlign:"center",padding:"32px 0",color:"var(--text4)"}}>
-          <div style={{fontSize:32,marginBottom:8}}>ðŸ“Š</div>
-          <div className="sh" style={{fontSize:16,color:"var(--text3)"}}>Sin datos para este perÃ­odo</div>
+          <div style={{fontSize:32,marginBottom:8}}>📊</div>
+          <div className="sh" style={{fontSize:16,color:"var(--text3)"}}>Sin datos para este período</div>
         </div>
       )}
     </div>
   );
 }
 
-/* â•â• HISTORIAL CAJA TABLA â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* ══ HISTORIAL CAJA TABLA ═════════════════════════════════════ */
 function HistorialCajaTabla({ historial, onReload }) {
   const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
   const [expandedId,      setExpandedId]      = useState(null);
@@ -1678,13 +1678,13 @@ function HistorialCajaTabla({ historial, onReload }) {
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
         <div className="sh" style={{fontSize:20,color:"var(--text)"}}>HISTORIAL DE CAJA</div>
         <button className="btn" onClick={onReload}
-          style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"6px 12px",fontSize:12,color:"var(--text3)",fontWeight:600}}>â†» Actualizar</button>
+          style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"6px 12px",fontSize:12,color:"var(--text3)",fontWeight:600}}>↻ Actualizar</button>
       </div>
 
       {historial.length === 0 && (
         <div style={{textAlign:"center",padding:"32px 0",color:"var(--text4)"}}>
-          <div style={{fontSize:32,marginBottom:8}}>ðŸ—‚ï¸</div>
-          <div className="sh" style={{fontSize:16,color:"var(--text3)"}}>No hay registros de caja todavÃ­a</div>
+          <div style={{fontSize:32,marginBottom:8}}>🗂️</div>
+          <div className="sh" style={{fontSize:16,color:"var(--text3)"}}>No hay registros de caja todavía</div>
         </div>
       )}
 
@@ -1696,14 +1696,14 @@ function HistorialCajaTabla({ historial, onReload }) {
         const loading = loadingDia === c.fecha;
         return (
           <div key={c.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--red-border)":"var(--border)"}`,borderRadius:14,marginBottom:8,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
-            {/* Header del dÃ­a */}
+            {/* Header del día */}
             <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>toggleDia(c)}>
               <div style={{width:9,height:9,borderRadius:"50%",background:abierta?"#D97706":"#16A34A",flexShrink:0,boxShadow:`0 0 5px ${abierta?"#D97706":"#16A34A"}`}}/>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:600,color:"var(--text)",textTransform:"capitalize"}}>{fecha}</div>
                 <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
                   {c.hora_apertura&&`Apertura: ${c.hora_apertura}`}
-                  {c.hora_cierre&&` Â· Cierre: ${c.hora_cierre}`}
+                  {c.hora_cierre&&` · Cierre: ${c.hora_cierre}`}
                 </div>
               </div>
               <div style={{textAlign:"right"}}>
@@ -1712,19 +1712,19 @@ function HistorialCajaTabla({ historial, onReload }) {
                 </div>
                 <div style={{fontSize:10,color:"var(--text4)",marginTop:1,fontWeight:600}}>{abierta?"EN CURSO":"CERRADA"}</div>
               </div>
-              <span style={{color:"var(--text4)",fontSize:12}}>{isExp?"â–²":"â–¼"}</span>
+              <span style={{color:"var(--text4)",fontSize:12}}>{isExp?"▲":"▼"}</span>
             </div>
 
             {/* Detalle expandido */}
             {isExp&&(
               <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
-                {/* KPIs del dÃ­a */}
+                {/* KPIs del día */}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:12,marginBottom:14}}>
                   {[
                     {l:"Efectivo apertura", v:fmt(c.monto_apertura),                                          col:"#2563EB"},
-                    {l:"Efectivo cierre",   v:abierta?"â€”":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
+                    {l:"Efectivo cierre",   v:abierta?"—":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
                     {l:"Total ventas",      v:pedidosDia[c.id] ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas), col:"var(--red)"},
-                    {l:"Diferencia caja",   v:abierta?"â€”":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)), col:"#7C3AED"},
+                    {l:"Diferencia caja",   v:abierta?"—":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)), col:"#7C3AED"},
                   ].map(k=>(
                     <div key={k.l} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",border:"1px solid var(--border)"}}>
                       <div style={{fontSize:9,color:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:.5,marginBottom:3}}>{k.l.toUpperCase()}</div>
@@ -1734,10 +1734,10 @@ function HistorialCajaTabla({ historial, onReload }) {
                 </div>
 
                 {/* Notas */}
-                {c.notas_apertura&&<div style={{marginBottom:6,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>ðŸ“ Apertura: <em>{c.notas_apertura}</em></div>}
-                {c.notas_cierre&&<div style={{marginBottom:14,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>ðŸ“ Cierre: <em>{c.notas_cierre}</em></div>}
+                {c.notas_apertura&&<div style={{marginBottom:6,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>📝 Apertura: <em>{c.notas_apertura}</em></div>}
+                {c.notas_cierre&&<div style={{marginBottom:14,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>📝 Cierre: <em>{c.notas_cierre}</em></div>}
 
-                {/* Pedidos del dÃ­a */}
+                {/* Pedidos del día */}
                 <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:10,fontFamily:"'Barlow Condensed',sans-serif"}}>
                   PEDIDOS DE LA CAJA {!loading&&`(${pedidos.length})`}
                 </div>
@@ -1745,7 +1745,7 @@ function HistorialCajaTabla({ historial, onReload }) {
                 {loading&&<div style={{textAlign:"center",padding:"16px 0",color:"var(--text4)",fontSize:13}}>Cargando pedidos...</div>}
 
                 {!loading&&pedidos.length===0&&(
-                  <div style={{textAlign:"center",padding:"16px 0",color:"var(--text4)",fontSize:12}}>No hay pedidos registrados este dÃ­a</div>
+                  <div style={{textAlign:"center",padding:"16px 0",color:"var(--text4)",fontSize:12}}>No hay pedidos registrados este día</div>
                 )}
 
                 {!loading&&pedidos.map((o,i)=>{
@@ -1760,45 +1760,45 @@ function HistorialCajaTabla({ historial, onReload }) {
                             <span style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{o.nombre}</span>
                             <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
                             <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.color+"15",padding:"1px 6px",borderRadius:20}}>{est.label}</span>
-                            {o.tipo==="delivery"&&<span style={{fontSize:10,color:"#D97706",background:"#FFFBEB",padding:"1px 6px",borderRadius:20,fontWeight:600}}>ðŸ›µ</span>}
+                            {o.tipo==="delivery"&&<span style={{fontSize:10,color:"#D97706",background:"#FFFBEB",padding:"1px 6px",borderRadius:20,fontWeight:600}}>🛵</span>}
                           </div>
                           <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
                             {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
-                            {" Â· "}{o.items?.reduce((s,c)=>s+c.qty,0)||0} items
-                            {o.pago&&<span style={{marginLeft:4}}>{o.pago==="efectivo"?"ðŸ’µ":o.pago==="transferencia"?"ðŸ“²":"ðŸ’³"} {o.pago}</span>}
+                            {" · "}{o.items?.reduce((s,c)=>s+c.qty,0)||0} items
+                            {o.pago&&<span style={{marginLeft:4}}>{o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"} {o.pago}</span>}
                           </div>
                         </div>
                         <div style={{textAlign:"right",flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
-                          <button className="btn" onClick={e=>{e.stopPropagation();printTicket(o);}} style={{padding:"4px 8px",borderRadius:8,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:11}}>ðŸ–¨ï¸</button>
+                          <button className="btn" onClick={e=>{e.stopPropagation();printTicket(o);}} style={{padding:"4px 8px",borderRadius:8,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:11}}>🖨️</button>
                           <div className="sh" style={{fontSize:14,color:o.status==="entregado"?"#16A34A":"var(--text3)"}}>{fmt(o.total)}</div>
-                          <span style={{fontSize:10,color:"var(--text4)"}}>{isExpO?"â–²":"â–¼"}</span>
+                          <span style={{fontSize:10,color:"var(--text4)"}}>{isExpO?"▲":"▼"}</span>
                         </div>
                       </div>
                       {isExpO&&(
                         <div className="fade-in" style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",marginBottom:8,border:"1px solid var(--border)"}}>
                           {o.items?.map(c=>(
                             <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
-                              <span style={{color:"var(--text2)"}}>{c.qty}Ã— {c.item.nombre}</span>
+                              <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
                               <span style={{color:"var(--text3)",fontWeight:600}}>{fmt(c.item.precio*c.qty)}</span>
                             </div>
                           ))}
                           {o.tipo==="delivery"&&o.calle&&(
                             <div style={{marginTop:8,fontSize:11,color:"#D97706",fontWeight:600}}>
-                              ðŸ›µ {o.calle} {o.numero}{o.entreCalle?` e/${o.entreCalle}`:""}{o.piso?`, ${o.piso}`:""}{o.barrio?` â€” ${o.barrio}`:""}
+                              🛵 {o.calle} {o.numero}{o.entreCalle?` e/${o.entreCalle}`:""}{o.piso?`, ${o.piso}`:""}{o.barrio?` — ${o.barrio}`:""}
                             </div>
                           )}
-                          {o.notas&&<div style={{marginTop:6,fontSize:11,color:"var(--text3)",fontStyle:"italic"}}>ðŸ’¬ {o.notas}</div>}
+                          {o.notas&&<div style={{marginTop:6,fontSize:11,color:"var(--text3)",fontStyle:"italic"}}>💬 {o.notas}</div>}
                         </div>
                       )}
                     </div>
                   );
                 })}
 
-                {/* Resumen pedidos del dÃ­a */}
+                {/* Resumen pedidos del día */}
                 {!loading&&pedidos.length>0&&(
                   <div style={{marginTop:10,padding:"10px 0 0",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                     <div style={{fontSize:11,color:"var(--text3)"}}>
-                      {pedidos.filter(o=>o.status==="entregado").length} entregados Â· {pedidos.filter(o=>o.tipo==="delivery").length} delivery Â· {pedidos.filter(o=>o.tipo==="retiro").length} retiro
+                      {pedidos.filter(o=>o.status==="entregado").length} entregados · {pedidos.filter(o=>o.tipo==="delivery").length} delivery · {pedidos.filter(o=>o.tipo==="retiro").length} retiro
                     </div>
                     <div className="sh" style={{fontSize:15,color:"var(--red)"}}>
                       {fmt(pedidos.filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0))}
@@ -1814,7 +1814,7 @@ function HistorialCajaTabla({ historial, onReload }) {
   );
 }
 
-/* â•â• MESAS VIEW â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â• */
+/* ══ MESAS VIEW ═══════════════════════════════════════════════ */
 function MesasView({ onNewOrder }) {
   const [mesas,       setMesas]       = useState([]);
   const [orders,      setOrders]      = useState([]);
@@ -1825,7 +1825,7 @@ function MesasView({ onNewOrder }) {
 
   const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
 
-  const SECTORES = ["SalÃ³n","Vereda","Barra"];
+  const SECTORES = ["Salón","Vereda","Barra"];
   const ESTADOS_COLOR = {
     libre:   {bg:"#F0FDF4", border:"#BBF7D0", text:"#16A34A", dot:"#16A34A"},
     ocupada: {bg:"#FFF7ED", border:"#FED7AA", text:"#EA580C", dot:"#EA580C"},
@@ -1861,7 +1861,7 @@ function MesasView({ onNewOrder }) {
   };
 
   const liberarMesa = async (mesaId) => {
-    if (!window.confirm("Â¿Cerrar la cuenta y liberar la mesa?")) return;
+    if (!window.confirm("¿Cerrar la cuenta y liberar la mesa?")) return;
     await supabase.from("orders").update({status:"entregado"})
       .eq("mesa_id", mesaId).in("status",["nuevo","preparando","listo"]);
     await supabase.from("mesas").update({estado:"libre", pedidos_ids:[]}).eq("id", mesaId);
@@ -1884,7 +1884,7 @@ function MesasView({ onNewOrder }) {
   const ESTADOS = {
     nuevo:     {label:"Nuevo",     color:"#CC1F1F", bg:"rgba(204,31,31,.1)"},
     preparando:{label:"Preparando",color:"#D97706", bg:"rgba(217,119,6,.1)"},
-    listo:     {label:"Listo âœ“",  color:"#16A34A", bg:"rgba(22,163,74,.1)"},
+    listo:     {label:"Listo ✓",  color:"#16A34A", bg:"rgba(22,163,74,.1)"},
   };
 
   if (loading) return <div style={{padding:40,textAlign:"center",color:"var(--text4)"}}>Cargando mesas...</div>;
@@ -1897,18 +1897,18 @@ function MesasView({ onNewOrder }) {
         <div style={{display:"flex",gap:8}}>
           <button className="btn" onClick={()=>{setUnirMode(!unirMode);setUnirTarget(null);}}
             style={{padding:"8px 14px",borderRadius:10,background:unirMode?"#FEF3C7":"var(--bg2)",border:`1px solid ${unirMode?"#FDE68A":"var(--border)"}`,color:unirMode?"#D97706":"var(--text3)",fontSize:13,fontWeight:600}}>
-            {unirMode?"âœ• Cancelar unir":"âŠ• Unir mesas"}
+            {unirMode?"✕ Cancelar unir":"⊕ Unir mesas"}
           </button>
           <button className="btn" onClick={load}
-            style={{padding:"8px 12px",borderRadius:10,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:13}}>â†»</button>
+            style={{padding:"8px 12px",borderRadius:10,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:13}}>↻</button>
         </div>
       </div>
 
       {unirMode && (
         <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#92400E"}}>
           {!unirTarget
-            ? "TocÃ¡ la mesa ORIGEN (la que va a absorber los pedidos)"
-            : `Mesa ${mesas.find(m=>m.id===unirTarget)?.nombre} seleccionada. Ahora tocÃ¡ la mesa que querÃ©s UNIR a ella.`}
+            ? "Tocá la mesa ORIGEN (la que va a absorber los pedidos)"
+            : `Mesa ${mesas.find(m=>m.id===unirTarget)?.nombre} seleccionada. Ahora tocá la mesa que querés UNIR a ella.`}
         </div>
       )}
 
@@ -2011,7 +2011,7 @@ function MesasView({ onNewOrder }) {
                       </div>
                       {o.items?.map(c=>(
                         <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0",borderBottom:"1px solid var(--border)"}}>
-                          <span style={{color:"var(--text2)"}}>{c.qty}Ã— {c.item.nombre}</span>
+                          <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
                           <span style={{color:"var(--text3)"}}>{fmt(c.item.precio*c.qty)}</span>
                         </div>
                       ))}
@@ -2030,11 +2030,11 @@ function MesasView({ onNewOrder }) {
                       notas: mesaOrders.map(o=>o.notas).filter(Boolean).join(" | "),
                     })}
                       style={{padding:"10px 16px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>
-                      ðŸ–¨ï¸ Ticket
+                      🖨️ Ticket
                     </button>
                     <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id)}
                       style={{padding:"10px 16px",borderRadius:12,background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                      âœ“ Cerrar cuenta
+                      ✓ Cerrar cuenta
                     </button>
                   </div>
                 </div>
@@ -2051,4 +2051,3 @@ function MesasView({ onNewOrder }) {
     </div>
   );
 }
-
