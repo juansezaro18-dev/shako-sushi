@@ -411,7 +411,13 @@ function CustomerView({ menu, cajaStatus }) {
     if (!canConfirm) return;
     setLoading(true);
     const {entreCalle, ...formRest} = form;
-    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaQR };
+    // Get current mesa session number if ordering from a mesa
+    let mesaSession = 1;
+    if (mesaQR) {
+      const {data:mesaData} = await supabase.from("mesas").select("session_num").eq("id",mesaQR).maybeSingle();
+      mesaSession = mesaData?.session_num || 1;
+    }
+    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
     // Esperar confirmación de Supabase antes de mostrar éxito
     const {error} = await supabase.from("orders").insert(order);
     if (error) {
@@ -1424,7 +1430,12 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
     setLoading(true);
     const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
     const {entreCalle:ec2, ...formRest2} = form;
-    const order = { id:genId(), ...formRest2, entrecalle:ec2||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"" };
+    let mesaSession2 = 1;
+    if (mesaId) {
+      const {data:md2} = await supabase.from("mesas").select("session_num").eq("id",mesaId).maybeSingle();
+      mesaSession2 = md2?.session_num || 1;
+    }
+    const order = { id:genId(), ...formRest2, entrecalle:ec2||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
     await supabase.from("orders").insert(order);
     // Mark mesa as ocupada
     if (mesaId) await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesaId);
@@ -1770,23 +1781,26 @@ function HistorialCajaTabla({ historial, onReload }) {
                 )}
 
                 {!loading&&(()=>{
-                  // Group by mesa_id
-                  const mesaPedidos = {};
+                  // Group by mesa_id + mesa_session
+                  const sessionMap = {};
                   const individuales = [];
                   pedidos.forEach(o=>{
-                    if (o.mesa_id) {
-                      if (!mesaPedidos[o.mesa_id]) mesaPedidos[o.mesa_id]=[];
-                      mesaPedidos[o.mesa_id].push(o);
-                    } else {
-                      individuales.push(o);
-                    }
+                    if (!o.mesa_id) { individuales.push(o); return; }
+                    const key = o.mesa_id+"-"+(o.mesa_session||1);
+                    if (!sessionMap[key]) sessionMap[key]={mesaId:o.mesa_id, sessionKey:key, session:o.mesa_session||1, orders:[]};
+                    sessionMap[key].orders.push(o);
                   });
+                  const mesaSessions = Object.values(sessionMap).sort((a,b)=>
+                    Number(b.orders[0]?.created_at||0)-Number(a.orders[0]?.created_at||0)
+                  );
 
-                  const PedidoRow = ({o, i, total}) => {
+                  const mesaNombre = (id) => "Mesa "+id.replace("mv","V").replace("m","");
+
+                  const PedidoRow = ({o}) => {
                     const est = ESTADOS[o.status]||ESTADOS.entregado;
                     const isExpO = expandedOrderId === o.id;
                     return(
-                      <div key={o.id} style={{borderBottom:"1px solid var(--border)"}}>
+                      <div style={{borderBottom:"1px solid var(--border)"}}>
                         <div style={{display:"flex",alignItems:"center",gap:10,padding:"8px 0",cursor:"pointer"}} onClick={()=>setExpandedOrderId(isExpO?null:o.id)}>
                           <div style={{width:6,height:6,borderRadius:"50%",background:est.color,flexShrink:0}}/>
                           <div style={{flex:1,minWidth:0}}>
@@ -1816,7 +1830,6 @@ function HistorialCajaTabla({ historial, onReload }) {
                                 <span style={{color:"var(--text3)",fontWeight:600}}>{fmt(c.item.precio*c.qty)}</span>
                               </div>
                             ))}
-                            {o.tipo==="delivery"&&o.calle&&<div style={{marginTop:7,fontSize:11,color:"#D97706",fontWeight:600}}>🛵 {o.calle} {o.numero}{o.entrecalle?` e/${o.entrecalle}`:""}{o.piso?`, ${o.piso}`:""}{o.barrio?` — ${o.barrio}`:""}</div>}
                             {o.notas&&<div style={{marginTop:5,fontSize:11,color:"var(--text3)",fontStyle:"italic"}}>💬 {o.notas}</div>}
                           </div>
                         )}
@@ -1825,45 +1838,47 @@ function HistorialCajaTabla({ historial, onReload }) {
                   };
 
                   return(<>
-                    {/* Pedidos agrupados por mesa */}
-                    {Object.entries(mesaPedidos).map(([mesaId, mOrders])=>{
-                      const isExpMesa = expandedOrderId === "mesa-"+mesaId;
-                      const totalMesa = mOrders.reduce((s,o)=>s+Number(o.total),0);
-                      const allEntregado = mOrders.every(o=>o.status==="entregado");
+                    {/* Sesiones de mesa */}
+                    {mesaSessions.map(session=>{
+                      const {mesaId, sessionKey, orders:mOrders} = session;
+                      const isExp = expandedOrderId === "s-"+sessionKey;
+                      const total = mOrders.reduce((s,o)=>s+Number(o.total),0);
+                      const allOk = mOrders.every(o=>o.status==="entregado");
+                      const hora = new Date(Number(mOrders[0].created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
                       return(
-                        <div key={mesaId} style={{background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:12,marginBottom:8,overflow:"hidden"}}>
-                          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}} onClick={()=>setExpandedOrderId(isExpMesa?null:"mesa-"+mesaId)}>
-                            <span style={{fontSize:16}}>🪑</span>
+                        <div key={sessionKey} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,marginBottom:8,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+                          <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}} onClick={()=>setExpandedOrderId(isExp?null:"s-"+sessionKey)}>
+                            <div style={{width:9,height:9,borderRadius:"50%",background:allOk?"#16A34A":"#EA580C",flexShrink:0}}/>
                             <div style={{flex:1}}>
-                              <div className="sh" style={{fontSize:14,color:"#2563EB"}}>Mesa {mesaId.replace("mv","V").replace("m","")}</div>
-                              <div style={{fontSize:11,color:"#60A5FA"}}>{mOrders.length} pedido{mOrders.length!==1?"s":""} · {mOrders.reduce((s,o)=>s+(o.items?.reduce((a,c)=>a+c.qty,0)||0),0)} items</div>
+                              <div className="sh" style={{fontSize:14,color:"var(--text)"}}>{mesaNombre(mesaId)}</div>
+                              <div style={{fontSize:11,color:"var(--text3)"}}>{hora} · {mOrders.length} pedido{mOrders.length!==1?"s":""} · {mOrders.reduce((s,o)=>s+(o.items?.reduce((a,c)=>a+c.qty,0)||0),0)} items</div>
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:8}}>
-                              <button className="btn" onClick={e=>{e.stopPropagation();printTicket({...mOrders[0],nombre:"Mesa "+mesaId.replace("mv","V").replace("m",""),items:mOrders.flatMap(o=>o.items||[]),total:totalMesa,notas:mOrders.map(o=>o.notas).filter(Boolean).join(" | ")});}} style={{padding:"3px 7px",borderRadius:7,background:"white",border:"1px solid #BFDBFE",color:"#2563EB",fontSize:10}}>🖨️</button>
-                              <div className="sh" style={{fontSize:14,color:allEntregado?"#16A34A":"#2563EB"}}>{fmt(totalMesa)}</div>
-                              <span style={{fontSize:10,color:"#93C5FD"}}>{isExpMesa?"▲":"▼"}</span>
+                              <button className="btn" onClick={e=>{e.stopPropagation();printTicket({...mOrders[0],nombre:mesaNombre(mesaId),items:mOrders.flatMap(o=>o.items||[]),total,notas:mOrders.map(o=>o.notas).filter(Boolean).join(" | ")});}} style={{padding:"3px 7px",borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:10}}>🖨️</button>
+                              <div className="sh" style={{fontSize:14,color:allOk?"#16A34A":"var(--text)"}}>{fmt(total)}</div>
+                              <span style={{fontSize:10,color:"var(--text4)"}}>{isExp?"▲":"▼"}</span>
                             </div>
                           </div>
-                          {isExpMesa&&(
-                            <div style={{padding:"0 12px 10px",borderTop:"1px solid #BFDBFE"}}>
-                              {mOrders.map((o,i)=><PedidoRow key={o.id} o={o} i={i}/>)}
+                          {isExp&&(
+                            <div style={{padding:"0 12px 10px",borderTop:"1px solid var(--border)"}}>
+                              {mOrders.map(o=><PedidoRow key={o.id} o={o}/>)}
                             </div>
                           )}
                         </div>
                       );
                     })}
 
-                    {/* Pedidos individuales (delivery/retiro) */}
-                    {individuales.length>0&&Object.keys(mesaPedidos).length>0&&(
+                    {/* Delivery / Retiro */}
+                    {individuales.length>0&&mesaSessions.length>0&&(
                       <div style={{fontSize:10,fontWeight:700,color:"var(--text4)",letterSpacing:1,margin:"10px 0 6px",fontFamily:"'Barlow Condensed',sans-serif"}}>DELIVERY / RETIRO</div>
                     )}
-                    {individuales.map((o,i)=><PedidoRow key={o.id} o={o} i={i}/>)}
+                    {individuales.map(o=><PedidoRow key={o.id} o={o}/>)}
 
                     {/* Resumen */}
                     {pedidos.length>0&&(
                       <div style={{marginTop:10,padding:"10px 0 0",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                         <div style={{fontSize:11,color:"var(--text3)"}}>
-                          {pedidos.filter(o=>o.status==="entregado").length} entregados · {pedidos.filter(o=>o.tipo==="delivery").length} delivery · {Object.keys(mesaPedidos).length} mesas
+                          {pedidos.filter(o=>o.status==="entregado").length} entregados · {individuales.filter(o=>o.tipo==="delivery").length} delivery · {mesaSessions.length} turno{mesaSessions.length!==1?"s":""} de mesa
                         </div>
                         <div className="sh" style={{fontSize:15,color:"var(--red)"}}>
                           {fmt(pedidos.filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0))}
@@ -1951,7 +1966,10 @@ function MesasView({ onNewOrder }) {
     }
     await supabase.from("orders").update({status:"entregado"})
       .eq("mesa_id", mesaId).in("status",["nuevo","preparando","listo"]);
-    await supabase.from("mesas").update({estado:"libre", pedidos_ids:[]}).eq("id", mesaId);
+    // Increment session number so next group gets a new session
+    const {data:mesaActual} = await supabase.from("mesas").select("session_num").eq("id",mesaId).maybeSingle();
+    const nextSession = (mesaActual?.session_num || 1) + 1;
+    await supabase.from("mesas").update({estado:"libre", pedidos_ids:[], session_num: nextSession}).eq("id", mesaId);
     load();
   };
 
