@@ -200,6 +200,22 @@ const GS = () => (
     .upload-btn{cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--border2);border-radius:10px;background:transparent;color:var(--text3);font-size:13px;padding:10px;width:100%;transition:all .2s;font-family:'Barlow',sans-serif;}
     .upload-btn:hover{border-color:var(--red);color:var(--red);}
     .sh{font-family:'Barlow Condensed',sans-serif;font-weight:800;}
+    @media print {
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { background:#fff !important; }
+      .no-print { display:none !important; }
+      .ticket-print {
+        display:block !important;
+        font-family: 'Courier New', monospace;
+        font-size: 11px;
+        width: 72mm;
+        max-width: 72mm;
+        color: #000;
+        background: #fff;
+      }
+      @page { margin: 2mm; size: 80mm auto; }
+    }
+    .ticket-print { display:none; }
   `}</style>
 );
 
@@ -680,6 +696,61 @@ function CustomerView({ menu, cajaStatus }) {
   );
 }
 
+const printTicket = (order) => {
+  const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
+  const fecha = new Date(Number(order.created_at)).toLocaleDateString("es-AR",{day:"numeric",month:"numeric",year:"numeric"});
+  const hora  = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+  const linea = "-".repeat(32);
+  const dir = [order.calle, order.numero, order.entreCalle?"e/"+order.entreCalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
+
+  const itemsHtml = (order.items||[]).map(c =>
+    `<div style="display:flex;justify-content:space-between;margin:2px 0">
+      <span>${c.qty},00 ${c.item.nombre.toUpperCase().substring(0,22)}</span>
+      <span>${fmt(c.item.precio*c.qty)}</span>
+    </div>`
+  ).join("");
+
+  const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Courier New',monospace; font-size:11px; width:72mm; color:#000; padding:4mm 2mm; }
+    .center { text-align:center; }
+    .bold { font-weight:bold; }
+    .line { border-top:1px dashed #000; margin:4px 0; }
+    .row { display:flex; justify-content:space-between; }
+    .total { font-size:14px; font-weight:bold; }
+    @page { margin:2mm; size:80mm auto; }
+  </style></head><body>
+  <div class="center bold" style="font-size:13px">SHAKO SUSHI</div>
+  <div class="center" style="font-size:9px">Hudson Plaza Comercial, Berazategui</div>
+  <div class="center" style="font-size:9px">&lt;&lt; Aceptacion de Consumo &gt;&gt;</div>
+  <div class="center" style="font-size:9px">&lt;&lt;&lt; No valido como comp. fiscal &gt;&gt;&gt;</div>
+  <div class="line"></div>
+  <div>Fecha: ${fecha} - ${hora}</div>
+  <div>Pedido Nro: ${order.id.slice(-5).toUpperCase()}</div>
+  <div class="line"></div>
+  <div>Cliente: ${(order.nombre||"").toUpperCase()}</div>
+  ${dir ? `<div>Direccion: ${dir.toUpperCase()}</div>` : ""}
+  ${order.telefono ? `<div>TE: ${order.telefono}</div>` : ""}
+  ${order.pago ? `<div>Pago: ${order.pago.toUpperCase()}</div>` : ""}
+  ${order.notas ? `<div>Nota: ${order.notas}</div>` : ""}
+  <div class="line"></div>
+  <div class="row"><span>Cant. Descripcion</span><span>Importe</span></div>
+  <div class="line"></div>
+  ${itemsHtml}
+  <div class="line"></div>
+  <div class="row total"><span>TOTAL:</span><span>${fmt(order.total)}</span></div>
+  <div class="line"></div>
+  <br/><br/><br/>
+  </body></html>`;
+
+  const win = window.open("","_blank","width=400,height=600");
+  win.document.write(html);
+  win.document.close();
+  win.focus();
+  setTimeout(()=>{ win.print(); win.close(); }, 400);
+};
+
 function AdminView({ onExit, menu, saveMenu }) {
   const [orders,     setOrders]     = useState([]);
   const [filter,     setFilter]     = useState("activos");
@@ -748,6 +819,8 @@ function AdminView({ onExit, menu, saveMenu }) {
   const updateStatus = async (order, ns) => {
     setOrders(p => p.map(o => o.id===order.id ? {...o,status:ns} : o));
     await supabase.from("orders").update({status:ns}).eq("id", order.id);
+    // Imprimir ticket automáticamente cuando el pedido está listo
+    if (ns === "listo") printTicket({...order, status:"listo"});
   };
   const updatePago = async (order, pago) => {
     setOrders(p => p.map(o => o.id===order.id ? {...o,pago} : o));
@@ -818,7 +891,9 @@ function AdminView({ onExit, menu, saveMenu }) {
             style={{flex:1,minWidth:48,padding:"12px 4px",textAlign:"center",borderBottom:filter===f.key?"3px solid var(--red)":"3px solid transparent",background:"transparent",transition:"all .2s",flexShrink:0}}>
             {f.val!==null
               ?<div className="sh" style={{fontSize:20,color:filter===f.key?"var(--red)":f.val>0?f.color:"var(--text4)"}}>{f.val}</div>
-              :<div style={{fontSize:13,color:filter===f.key?"var(--red)":"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{f.label}</div>}
+              :<div style={{fontSize:18,color:filter===f.key?"var(--red)":"var(--text4)"}}>
+                {f.key==="facturacion"?"💰":f.key==="editor"?"✏️":"➕"}
+              </div>}
             <div style={{fontSize:10,color:filter===f.key?"var(--red)":"var(--text4)",marginTop:1,whiteSpace:"nowrap",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{f.label}</div>
           </button>
         ))}
@@ -1055,6 +1130,7 @@ function AdminView({ onExit, menu, saveMenu }) {
                     </div>
                     <div style={{display:"flex",gap:8,marginTop:6}}>
                       {est.next&&<button className="btn" onClick={()=>updateStatus(order,est.next)} style={{flex:1,padding:"12px 0",borderRadius:12,background:est.bg,border:`1px solid ${est.ring}`,color:est.color,fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{est.nextLabel} →</button>}
+                      <button className="btn" onClick={()=>printTicket(order)} style={{padding:"12px 14px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>🖨️ Ticket</button>
                       {order.status==="entregado"&&<button className="btn" onClick={()=>deleteOrder(order.id)} style={{padding:"12px 16px",borderRadius:12,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:600}}>Eliminar</button>}
                     </div>
                   </div>
@@ -1669,6 +1745,7 @@ function HistorialCajaTabla({ historial, onReload }) {
                           </div>
                         </div>
                         <div style={{textAlign:"right",flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
+                          <button className="btn" onClick={e=>{e.stopPropagation();printTicket(o);}} style={{padding:"4px 8px",borderRadius:8,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:11}}>🖨️</button>
                           <div className="sh" style={{fontSize:14,color:o.status==="entregado"?"#16A34A":"var(--text3)"}}>{fmt(o.total)}</div>
                           <span style={{fontSize:10,color:"var(--text4)"}}>{isExpO?"▲":"▼"}</span>
                         </div>
