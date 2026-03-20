@@ -779,6 +779,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   const [expandedId, setExpandedId] = useState(null);
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [nuevoPedidoMesaId, setNuevoPedidoMesaId] = useState(null);
+  const [mesasData, setMesasData] = useState([]);
 
   const [caja,         setCaja]         = useState(null);
   const [cajaLoading,  setCajaLoading]  = useState(false);
@@ -818,7 +819,12 @@ function AdminView({ onExit, menu, saveMenu }) {
     const now2 = new Date(); const hora = now2.getHours().toString().padStart(2,"0")+":"+now2.getMinutes().toString().padStart(2,"0");
     const hoy = new Date().toISOString().split("T")[0];
     const ordersHoyLocal = orders.filter(o=>Number(o.created_at)>=new Date(hoy).setHours(0,0,0,0));
-    const totalVentas = ordersHoyLocal.filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0);
+    // Get current mesas session data
+    const {data:mesasNow} = await supabase.from("mesas").select("id,session_num");
+    const mesasMap = {};
+    (mesasNow||[]).forEach(m=>mesasMap[m.id]=m.session_num||1);
+    // Only count mesa orders whose session is closed
+    const totalVentas = ordersHoyLocal.filter(o=>o.status==="entregado"&&(!o.mesa_id||(mesasMap[o.mesa_id]||1)>(o.mesa_session||1))).reduce((s,o)=>s+Number(o.total),0);
     const {data} = await supabase.from("caja").update({estado:"cerrada", hora_cierre:hora, monto_cierre:Number(monto), notas_cierre:notas, total_ventas:totalVentas}).eq("id",caja.id).select().single();
     setCaja(data);
     setCajaLoading(false);
@@ -833,6 +839,7 @@ function AdminView({ onExit, menu, saveMenu }) {
     loadOrders();
     loadCaja();
     loadHistorialCaja();
+    supabase.from("mesas").select("id,session_num,estado").then(({data})=>setMesasData(data||[]));
     // Polling cada 5 segundos como fallback
     const iv = setInterval(loadOrders, 5000);
     // Realtime
@@ -860,8 +867,12 @@ function AdminView({ onExit, menu, saveMenu }) {
   const ordersHoy = orders.filter(o => Number(o.created_at) >= hoyTs);
   const entH   = ordersHoy.filter(o => o.status === "entregado" && !o.mesa_id);
   // For mesa orders: count once per session (deduplicated by mesa+session key)
+  // Only count mesa orders whose session is closed (mesa.session_num > order.mesa_session)
   const mesaSessions = {};
   ordersHoy.filter(o=>o.status==="entregado"&&o.mesa_id).forEach(o=>{
+    const mesa = mesasData.find(m=>m.id===o.mesa_id);
+    const sessionClosed = mesa ? (mesa.session_num||1) > (o.mesa_session||1) : true;
+    if (!sessionClosed) return; // skip open sessions
     const key = o.mesa_id+"-"+(o.mesa_session||1);
     if (!mesaSessions[key]) mesaSessions[key]={total:0,pago:o.pago,tipo:"mesa"};
     mesaSessions[key].total += Number(o.total);
@@ -877,6 +888,19 @@ function AdminView({ onExit, menu, saveMenu }) {
   const totRet = entH.filter(o=>o.tipo==="retiro").reduce((s,o)=>s+Number(o.total),0);
   const totMesa = mesaSessionList.reduce((s,m)=>s+m.total,0);
   const proyect = ordersHoy.filter(o=>!o.mesa_id).reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.reduce((s,m)=>s+m.total,0);
+  // Open mesa sessions (still active) - not counted in stats
+  const openMesaTotals = (() => {
+    const open = {};
+    ordersHoy.filter(o=>o.mesa_id).forEach(o=>{
+      const mesa = mesasData.find(m=>m.id===o.mesa_id);
+      const sessionClosed = mesa ? (mesa.session_num||1) > (o.mesa_session||1) : true;
+      if (sessionClosed) return;
+      const key = o.mesa_id+"-"+(o.mesa_session||1);
+      if (!open[key]) open[key]={total:0};
+      open[key].total += Number(o.total);
+    });
+    return Object.values(open);
+  })();
   const prodMap = {};
   entH.forEach(o => o.items?.forEach(c => {
     if (!prodMap[c.item.nombre]) prodMap[c.item.nombre]={nombre:c.item.nombre,qty:0,total:0};
