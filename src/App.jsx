@@ -126,37 +126,34 @@ const fmt     = (n) => `$${Number(n).toLocaleString("es-AR")}`;
 const genId   = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const timeAgo = (ts) => { const d=Math.floor((Date.now()-Number(ts))/1000); return d<60?`${d}s`:d<3600?`${Math.floor(d/60)}min`:`${Math.floor(d/3600)}h`; };
 
-// Parse Argentine address into parts
+// Parse Argentine address into parts (handles La Plata/GBA formats)
 const parseDireccion = (dir) => {
   if (!dir) return {calle:"", nro:"", entreCalle:"", barrio:""};
-  dir = dir.trim().replace(/^[!%#]/, ""); // remove leading garbage chars
-  // Detect intersection markers → put everything in entreCalle
-  const interMatch = dir.match(/^(.*?)\s+(E\/|ESQ\.?|ENTRE)\s+(.+)$/i);
-  if (interMatch) {
-    // "CALLE 39 E/ 150 Y 150 A" → calle=CALLE 39, entreCalle=150 Y 150 A
-    const calleBase = interMatch[1].trim();
-    const entreResto = interMatch[3].trim();
-    // Extract number from calleBase if any
-    const numInBase = calleBase.match(/(\d{3,5})/);
-    const nroBase = numInBase ? numInBase[1] : "";
-    const calleClean = nroBase ? calleBase.replace(nroBase,"").trim() : calleBase;
-    return {calle: calleBase, nro: "", entreCalle: entreResto, barrio: ""};
+  dir = dir.trim().replace(/^[!%#@$,./]+/, "").trim();
+  // CASE 1: Barrio privado / fincas / lotes — put everything in calle
+  if (/\b(FINCA|ALTOS|LOTE|MZN|MZAN|MANZANA|MNA|UF|TORRE\d|RESERVA|CARMENCITO|VILLALOBOS|GREEN)\b/i.test(dir)) {
+    return {calle:dir, nro:"", entreCalle:"", barrio:""};
   }
-  // Pattern 1: explicit NRO/N/N° keyword — "CALLE 159 N 4956"
-  const m1 = dir.match(/N(?:RO|°|º|\.?)\s*(\d{3,5})/i);
-  if (m1) {
-    const idx = dir.search(/N(?:RO|°|º|\.?)\s*\d/i);
-    const resto = dir.substring(idx + m1[0].length).trim();
-    return {calle: dir.substring(0,idx).trim(), nro: m1[1], entreCalle: "", barrio: resto};
-  }
-  // Pattern 2: La Plata style — starts with short num then house num "471 1470 City Bell"
-  const m2 = dir.match(/^(\d{1,4})\s+(\d{3,5})\s*(.*)$/);
-  if (m2) return {calle: m2[1].trim(), nro: m2[2], entreCalle: "", barrio: m2[3].trim()};
-  // Pattern 3: "TEXT 1234 barrio" — "Av. San Martín 1234 City Bell"
-  const m3 = dir.match(/^(.*\D)\s+(\d{3,5})\s*(.*)$/);
-  if (m3) return {calle: m3[1].trim(), nro: m3[2], entreCalle: "", barrio: m3[3].trim()};
-  return {calle: dir, nro: "", entreCalle: "", barrio: ""};
+  // CASE 2: "X N NRO E/ A Y B  BARRIO" — most common La Plata format
+  let m = dir.match(/^(.*?)\s+N(?:RO|°|º|\.?)?\s*(\d{3,5})\s+(?:E[/ ]|ENTRE)\s*(.+?)\s{2,}([\w][\w\s]*)$/i);
+  if (m) return {calle:m[1].trim(), nro:m[2], entreCalle:m[3].trim(), barrio:m[4].trim()};
+  // CASE 2b: "X N NRO E/ A Y B" without barrio
+  m = dir.match(/^(.*?)\s+N(?:RO|°|º|\.?)?\s*(\d{3,5})\s+(?:E[/ ]|ENTRE)\s*(.+)$/i);
+  if (m) return {calle:m[1].trim(), nro:m[2], entreCalle:m[3].trim(), barrio:""};
+  // CASE 3: "X N NRO BARRIO" — no entre calles
+  m = dir.match(/^(.*?)\s+N(?:RO|°|º|\.?)?\s*(\d{3,5})\s*(.*)$/i);
+  if (m) return {calle:m[1].trim(), nro:m[2], entreCalle:"", barrio:m[3].trim()};
+  // CASE 4: "NUM1 NUM2 BARRIO" — La Plata short "471 1470 City Bell"
+  m = dir.match(/^(\d{1,4})\s+(\d{3,5})\s*(.*)$/);
+  if (m) return {calle:m[1], nro:m[2], entreCalle:"", barrio:m[3].trim()};
+  // CASE 5: "X E/ A Y B" — intersection, no house number
+  m = dir.match(/^(.*?)\s+(?:E[/ ]|ENTRE|ESQ\.?)\s*(.+)$/i);
+  if (m) return {calle:m[1].trim(), nro:"", entreCalle:m[2].trim(), barrio:""};
+  // CASE 6: anything else — all in calle
+  return {calle:dir, nro:"", entreCalle:"", barrio:""};
 };
+
+
 
 
 
