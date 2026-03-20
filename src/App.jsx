@@ -268,7 +268,9 @@ function CustomerView({ menu }) {
   const [search,     setSearch]     = useState("");
   const [cart,       setCart]       = useState([]);
   const [step,       setStep]       = useState("menu");
-  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",piso:"",barrio:"",pago:"efectivo"});
+  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",piso:"",barrio:"",pago:"efectivo",dni:""});
+  const [dniLooking, setDniLooking] = useState(false);
+  const [dniFound,   setDniFound]   = useState(false);
   const [loading,    setLoading]    = useState(false);
   const [orderId,    setOrderId]    = useState(null);
   const [orderTotal, setOrderTotal] = useState(0);
@@ -299,6 +301,39 @@ function CustomerView({ menu }) {
   const count      = cart.reduce((s,c) => s+c.qty, 0);
   const canConfirm = form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&form.numero.trim()));
 
+  const lookupDni = async (val) => {
+    setForm(p=>({...p,dni:val}));
+    if (val.length < 6) { setDniFound(false); return; }
+    setDniLooking(true);
+    const {data} = await supabase.from("customers")
+      .select("*").or(`dni.eq.${val},telefono.eq.${val}`).limit(1);
+    setDniLooking(false);
+    if (data && data.length > 0) {
+      const c = data[0];
+      setDniFound(true);
+      setForm(p=>({...p,
+        nombre:    p.nombre || c.nombre || "",
+        telefono:  p.telefono || c.telefono || "",
+        calle:     p.calle || c.direccion?.split(" ")[0] || "",
+        barrio:    p.barrio || "",
+      }));
+    } else {
+      setDniFound(false);
+    }
+  };
+
+  const saveCustomer = async (order) => {
+    if (!order.dni && !order.telefono) return;
+    const {data} = await supabase.from("customers")
+      .select("id").or(`dni.eq.${order.dni||"0"},telefono.eq.${order.telefono||"0"}`).limit(1);
+    if (!data || data.length === 0) {
+      supabase.from("customers").insert({
+        nombre: order.nombre, dni: order.dni||"", telefono: order.telefono||"",
+        direccion: [order.calle, order.numero, order.barrio].filter(Boolean).join(" ")
+      }).then(()=>{});
+    }
+  };
+
   const placeOrder = async () => {
     if (!canConfirm) return;
     setLoading(true);
@@ -309,6 +344,7 @@ function CustomerView({ menu }) {
     setCart([]);
     setStep("confirm");
     setLoading(false);
+    saveCustomer(order);
     // Guardar en Supabase en segundo plano
     supabase.from("orders").insert(order).then(({error}) => {
       if (error) console.error("Error guardando pedido:", error);
@@ -369,6 +405,17 @@ function CustomerView({ menu }) {
         </Card>
         <Card>
           <Label>TUS DATOS</Label>
+          {/* DNI / Teléfono para autocompletar */}
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DNI O TELÉFONO</div>
+            <div style={{position:"relative"}}>
+              <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Ingresá tu DNI o teléfono"
+                style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:14,transition:"border .2s"}}/>
+              {dniLooking&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--text4)"}}>🔍</span>}
+              {dniFound&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>✓</span>}
+            </div>
+            {dniFound&&<div style={{fontSize:11,color:"#16A34A",marginTop:5,fontWeight:600}}>✓ Cliente encontrado — datos completados automáticamente</div>}
+          </div>
           {[{k:"nombre",l:"Nombre *",p:"¿Cómo te llamás?"},{k:"telefono",l:"Teléfono",p:"(opcional)"}].map(f=>(
             <div key={f.k} style={{marginBottom:12}}>
               <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{f.l}</div>
@@ -569,6 +616,37 @@ function AdminView({ onExit, menu, saveMenu }) {
   const [orders,     setOrders]     = useState([]);
   const [filter,     setFilter]     = useState("activos");
   const [expandedId, setExpandedId] = useState(null);
+  const [showNewOrder, setShowNewOrder] = useState(false);
+
+  const [caja,     setCaja]     = useState(null);
+  const [cajaLoading,setCajaLoading]=useState(false);
+
+  const loadCaja = useCallback(async () => {
+    const hoy = new Date().toISOString().split("T")[0];
+    const {data} = await supabase.from("caja").select("*").eq("fecha", hoy).maybeSingle();
+    setCaja(data || null);
+  }, []);
+
+  const abrirCaja = async (monto, notas) => {
+    setCajaLoading(true);
+    const hoy = new Date().toISOString().split("T")[0];
+    const hora = new Date().toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+    const {data} = await supabase.from("caja").upsert({fecha:hoy, estado:"abierta", hora_apertura:hora, monto_apertura:Number(monto), notas_apertura:notas}).select().single();
+    setCaja(data);
+    setCajaLoading(false);
+  };
+
+  const cerrarCaja = async (monto, notas) => {
+    if (!caja) return;
+    setCajaLoading(true);
+    const hora = new Date().toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+    const hoy = new Date().toISOString().split("T")[0];
+    const ordersHoyLocal = orders.filter(o=>Number(o.created_at)>=new Date(hoy).setHours(0,0,0,0));
+    const totalVentas = ordersHoyLocal.filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0);
+    const {data} = await supabase.from("caja").update({estado:"cerrada", hora_cierre:hora, monto_cierre:Number(monto), notas_cierre:notas, total_ventas:totalVentas}).eq("id",caja.id).select().single();
+    setCaja(data);
+    setCajaLoading(false);
+  };
 
   const loadOrders = useCallback(async () => {
     const { data, error } = await supabase.from("orders").select("*").order("created_at", {ascending:false});
@@ -577,6 +655,7 @@ function AdminView({ onExit, menu, saveMenu }) {
 
   useEffect(() => {
     loadOrders();
+    loadCaja();
     // Polling cada 5 segundos como fallback
     const iv = setInterval(loadOrders, 5000);
     // Realtime
@@ -629,6 +708,7 @@ function AdminView({ onExit, menu, saveMenu }) {
     {key:"entregados",  label:"Historial", val:counts.entregado,   color:"var(--text3)"},
     {key:"facturacion", label:"💰 Caja",   val:null,               color:"#D97706"},
     {key:"editor",      label:"✏️ Menú",   val:null,               color:"#7C3AED"},
+    {key:"nuevo_pedido", label:"➕ Pedido",  val:null,               color:"#16A34A"},
   ];
 
   return (
@@ -654,7 +734,7 @@ function AdminView({ onExit, menu, saveMenu }) {
             style={{flex:1,minWidth:48,padding:"12px 4px",textAlign:"center",borderBottom:filter===f.key?"3px solid var(--red)":"3px solid transparent",background:"transparent",transition:"all .2s",flexShrink:0}}>
             {f.val!==null
               ?<div className="sh" style={{fontSize:20,color:filter===f.key?"var(--red)":f.val>0?f.color:"var(--text4)"}}>{f.val}</div>
-              :<div style={{fontSize:16,color:filter===f.key?"var(--red)":"var(--text4)"}}>{f.key==="facturacion"?"💰":"✏️"}</div>}
+              :<div style={{fontSize:16,color:filter===f.key?"var(--red)":"var(--text4)"}}>{f.key==="facturacion"?"💰":f.key==="editor"?"✏️":"➕"}</div>}
             <div style={{fontSize:10,color:filter===f.key?"var(--red)":"var(--text4)",marginTop:1,whiteSpace:"nowrap",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{f.label}</div>
           </button>
         ))}
@@ -664,6 +744,9 @@ function AdminView({ onExit, menu, saveMenu }) {
 
       {filter==="facturacion" && (
         <div className="fade-in" style={{padding:14,paddingBottom:40}}>
+          {/* ── ESTADO DE CAJA ── */}
+          <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja}/>
+
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
             <div>
               <div className="sh" style={{fontSize:24,color:"var(--text)"}}>FACTURACIÓN DEL DÍA</div>
@@ -778,6 +861,8 @@ function AdminView({ onExit, menu, saveMenu }) {
           </Card>
         </div>
       )}
+
+      {filter==="nuevo_pedido"&&<NuevoPedidoAdmin menu={menu} onClose={()=>setFilter("activos")} onOrderPlaced={loadOrders}/>}
 
       {!["editor","facturacion"].includes(filter)&&(
         <div style={{padding:"12px 12px 40px"}}>
@@ -988,6 +1073,237 @@ function MenuEditor({ menu, saveMenu }) {
       <button className="btn" onClick={addCat}
         style={{width:"100%",padding:"13px 0",borderRadius:14,background:"transparent",border:"1.5px dashed var(--border2)",color:"var(--text3)",fontSize:14,fontWeight:700,marginTop:4,fontFamily:"'Barlow Condensed',sans-serif"}}>
         + AGREGAR CATEGORÍA
+      </button>
+    </div>
+  );
+}
+
+/* ══ CAJA WIDGET ══════════════════════════════════════════════ */
+function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
+  const [showForm, setShowForm] = useState(false);
+  const [monto,    setMonto]    = useState("");
+  const [notas,    setNotas]    = useState("");
+  const abierta = caja?.estado === "abierta";
+
+  const handleSubmit = async () => {
+    if (abierta) await onCerrar(monto, notas);
+    else         await onAbrir(monto, notas);
+    setShowForm(false); setMonto(""); setNotas("");
+  };
+
+  return (
+    <div style={{marginBottom:16}}>
+      {/* Estado actual */}
+      <div style={{background:abierta?"#F0FDF4":"#FFF1F2",border:`1px solid ${abierta?"#BBF7D0":"#FECDD3"}`,borderRadius:16,padding:"16px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+        <div style={{display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:12,height:12,borderRadius:"50%",background:abierta?"#16A34A":"#DC2626",boxShadow:`0 0 8px ${abierta?"#16A34A":"#DC2626"}`}}/>
+          <div>
+            <div className="sh" style={{fontSize:18,color:abierta?"#16A34A":"#DC2626"}}>{caja?`CAJA ${abierta?"ABIERTA":"CERRADA"}`:"SIN CAJA HOY"}</div>
+            {caja&&<div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
+              {abierta?`Apertura: ${caja.hora_apertura}`:`Cierre: ${caja.hora_cierre}`}
+              {caja.monto_apertura>0&&` · Efectivo inicial: $${Number(caja.monto_apertura).toLocaleString("es-AR")}`}
+            </div>}
+          </div>
+        </div>
+        <button className="btn" onClick={()=>setShowForm(!showForm)}
+          style={{padding:"9px 18px",borderRadius:12,background:abierta?"rgba(220,38,38,.1)":"rgba(22,163,74,.1)",border:`1px solid ${abierta?"#DC2626":"#16A34A"}`,color:abierta?"#DC2626":"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+          {abierta?"CERRAR CAJA":"ABRIR CAJA"}
+        </button>
+      </div>
+
+      {/* Formulario apertura/cierre */}
+      {showForm&&(
+        <div className="slide-up" style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:16,marginTop:8}}>
+          <div className="sh" style={{fontSize:16,color:"var(--text)",marginBottom:14}}>{abierta?"CERRAR CAJA":"ABRIR CAJA"}</div>
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>
+              {abierta?"EFECTIVO EN CAJA AL CIERRE ($)":"EFECTIVO INICIAL EN CAJA ($)"}
+            </div>
+            <input type="number" min="0" value={monto} onChange={e=>setMonto(e.target.value)} placeholder="0"
+              style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:18,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+          </div>
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>NOTAS (opcional)</div>
+            <textarea value={notas} onChange={e=>setNotas(e.target.value)} rows={2} placeholder="Observaciones del día..."
+              style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,resize:"none",lineHeight:1.5}}/>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <button className="btn" onClick={()=>{setShowForm(false);setMonto("");setNotas("");}}
+              style={{flex:1,padding:"11px 0",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:12,color:"var(--text3)",fontSize:14,fontWeight:600}}>Cancelar</button>
+            <button className="btn" onClick={handleSubmit} disabled={cajaLoading}
+              style={{flex:2,padding:"11px 0",background:abierta?"#DC2626":"#16A34A",borderRadius:12,color:"#fff",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+              {cajaLoading?"...":(abierta?"CONFIRMAR CIERRE":"CONFIRMAR APERTURA")}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══ NUEVO PEDIDO DESDE ADMIN ═════════════════════════════════ */
+function NuevoPedidoAdmin({ menu, onClose, onOrderPlaced }) {
+  const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
+  const [cart,     setCart]     = useState([]);
+  const [form,     setForm]     = useState({nombre:"",telefono:"",tipo:"retiro",calle:"",numero:"",piso:"",barrio:"",pago:"efectivo",notas:"",dni:""});
+  const [loading,  setLoading]  = useState(false);
+  const [dniFound, setDniFound] = useState(false);
+  const [search,   setSearch]   = useState("");
+
+  const add    = (item) => setCart(p => { const ex=p.find(c=>c.item.id===item.id); return ex?p.map(c=>c.item.id===item.id?{...c,qty:c.qty+1}:c):[...p,{item,qty:1}]; });
+  const setQty = (id,q) => setCart(p => q<=0?p.filter(c=>c.item.id!==id):p.map(c=>c.item.id===id?{...c,qty:q}:c));
+  const getQty = (id)   => cart.find(c=>c.item.id===id)?.qty||0;
+  const total  = cart.reduce((s,c)=>s+c.item.precio*c.qty,0);
+  const fmt    = (n) => `$${Number(n).toLocaleString("es-AR")}`;
+
+  const menuFiltered = search.trim()
+    ? menuVis.map(c=>({...c,items:c.items.filter(i=>i.nombre.toLowerCase().includes(search.toLowerCase()))})).filter(c=>c.items.length>0)
+    : menuVis;
+
+  const lookupDni = async (val) => {
+    setForm(p=>({...p,dni:val}));
+    if (val.length < 6) { setDniFound(false); return; }
+    const {data} = await supabase.from("customers").select("*").or(`dni.eq.${val},telefono.eq.${val}`).limit(1);
+    if (data && data.length > 0) {
+      const c = data[0];
+      setDniFound(true);
+      setForm(p=>({...p, nombre:p.nombre||c.nombre||"", telefono:p.telefono||c.telefono||"", calle:p.calle||c.direccion||""}));
+    } else { setDniFound(false); }
+  };
+
+  const placeOrder = async () => {
+    if (!cart.length || !form.nombre.trim()) return;
+    setLoading(true);
+    const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+    const order = { id:genId(), ...form, items:cart, total, status:"nuevo", created_at:Date.now() };
+    await supabase.from("orders").insert(order);
+    onOrderPlaced();
+    onClose();
+    setLoading(false);
+  };
+
+  const PAGOS=[{v:"efectivo",l:"💵 Efectivo"},{v:"transferencia",l:"📲 Transferencia"},{v:"tarjeta",l:"💳 Tarjeta"}];
+
+  return (
+    <div className="fade-in" style={{padding:14,paddingBottom:40}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div className="sh" style={{fontSize:22,color:"var(--text)"}}>NUEVO PEDIDO</div>
+        <button className="btn" onClick={onClose} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"7px 16px",color:"var(--text3)",fontSize:13,fontWeight:600}}>← Volver</button>
+      </div>
+
+      {/* Buscador de productos */}
+      <div style={{marginBottom:14,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"8px 12px",marginBottom:10}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar producto..." style={{flex:1,fontSize:13,background:"transparent",border:"none",outline:"none"}}/>
+        </div>
+        <div style={{maxHeight:280,overflowY:"auto"}}>
+          {menuFiltered.map(cat=>(
+            <div key={cat.id}>
+              <div className="sh" style={{fontSize:12,color:"var(--text4)",padding:"6px 4px 4px",letterSpacing:1}}>{cat.nombre}</div>
+              {cat.items.map(item=>{
+                const qty=getQty(item.id);
+                return(
+                  <div key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 4px",borderBottom:"1px solid var(--border)"}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{item.nombre}</div>
+                      <div style={{fontSize:12,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{fmt(item.precio)}</div>
+                    </div>
+                    {qty===0
+                      ?<button className="btn" onClick={()=>add(item)} style={{width:32,height:32,borderRadius:8,background:"var(--red-light)",border:"1px solid var(--red-border)",color:"var(--red)",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                      :<div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:28,height:28,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                        <span style={{fontSize:14,fontWeight:800,minWidth:18,textAlign:"center",color:"var(--red)"}}>{qty}</span>
+                        <button className="btn" onClick={()=>add(item)} style={{width:28,height:28,borderRadius:7,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                      </div>}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Resumen carrito */}
+      {cart.length>0&&(
+        <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:14,padding:14,marginBottom:14}}>
+          <div className="sh" style={{fontSize:13,color:"#16A34A",marginBottom:8}}>PRODUCTOS SELECCIONADOS</div>
+          {cart.map(c=>(
+            <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid #BBF7D0"}}>
+              <span>{c.qty}× {c.item.nombre}</span>
+              <span style={{fontWeight:700}}>{fmt(c.item.precio*c.qty)}</span>
+            </div>
+          ))}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0 0",fontWeight:800,fontSize:16,fontFamily:"'Barlow Condensed',sans-serif"}}>
+            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(total)}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Datos del cliente */}
+      <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:14,marginBottom:14}}>
+        <div className="sh" style={{fontSize:13,color:"var(--red)",marginBottom:12,letterSpacing:1}}>DATOS DEL CLIENTE</div>
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>DNI O TELÉFONO</div>
+          <div style={{position:"relative"}}>
+            <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Para autocompletar datos"
+              style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:13}}/>
+            {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"#16A34A",fontSize:14}}>✓</span>}
+          </div>
+        </div>
+        {[{k:"nombre",l:"Nombre *",p:"Nombre del cliente"},{k:"telefono",l:"Teléfono",p:"(opcional)"}].map(f=>(
+          <div key={f.k} style={{marginBottom:10}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{f.l}</div>
+            <input value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p}
+              style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
+          </div>
+        ))}
+        <div style={{display:"flex",gap:8,marginBottom:10}}>
+          {[{v:"retiro",l:"🏃 Retiro"},{v:"delivery",l:"🛵 Delivery"}].map(t=>(
+            <button key={t.v} className="btn" onClick={()=>setForm(p=>({...p,tipo:t.v}))}
+              style={{flex:1,padding:"10px 0",borderRadius:10,fontSize:13,fontWeight:700,background:form.tipo===t.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.tipo===t.v?"var(--red)":"var(--border)"}`,color:form.tipo===t.v?"var(--red)":"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif"}}>{t.l}</button>
+          ))}
+        </div>
+        {form.tipo==="delivery"&&(
+          <div>
+            <div style={{display:"flex",gap:8,marginBottom:8}}>
+              <div style={{flex:2}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Calle</div>
+                <input value={form.calle} onChange={e=>setForm(p=>({...p,calle:e.target.value}))} placeholder="Calle"
+                  style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
+              </div>
+              <div style={{flex:1}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Número</div>
+                <input value={form.numero} onChange={e=>setForm(p=>({...p,numero:e.target.value}))} placeholder="Nro"
+                  style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
+              </div>
+            </div>
+            <div>
+              <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Barrio / Localidad</div>
+              <input value={form.barrio} onChange={e=>setForm(p=>({...p,barrio:e.target.value}))} placeholder="Ej: Hudson, Berazategui..."
+                style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
+            </div>
+          </div>
+        )}
+        <div style={{marginTop:10}}>
+          <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>MÉTODO DE PAGO</div>
+          <div style={{display:"flex",gap:6}}>
+            {PAGOS.map(p=>(
+              <button key={p.v} className="btn" onClick={()=>setForm(f=>({...f,pago:p.v}))}
+                style={{flex:1,padding:"9px 0",borderRadius:10,fontSize:11,fontWeight:700,background:form.pago===p.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.pago===p.v?"var(--red)":"var(--border)"}`,color:form.pago===p.v?"var(--red)":"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif"}}>{p.l}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{marginTop:10}}>
+          <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>NOTAS</div>
+          <textarea value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} placeholder="Aclaraciones..." rows={2}
+            style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,resize:"none",lineHeight:1.5}}/>
+        </div>
+      </div>
+
+      <button className="btn" onClick={placeOrder} disabled={!cart.length||!form.nombre.trim()||loading}
+        style={{width:"100%",padding:"15px 0",borderRadius:14,fontSize:17,fontWeight:800,background:cart.length&&form.nombre.trim()?"#16A34A":"var(--border)",color:cart.length&&form.nombre.trim()?"#fff":"var(--text4)",boxShadow:cart.length&&form.nombre.trim()?"0 6px 20px rgba(22,163,74,.3)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+        {loading?"CREANDO PEDIDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
       </button>
     </div>
   );
