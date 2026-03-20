@@ -1947,6 +1947,8 @@ function MesasView({ onNewOrder }) {
   }, [load]);
 
   const getMesaOrders = (mesaId) => {
+    const mesa = mesas.find(m=>m.id===mesaId);
+    if (mesa?.estado==="libre") return orders.filter(o=>o.mesa_id===mesaId&&["nuevo","preparando","listo"].includes(o.status));
     const todayStart = new Date(); todayStart.setHours(0,0,0,0);
     return orders.filter(o => o.mesa_id === mesaId && (
       ["nuevo","preparando","listo"].includes(o.status) ||
