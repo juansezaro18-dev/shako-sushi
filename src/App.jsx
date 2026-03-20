@@ -395,7 +395,7 @@ function CustomerView({ menu, cajaStatus }) {
     if (!order.dni && !order.telefono) return;
     const key = `dni.eq.${order.dni||"NADA"},telefono.eq.${order.telefono||"NADA"}`;
     const {data} = await supabase.from("customers").select("id,direccion").or(key).limit(1);
-    const direccion = [order.calle, order.numero, order.entreCalle?"E/"+order.entreCalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
+    const direccion = [order.calle, order.numero, order.entrecalle?"E/"+order.entrecalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
     if (!data || data.length === 0) {
       // New customer
       supabase.from("customers").insert({
@@ -410,7 +410,8 @@ function CustomerView({ menu, cajaStatus }) {
   const placeOrder = async () => {
     if (!canConfirm) return;
     setLoading(true);
-    const order = { id:genId(), ...form, items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaQR };
+    const {entreCalle, ...formRest} = form;
+    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaQR };
     // Mostrar confirmación al instante
     setOrderId(order.id);
     setOrderTotal(order.total);
@@ -713,7 +714,7 @@ const printTicket = (order) => {
   const fecha = new Date(Number(order.created_at)).toLocaleDateString("es-AR",{day:"numeric",month:"numeric",year:"numeric"});
   const hora  = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
   const linea = "-".repeat(32);
-  const dir = [order.calle, order.numero, order.entreCalle?"e/"+order.entreCalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
+  const dir = [order.calle, order.numero, order.entrecalle?"e/"+order.entrecalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
 
   const itemsHtml = (order.items||[]).map(c =>
     `<div style="display:flex;justify-content:space-between;margin:2px 0">
@@ -1120,7 +1121,7 @@ function AdminView({ onExit, menu, saveMenu }) {
                         <span>🛵</span>
                         <div>
                           <div style={{color:"#D97706",fontSize:11,fontWeight:700,marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>DIRECCIÓN DE ENTREGA</div>
-                          <div style={{color:"var(--text2)"}}>{order.calle} {order.numero}{order.entreCalle?` e/ ${order.entreCalle}`:""}{order.piso?`, ${order.piso}`:""}</div>
+                          <div style={{color:"var(--text2)"}}>{order.calle} {order.numero}{order.entrecalle?` e/ ${order.entrecalle}`:""}{order.piso?`, ${order.piso}`:""}</div>
                           {order.barrio&&<div style={{color:"var(--text3)",fontSize:12,marginTop:1}}>{order.barrio}</div>}
                         </div>
                       </div>
@@ -1405,7 +1406,8 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
     if (!cart.length || !form.nombre.trim()) return;
     setLoading(true);
     const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-    const order = { id:genId(), ...form, items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"" };
+    const {entreCalle:ec2, ...formRest2} = form;
+    const order = { id:genId(), ...formRest2, entrecalle:ec2||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"" };
     await supabase.from("orders").insert(order);
     // Mark mesa as ocupada
     if (mesaId) await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesaId);
@@ -1708,7 +1710,7 @@ function HistorialCajaTabla({ historial, onReload }) {
               </div>
               <div style={{textAlign:"right"}}>
                 <div className="sh" style={{fontSize:17,color:abierta?"#D97706":"#16A34A"}}>
-                  {pedidosDia[c.id] ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas)}
+                  {fmt(c.total_ventas)}
                 </div>
                 <div style={{fontSize:10,color:"var(--text4)",marginTop:1,fontWeight:600}}>{abierta?"EN CURSO":"CERRADA"}</div>
               </div>
@@ -1723,7 +1725,7 @@ function HistorialCajaTabla({ historial, onReload }) {
                   {[
                     {l:"Efectivo apertura", v:fmt(c.monto_apertura),                                          col:"#2563EB"},
                     {l:"Efectivo cierre",   v:abierta?"—":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
-                    {l:"Total ventas",      v:pedidosDia[c.id] ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas), col:"var(--red)"},
+                    {l:"Total ventas",      v:pedidosDia[c.id] ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas),      col:"var(--red)"},
                     {l:"Diferencia caja",   v:abierta?"—":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)), col:"#7C3AED"},
                   ].map(k=>(
                     <div key={k.l} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",border:"1px solid var(--border)"}}>
@@ -1784,7 +1786,7 @@ function HistorialCajaTabla({ historial, onReload }) {
                           ))}
                           {o.tipo==="delivery"&&o.calle&&(
                             <div style={{marginTop:8,fontSize:11,color:"#D97706",fontWeight:600}}>
-                              🛵 {o.calle} {o.numero}{o.entreCalle?` e/${o.entreCalle}`:""}{o.piso?`, ${o.piso}`:""}{o.barrio?` — ${o.barrio}`:""}
+                              🛵 {o.calle} {o.numero}{o.entrecalle?` e/${o.entrecalle}`:""}{o.piso?`, ${o.piso}`:""}{o.barrio?` — ${o.barrio}`:""}
                             </div>
                           )}
                           {o.notas&&<div style={{marginTop:6,fontSize:11,color:"var(--text3)",fontStyle:"italic"}}>💬 {o.notas}</div>}
