@@ -1497,57 +1497,62 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
       {/* Datos del cliente */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:14,marginBottom:14}}>
         <div className="sh" style={{fontSize:13,color:"var(--red)",marginBottom:12,letterSpacing:1}}>DATOS DEL CLIENTE</div>
-        <div style={{marginBottom:10}}>
+        {!mesaId&&<div style={{marginBottom:10}}>
           <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>DNI O TELÉFONO</div>
           <div style={{position:"relative"}}>
             <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Para autocompletar datos"
               style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:13}}/>
             {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"#16A34A",fontSize:14}}>✓</span>}
           </div>
+        </div>}
+        <div style={{marginBottom:10}}>
+          <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{mesaId?"NOMBRE (opcional)":"NOMBRE *"}</div>
+          <input value={form.nombre} onChange={e=>setForm(p=>({...p,nombre:e.target.value}))} placeholder="Nombre del cliente"
+            style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
         </div>
-        {[{k:"nombre",l:"Nombre *",p:"Nombre del cliente"},{k:"telefono",l:"Teléfono",p:"(opcional)"}].map(f=>(
-          <div key={f.k} style={{marginBottom:10}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{f.l}</div>
-            <input value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p}
+        {!mesaId&&<>
+          <div style={{marginBottom:10}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>TELÉFONO</div>
+            <input value={form.telefono} onChange={e=>setForm(p=>({...p,telefono:e.target.value}))} placeholder="(opcional)"
               style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
           </div>
-        ))}
-        <div style={{display:"flex",gap:8,marginBottom:10}}>
-          {[{v:"retiro",l:"🏃 Retiro"},{v:"delivery",l:"🛵 Delivery"}].map(t=>(
-            <button key={t.v} className="btn" onClick={()=>setForm(p=>({...p,tipo:t.v}))}
-              style={{flex:1,padding:"10px 0",borderRadius:10,fontSize:13,fontWeight:700,background:form.tipo===t.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.tipo===t.v?"var(--red)":"var(--border)"}`,color:form.tipo===t.v?"var(--red)":"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif"}}>{t.l}</button>
-          ))}
-        </div>
-        {form.tipo==="delivery"&&(
-          <div>
-            <div style={{display:"flex",gap:8,marginBottom:8}}>
-              <div style={{flex:2}}>
-                <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Calle</div>
-                <input value={form.calle} onChange={e=>setForm(p=>({...p,calle:e.target.value}))} placeholder="Calle"
-                  style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
-              </div>
-              <div style={{flex:1}}>
-                <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Número</div>
-                <input value={form.numero} onChange={e=>setForm(p=>({...p,numero:e.target.value}))} placeholder="Nro"
-                  style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
-              </div>
-            </div>
-            <div>
-              <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Barrio / Localidad</div>
-              <input value={form.barrio} onChange={e=>setForm(p=>({...p,barrio:e.target.value}))} placeholder="Ej: Hudson, Berazategui..."
-                style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
-            </div>
-          </div>
-        )}
-        <div style={{marginTop:10}}>
-          <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>MÉTODO DE PAGO</div>
-          <div style={{display:"flex",gap:6}}>
-            {PAGOS.map(p=>(
-              <button key={p.v} className="btn" onClick={()=>setForm(f=>({...f,pago:p.v}))}
-                style={{flex:1,padding:"9px 0",borderRadius:10,fontSize:11,fontWeight:700,background:form.pago===p.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.pago===p.v?"var(--red)":"var(--border)"}`,color:form.pago===p.v?"var(--red)":"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif"}}>{p.l}</button>
+          <div style={{display:"flex",gap:8,marginBottom:10}}>
+            {[{v:"retiro",l:"🏃 Retiro"},{v:"delivery",l:"🛵 Delivery"}].map(t=>(
+              <button key={t.v} className="btn" onClick={()=>setForm(p=>({...p,tipo:t.v}))}
+                style={{flex:1,padding:"10px 0",borderRadius:10,fontSize:13,fontWeight:700,background:form.tipo===t.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.tipo===t.v?"var(--red)":"var(--border)"}`,color:form.tipo===t.v?"var(--red)":"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif"}}>{t.l}</button>
             ))}
           </div>
-        </div>
+          {form.tipo==="delivery"&&(
+            <div>
+              <div style={{display:"flex",gap:8,marginBottom:8}}>
+                <div style={{flex:2}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Calle</div>
+                  <input value={form.calle} onChange={e=>setForm(p=>({...p,calle:e.target.value}))} placeholder="Calle"
+                    style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Número</div>
+                  <input value={form.numero} onChange={e=>setForm(p=>({...p,numero:e.target.value}))} placeholder="Nro"
+                    style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
+                </div>
+              </div>
+              <div>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Barrio / Localidad</div>
+                <input value={form.barrio} onChange={e=>setForm(p=>({...p,barrio:e.target.value}))} placeholder="Ej: Hudson, Berazategui..."
+                  style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
+              </div>
+            </div>
+          )}
+          <div style={{marginTop:10}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>MÉTODO DE PAGO</div>
+            <div style={{display:"flex",gap:6}}>
+              {PAGOS.map(p=>(
+                <button key={p.v} className="btn" onClick={()=>setForm(f=>({...f,pago:p.v}))}
+                  style={{flex:1,padding:"9px 0",borderRadius:10,fontSize:11,fontWeight:700,background:form.pago===p.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.pago===p.v?"var(--red)":"var(--border)"}`,color:form.pago===p.v?"var(--red)":"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif"}}>{p.l}</button>
+              ))}
+            </div>
+          </div>
+        </>}
         <div style={{marginTop:10}}>
           <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>NOTAS</div>
           <textarea value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} placeholder="Aclaraciones..." rows={2}
