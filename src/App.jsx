@@ -126,6 +126,26 @@ const fmt     = (n) => `$${Number(n).toLocaleString("es-AR")}`;
 const genId   = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
 const timeAgo = (ts) => { const d=Math.floor((Date.now()-Number(ts))/1000); return d<60?`${d}s`:d<3600?`${Math.floor(d/60)}min`:`${Math.floor(d/3600)}h`; };
 
+// Parse Argentine address into parts
+const parseDireccion = (dir) => {
+  if (!dir) return {calle:"", nro:"", barrio:""};
+  dir = dir.trim();
+  // Pattern: explicit NRO/N keyword
+  const nroExp = dir.match(/N(?:RO|°|º|\.?)\s*(\d{3,5})/i);
+  if (nroExp) {
+    const idx = dir.search(/N(?:RO|°|º|\.?)\s*\d/i);
+    return {calle: dir.substring(0,idx).trim(), nro: nroExp[1], barrio: dir.substring(idx+nroExp[0].length).trim()};
+  }
+  // Pattern: "NAME/NUM NUM NUM" — two consecutive numbers, first is street number
+  const twoNums = dir.match(/^(\D+?\s\d{2,4})\s+(\d{3,5})\s*(.*)$/);
+  if (twoNums) return {calle: twoNums[1].trim(), nro: twoNums[2], barrio: twoNums[3].trim()};
+  // Pattern: single number at end
+  const oneNum = dir.match(/^(.*\D)\s+(\d{3,5})\s*(.*)$/);
+  if (oneNum) return {calle: oneNum[1].trim(), nro: oneNum[2], barrio: oneNum[3].trim()};
+  return {calle: dir, nro: "", barrio: ""};
+};
+
+
 const ESTADOS = {
   nuevo:     {label:"Nuevo",      next:"preparando", nextLabel:"Empezar preparación",  color:"#CC1F1F", bg:"rgba(204,31,31,.1)",   ring:"#CC1F1F"},
   preparando:{label:"Preparando", next:"listo",      nextLabel:"Marcar como listo ✓",  color:"#D97706", bg:"rgba(217,119,6,.1)",   ring:"#D97706"},
@@ -317,19 +337,14 @@ function CustomerView({ menu, cajaStatus }) {
     if (data && data.length > 0) {
       const c = data[0];
       setDniFound(true);
-      // Parse direccion: try to split "CALLE 39 NRO 1234 BARRIO" or "Av. San Martín 1234"
-      const dir = c.direccion || "";
-      const nroMatch = dir.match(/(\d{3,5})/);
-      const nro = nroMatch ? nroMatch[1] : "";
-      const calleClean = nro ? dir.substring(0, dir.indexOf(nro)).trim().replace(/NRO\.?$/i,"").trim() : dir.trim();
-      const barrioMatch = dir.match(/(?:E\/|ENTRE|BARRIO|B°|BO\.?)?\s*(.+)$/i);
+      const {calle:pc, nro:pn, barrio:pb} = parseDireccion(c.direccion);
       setForm(p=>({...p,
         nombre:   p.nombre   || c.nombre   || "",
         telefono: p.telefono || c.telefono || "",
-        calle:    p.calle    || calleClean  || "",
-        numero:   p.numero   || nro         || "",
-        barrio:   p.barrio   || "",
-        tipo:     calleClean ? "delivery" : p.tipo,
+        calle:    p.calle    || pc || "",
+        numero:   p.numero   || pn || "",
+        barrio:   p.barrio   || pb || "",
+        tipo:     pc ? "delivery" : p.tipo,
       }));
     } else {
       setDniFound(false);
@@ -1262,16 +1277,14 @@ function NuevoPedidoAdmin({ menu, onClose, onOrderPlaced }) {
     if (data && data.length > 0) {
       const c = data[0];
       setDniFound(true);
-      const dir = c.direccion || "";
-      const nroMatch = dir.match(/(\d{3,5})/);
-      const nro = nroMatch ? nroMatch[1] : "";
-      const calleClean = nro ? dir.substring(0, dir.indexOf(nro)).trim().replace(/NRO\.?$/i,"").trim() : dir.trim();
+      const {calle:pc2, nro:pn2, barrio:pb2} = parseDireccion(c.direccion);
       setForm(p=>({...p,
         nombre:   p.nombre   || c.nombre   || "",
         telefono: p.telefono || c.telefono || "",
-        calle:    p.calle    || calleClean  || "",
-        numero:   p.numero   || nro         || "",
-        tipo:     calleClean ? "delivery" : p.tipo,
+        calle:    p.calle    || pc2 || "",
+        numero:   p.numero   || pn2 || "",
+        barrio:   p.barrio   || pb2 || "",
+        tipo:     pc2 ? "delivery" : p.tipo,
       }));
     } else { setDniFound(false); }
   };
