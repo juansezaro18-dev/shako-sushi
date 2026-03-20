@@ -1634,10 +1634,8 @@ function HistorialCajaTabla({ historial, onReload }) {
   const toggleDia = async (c) => {
     const isExp = expandedId === c.id;
     setExpandedId(isExp ? null : c.id);
-    if (!isExp && !pedidosDia[c.fecha]) {
+    if (!isExp && !pedidosDia[c.id]) {
       setLoadingDia(c.fecha);
-      // Pedidos de esa caja: entre hora de apertura y cierre (o fin del día si sigue abierta)
-      // Normalize hora to HH:MM (handles both "04:39" and "04:39 a. m." formats)
       const parseHora = (h) => { if (!h) return null; const m = h.match(/(\d{1,2}):(\d{2})/); if (!m) return null; let hh=parseInt(m[1]); const mm=m[2]; if (h.toLowerCase().includes("p") && hh<12) hh+=12; if (h.toLowerCase().includes("a") && hh===12) hh=0; return hh.toString().padStart(2,"0")+":"+mm; };
       const aperturaHora = parseHora(c.hora_apertura);
       const cierreHora   = parseHora(c.hora_cierre);
@@ -1650,7 +1648,7 @@ function HistorialCajaTabla({ historial, onReload }) {
         .gte("created_at", inicio)
         .lte("created_at", fin)
         .order("created_at", {ascending:true});
-      setPedidosDia(p => ({...p, [c.fecha]: data || []}));
+      setPedidosDia(p => ({...p, [c.id]: data || []}));
       setLoadingDia(null);
     }
   };
@@ -1681,7 +1679,7 @@ function HistorialCajaTabla({ historial, onReload }) {
         const isExp   = expandedId === c.id;
         const abierta = c.estado === "abierta";
         const fecha   = new Date(c.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
-        const pedidos = pedidosDia[c.fecha] || [];
+        const pedidos = pedidosDia[c.id] || [];
         const loading = loadingDia === c.fecha;
         return (
           <div key={c.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--red-border)":"var(--border)"}`,borderRadius:14,marginBottom:8,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
@@ -1697,7 +1695,7 @@ function HistorialCajaTabla({ historial, onReload }) {
               </div>
               <div style={{textAlign:"right"}}>
                 <div className="sh" style={{fontSize:17,color:abierta?"#D97706":"#16A34A"}}>
-                  {pedidosDia[c.fecha] ? fmt(pedidosDia[c.fecha].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas)}
+                  {pedidosDia[c.id] ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas)}
                 </div>
                 <div style={{fontSize:10,color:"var(--text4)",marginTop:1,fontWeight:600}}>{abierta?"EN CURSO":"CERRADA"}</div>
               </div>
@@ -1712,7 +1710,7 @@ function HistorialCajaTabla({ historial, onReload }) {
                   {[
                     {l:"Efectivo apertura", v:fmt(c.monto_apertura),                                          col:"#2563EB"},
                     {l:"Efectivo cierre",   v:abierta?"—":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
-                    {l:"Total ventas",      v:pedidosDia[c.fecha] ? fmt(pedidosDia[c.fecha].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas), col:"var(--red)"},
+                    {l:"Total ventas",      v:pedidosDia[c.id] ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas), col:"var(--red)"},
                     {l:"Diferencia caja",   v:abierta?"—":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)), col:"#7C3AED"},
                   ].map(k=>(
                     <div key={k.l} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",border:"1px solid var(--border)"}}>
