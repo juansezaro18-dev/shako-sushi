@@ -457,7 +457,10 @@ function CustomerView({ menu, cajaStatus }) {
       try {
         const res = await fetch("https://dinylgezchbrojrszalt.supabase.co/functions/v1/mp-preference", {
           method: "POST",
-          headers: {"Content-Type":"application/json"},
+          headers: {
+            "Content-Type":"application/json",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbnlsZ2V6Y2hicm9qcnN6YWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDYzODMsImV4cCI6MjA4OTUyMjM4M30.Su_sQBfU88BZpCQcrLX2SVpE22d9BMm4wWdJsAUzJpo"
+          },
           body: JSON.stringify({
             orderId: order.id,
             items: cart,
