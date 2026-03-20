@@ -1902,7 +1902,7 @@ function MesasView({ onNewOrder }) {
   const load = useCallback(async () => {
     const [{ data: mesasData }, { data: ordersData }] = await Promise.all([
       supabase.from("mesas").select("*").order("id"),
-      supabase.from("orders").select("*").in("status",["nuevo","preparando","listo"]).neq("mesa_id",""),
+      supabase.from("orders").select("*").neq("mesa_id","").order("created_at",{ascending:false}).limit(200),
     ]);
     setMesas(mesasData || []);
     setOrders(ordersData || []);
@@ -1919,8 +1919,15 @@ function MesasView({ onNewOrder }) {
     return () => { clearInterval(iv); supabase.removeChannel(ch); };
   }, [load]);
 
-  const getMesaOrders = (mesaId) => orders.filter(o => o.mesa_id === mesaId);
-  const getMesaTotal  = (mesaId) => getMesaOrders(mesaId).reduce((s,o)=>s+Number(o.total),0);
+  const getMesaOrders = (mesaId) => {
+    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
+    return orders.filter(o => o.mesa_id === mesaId && (
+      ["nuevo","preparando","listo"].includes(o.status) ||
+      (o.status==="entregado" && Number(o.created_at) >= todayStart.getTime())
+    ));
+  };
+  const getMesaActiveOrders = (mesaId) => orders.filter(o => o.mesa_id === mesaId && ["nuevo","preparando","listo"].includes(o.status));
+  const getMesaTotal  = (mesaId) => getMesaActiveOrders(mesaId).reduce((s,o)=>s+Number(o.total),0);
 
   const setEstado = async (mesaId, estado) => {
     await supabase.from("mesas").update({estado}).eq("id", mesaId);
@@ -2013,7 +2020,7 @@ function MesasView({ onNewOrder }) {
               {mesasSector.map(mesa => {
                 const ec = ESTADOS_COLOR[mesa.estado] || ESTADOS_COLOR.libre;
                 const total = getMesaTotal(mesa.id);
-                const nOrders = getMesaOrders(mesa.id).length;
+                const nOrders = getMesaActiveOrders(mesa.id).length;
                 const isSelected = selectedMesa === mesa.id;
                 const isUnirTarget = unirTarget === mesa.id;
 
@@ -2075,10 +2082,10 @@ function MesasView({ onNewOrder }) {
           </div>
 
           {/* Pedidos de la mesa */}
-          {mesaOrders.length === 0
-            ? <div style={{textAlign:"center",padding:"20px 0",color:"var(--text4)",fontSize:13}}>Sin pedidos activos en esta mesa</div>
+          {pedidos.length === 0
+            ? <div style={{textAlign:"center",padding:"20px 0",color:"var(--text4)",fontSize:13}}>Sin pedidos hoy en esta mesa</div>
             : <>
-                {mesaOrders.map(o => {
+                {pedidosActivos.map(o => {
                   const est = ESTADOS[o.status]||ESTADOS.nuevo;
                   return(
                     <div key={o.id} style={{background:"var(--bg2)",borderRadius:12,padding:"12px 14px",marginBottom:8,border:"1px solid var(--border)"}}>
@@ -2098,6 +2105,17 @@ function MesasView({ onNewOrder }) {
                     </div>
                   );
                 })}
+                {pedidos.filter(o=>o.status==="entregado").length > 0 && (
+                  <div style={{marginTop:4,marginBottom:8}}>
+                    <div style={{fontSize:10,color:"var(--text4)",fontWeight:700,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:6}}>YA ENTREGADOS</div>
+                    {pedidos.filter(o=>o.status==="entregado").map(o=>(
+                      <div key={o.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"5px 8px",background:"var(--bg2)",borderRadius:8,marginBottom:4,border:"1px solid var(--border)",opacity:.7}}>
+                        <span style={{color:"var(--text3)"}}>#{o.id.slice(-5).toUpperCase()} · {o.items?.reduce((s,c)=>s+c.qty,0)||0} items</span>
+                        <span style={{color:"#16A34A",fontWeight:600}}>{fmt(o.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {/* Total y acciones */}
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0 0",borderTop:"1px solid var(--border)",marginTop:4}}>
                   <div className="sh" style={{fontSize:20,color:"var(--text)"}}>TOTAL: <span style={{color:"var(--red)"}}>{fmt(getMesaTotal(mesaSeleccionada.id))}</span></div>
