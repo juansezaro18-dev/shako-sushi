@@ -1535,9 +1535,10 @@ function HistorialCajaResumen({ historial, vista, orders }) {
 /* ══ HISTORIAL CAJA TABLA ═════════════════════════════════════ */
 function HistorialCajaTabla({ historial, onReload }) {
   const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
-  const [expandedId,  setExpandedId]  = useState(null);
-  const [pedidosDia,  setPedidosDia]  = useState({});  // { fecha: [orders] }
-  const [loadingDia,  setLoadingDia]  = useState(null);
+  const [expandedId,      setExpandedId]      = useState(null);
+  const [expandedOrderId, setExpandedOrderId] = useState(null);
+  const [pedidosDia,      setPedidosDia]      = useState({});
+  const [loadingDia,      setLoadingDia]      = useState(null);
 
   useEffect(() => { onReload(); }, []);
 
@@ -1606,7 +1607,9 @@ function HistorialCajaTabla({ historial, onReload }) {
                 </div>
               </div>
               <div style={{textAlign:"right"}}>
-                <div className="sh" style={{fontSize:17,color:abierta?"#D97706":"#16A34A"}}>{fmt(c.total_ventas)}</div>
+                <div className="sh" style={{fontSize:17,color:abierta?"#D97706":"#16A34A"}}>
+                  {pedidosDia[c.fecha] ? fmt(pedidosDia[c.fecha].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas)}
+                </div>
                 <div style={{fontSize:10,color:"var(--text4)",marginTop:1,fontWeight:600}}>{abierta?"EN CURSO":"CERRADA"}</div>
               </div>
               <span style={{color:"var(--text4)",fontSize:12}}>{isExp?"▲":"▼"}</span>
@@ -1636,7 +1639,7 @@ function HistorialCajaTabla({ historial, onReload }) {
 
                 {/* Pedidos del día */}
                 <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:10,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                  PEDIDOS DEL DÍA {!loading&&`(${pedidos.length})`}
+                  PEDIDOS DE LA CAJA {!loading&&`(${pedidos.length})`}
                 </div>
 
                 {loading&&<div style={{textAlign:"center",padding:"16px 0",color:"var(--text4)",fontSize:13}}>Cargando pedidos...</div>}
@@ -1647,25 +1650,45 @@ function HistorialCajaTabla({ historial, onReload }) {
 
                 {!loading&&pedidos.map((o,i)=>{
                   const est = ESTADOS[o.status]||ESTADOS.entregado;
+                  const isExpO = expandedOrderId === o.id;
                   return(
-                    <div key={o.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<pedidos.length-1?"1px solid var(--border)":"none"}}>
-                      <div style={{width:7,height:7,borderRadius:"50%",background:est.color,flexShrink:0}}/>
-                      <div style={{flex:1,minWidth:0}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                          <span style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{o.nombre}</span>
-                          <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
-                          <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.color+"15",padding:"1px 6px",borderRadius:20}}>{est.label}</span>
-                          {o.tipo==="delivery"&&<span style={{fontSize:10,color:"#D97706",background:"#FFFBEB",padding:"1px 6px",borderRadius:20,fontWeight:600}}>🛵</span>}
+                    <div key={o.id} style={{borderBottom:i<pedidos.length-1?"1px solid var(--border)":"none"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",cursor:"pointer"}} onClick={()=>setExpandedOrderId(isExpO?null:o.id)}>
+                        <div style={{width:7,height:7,borderRadius:"50%",background:est.color,flexShrink:0}}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <span style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{o.nombre}</span>
+                            <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.color+"15",padding:"1px 6px",borderRadius:20}}>{est.label}</span>
+                            {o.tipo==="delivery"&&<span style={{fontSize:10,color:"#D97706",background:"#FFFBEB",padding:"1px 6px",borderRadius:20,fontWeight:600}}>🛵</span>}
+                          </div>
+                          <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
+                            {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                            {" · "}{o.items?.reduce((s,c)=>s+c.qty,0)||0} items
+                            {o.pago&&<span style={{marginLeft:4}}>{o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"} {o.pago}</span>}
+                          </div>
                         </div>
-                        <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
-                          {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
-                          {" · "}{o.items?.reduce((s,c)=>s+c.qty,0)||0} items
-                          {o.pago&&<span style={{marginLeft:4}}>{o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"} {o.pago}</span>}
+                        <div style={{textAlign:"right",flexShrink:0,display:"flex",alignItems:"center",gap:8}}>
+                          <div className="sh" style={{fontSize:14,color:o.status==="entregado"?"#16A34A":"var(--text3)"}}>{fmt(o.total)}</div>
+                          <span style={{fontSize:10,color:"var(--text4)"}}>{isExpO?"▲":"▼"}</span>
                         </div>
                       </div>
-                      <div style={{textAlign:"right",flexShrink:0}}>
-                        <div className="sh" style={{fontSize:14,color:o.status==="entregado"?"#16A34A":"var(--text3)"}}>{fmt(o.total)}</div>
-                      </div>
+                      {isExpO&&(
+                        <div className="fade-in" style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",marginBottom:8,border:"1px solid var(--border)"}}>
+                          {o.items?.map(c=>(
+                            <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
+                              <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
+                              <span style={{color:"var(--text3)",fontWeight:600}}>{fmt(c.item.precio*c.qty)}</span>
+                            </div>
+                          ))}
+                          {o.tipo==="delivery"&&o.calle&&(
+                            <div style={{marginTop:8,fontSize:11,color:"#D97706",fontWeight:600}}>
+                              🛵 {o.calle} {o.numero}{o.entreCalle?` e/${o.entreCalle}`:""}{o.piso?`, ${o.piso}`:""}{o.barrio?` — ${o.barrio}`:""}
+                            </div>
+                          )}
+                          {o.notas&&<div style={{marginTop:6,fontSize:11,color:"var(--text3)",fontStyle:"italic"}}>💬 {o.notas}</div>}
+                        </div>
+                      )}
                     </div>
                   );
                 })}
