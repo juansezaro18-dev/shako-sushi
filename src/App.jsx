@@ -12,7 +12,7 @@ const CONFIG = {
   nombre: "Shako Sushi", adminPin: "1234",
   ubicacion: "Hudson Plaza Comercial, Berazategui", horario: "16:30 a 23:30", abreH:16, abreM:30, cierraH:23, cierraM:30,
   aliasBanco: "CHACRA.BARRA.OSO",
-  aliasMP: "turo22.mp",
+  aliasMP: "juan.225.absida.mp",
   titular: "Juan Agusto Zaro",
   whatsapp: "5491124832305", // número con código de país sin + ni espacios
 };
