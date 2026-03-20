@@ -1423,9 +1423,36 @@ function HistorialCajaResumen({ historial, vista, orders }) {
 /* ══ HISTORIAL CAJA TABLA ═════════════════════════════════════ */
 function HistorialCajaTabla({ historial, onReload }) {
   const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
-  const [expandedId, setExpandedId] = useState(null);
+  const [expandedId,  setExpandedId]  = useState(null);
+  const [pedidosDia,  setPedidosDia]  = useState({});  // { fecha: [orders] }
+  const [loadingDia,  setLoadingDia]  = useState(null);
 
   useEffect(() => { onReload(); }, []);
+
+  const toggleDia = async (c) => {
+    const isExp = expandedId === c.id;
+    setExpandedId(isExp ? null : c.id);
+    if (!isExp && !pedidosDia[c.fecha]) {
+      setLoadingDia(c.fecha);
+      // Pedidos del día: created_at entre inicio y fin del día
+      const inicio = new Date(c.fecha + "T00:00:00").getTime();
+      const fin    = new Date(c.fecha + "T23:59:59").getTime();
+      const {data} = await supabase.from("orders")
+        .select("*")
+        .gte("created_at", inicio)
+        .lte("created_at", fin)
+        .order("created_at", {ascending:true});
+      setPedidosDia(p => ({...p, [c.fecha]: data || []}));
+      setLoadingDia(null);
+    }
+  };
+
+  const ESTADOS = {
+    nuevo:     {label:"Nuevo",     color:"#CC1F1F"},
+    preparando:{label:"Preparando",color:"#D97706"},
+    listo:     {label:"Listo",     color:"#16A34A"},
+    entregado: {label:"Entregado", color:"#9CA3AF"},
+  };
 
   return (
     <div className="fade-in">
@@ -1443,12 +1470,15 @@ function HistorialCajaTabla({ historial, onReload }) {
       )}
 
       {historial.map(c => {
-        const isExp = expandedId === c.id;
+        const isExp   = expandedId === c.id;
         const abierta = c.estado === "abierta";
-        const fecha = new Date(c.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
+        const fecha   = new Date(c.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
+        const pedidos = pedidosDia[c.fecha] || [];
+        const loading = loadingDia === c.fecha;
         return (
           <div key={c.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--red-border)":"var(--border)"}`,borderRadius:14,marginBottom:8,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
-            <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:c.id)}>
+            {/* Header del día */}
+            <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>toggleDia(c)}>
               <div style={{width:9,height:9,borderRadius:"50%",background:abierta?"#D97706":"#16A34A",flexShrink:0,boxShadow:`0 0 5px ${abierta?"#D97706":"#16A34A"}`}}/>
               <div style={{flex:1,minWidth:0}}>
                 <div style={{fontSize:13,fontWeight:600,color:"var(--text)",textTransform:"capitalize"}}>{fecha}</div>
@@ -1463,23 +1493,76 @@ function HistorialCajaTabla({ historial, onReload }) {
               </div>
               <span style={{color:"var(--text4)",fontSize:12}}>{isExp?"▲":"▼"}</span>
             </div>
+
+            {/* Detalle expandido */}
             {isExp&&(
               <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:12}}>
+                {/* KPIs del día */}
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:12,marginBottom:14}}>
                   {[
-                    {l:"Efectivo apertura",v:fmt(c.monto_apertura),c:"#2563EB"},
-                    {l:"Efectivo cierre",  v:abierta?"—":fmt(c.monto_cierre),c:abierta?"var(--text4)":"#16A34A"},
-                    {l:"Total ventas",     v:fmt(c.total_ventas),c:"var(--red)"},
-                    {l:"Diferencia",       v:abierta?"—":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)),c:"#7C3AED"},
+                    {l:"Efectivo apertura", v:fmt(c.monto_apertura),                                          col:"#2563EB"},
+                    {l:"Efectivo cierre",   v:abierta?"—":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
+                    {l:"Total ventas",      v:fmt(c.total_ventas),                                             col:"var(--red)"},
+                    {l:"Diferencia caja",   v:abierta?"—":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)), col:"#7C3AED"},
                   ].map(k=>(
                     <div key={k.l} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",border:"1px solid var(--border)"}}>
                       <div style={{fontSize:9,color:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:.5,marginBottom:3}}>{k.l.toUpperCase()}</div>
-                      <div className="sh" style={{fontSize:17,color:k.c}}>{k.v}</div>
+                      <div className="sh" style={{fontSize:17,color:k.col}}>{k.v}</div>
                     </div>
                   ))}
                 </div>
-                {c.notas_apertura&&<div style={{marginTop:10,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>📝 Apertura: <em>{c.notas_apertura}</em></div>}
-                {c.notas_cierre&&<div style={{marginTop:6,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>📝 Cierre: <em>{c.notas_cierre}</em></div>}
+
+                {/* Notas */}
+                {c.notas_apertura&&<div style={{marginBottom:6,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>📝 Apertura: <em>{c.notas_apertura}</em></div>}
+                {c.notas_cierre&&<div style={{marginBottom:14,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>📝 Cierre: <em>{c.notas_cierre}</em></div>}
+
+                {/* Pedidos del día */}
+                <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:10,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                  PEDIDOS DEL DÍA {!loading&&`(${pedidos.length})`}
+                </div>
+
+                {loading&&<div style={{textAlign:"center",padding:"16px 0",color:"var(--text4)",fontSize:13}}>Cargando pedidos...</div>}
+
+                {!loading&&pedidos.length===0&&(
+                  <div style={{textAlign:"center",padding:"16px 0",color:"var(--text4)",fontSize:12}}>No hay pedidos registrados este día</div>
+                )}
+
+                {!loading&&pedidos.map((o,i)=>{
+                  const est = ESTADOS[o.status]||ESTADOS.entregado;
+                  return(
+                    <div key={o.id} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<pedidos.length-1?"1px solid var(--border)":"none"}}>
+                      <div style={{width:7,height:7,borderRadius:"50%",background:est.color,flexShrink:0}}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                          <span style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{o.nombre}</span>
+                          <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
+                          <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.color+"15",padding:"1px 6px",borderRadius:20}}>{est.label}</span>
+                          {o.tipo==="delivery"&&<span style={{fontSize:10,color:"#D97706",background:"#FFFBEB",padding:"1px 6px",borderRadius:20,fontWeight:600}}>🛵</span>}
+                        </div>
+                        <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
+                          {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                          {" · "}{o.items?.reduce((s,c)=>s+c.qty,0)||0} items
+                          {o.pago&&<span style={{marginLeft:4}}>{o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"} {o.pago}</span>}
+                        </div>
+                      </div>
+                      <div style={{textAlign:"right",flexShrink:0}}>
+                        <div className="sh" style={{fontSize:14,color:o.status==="entregado"?"#16A34A":"var(--text3)"}}>{fmt(o.total)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Resumen pedidos del día */}
+                {!loading&&pedidos.length>0&&(
+                  <div style={{marginTop:10,padding:"10px 0 0",borderTop:"1px solid var(--border)",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div style={{fontSize:11,color:"var(--text3)"}}>
+                      {pedidos.filter(o=>o.status==="entregado").length} entregados · {pedidos.filter(o=>o.tipo==="delivery").length} delivery · {pedidos.filter(o=>o.tipo==="retiro").length} retiro
+                    </div>
+                    <div className="sh" style={{fontSize:15,color:"var(--red)"}}>
+                      {fmt(pedidos.filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
