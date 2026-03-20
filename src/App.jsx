@@ -412,17 +412,20 @@ function CustomerView({ menu, cajaStatus }) {
     setLoading(true);
     const {entreCalle, ...formRest} = form;
     const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaQR };
-    // Mostrar confirmación al instante
+    // Esperar confirmación de Supabase antes de mostrar éxito
+    const {error} = await supabase.from("orders").insert(order);
+    if (error) {
+      console.error("Error guardando pedido:", error);
+      setLoading(false);
+      alert("Hubo un error al enviar tu pedido. Por favor intentá de nuevo.");
+      return;
+    }
     setOrderId(order.id);
     setOrderTotal(order.total);
     setCart([]);
     setStep("confirm");
     setLoading(false);
     saveCustomer(order);
-    // Guardar en Supabase en segundo plano
-    supabase.from("orders").insert(order).then(({error}) => {
-      if (error) console.error("Error guardando pedido:", error);
-    });
   };
 
   const PAGOS = [
@@ -1710,7 +1713,9 @@ function HistorialCajaTabla({ historial, onReload }) {
               </div>
               <div style={{textAlign:"right"}}>
                 <div className="sh" style={{fontSize:17,color:abierta?"#D97706":"#16A34A"}}>
-                  {fmt(c.total_ventas)}
+                  {pedidosDia[c.id]
+                    ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0))
+                    : fmt(c.total_ventas)}
                 </div>
                 <div style={{fontSize:10,color:"var(--text4)",marginTop:1,fontWeight:600}}>{abierta?"EN CURSO":"CERRADA"}</div>
               </div>
@@ -1725,7 +1730,7 @@ function HistorialCajaTabla({ historial, onReload }) {
                   {[
                     {l:"Efectivo apertura", v:fmt(c.monto_apertura),                                          col:"#2563EB"},
                     {l:"Efectivo cierre",   v:abierta?"—":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
-                    {l:"Total ventas",      v:pedidosDia[c.id] ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas),      col:"var(--red)"},
+                    {l:"Total ventas",      v:pedidosDia[c.id] ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas), col:"var(--red)"},
                     {l:"Diferencia caja",   v:abierta?"—":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)), col:"#7C3AED"},
                   ].map(k=>(
                     <div key={k.l} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",border:"1px solid var(--border)"}}>
