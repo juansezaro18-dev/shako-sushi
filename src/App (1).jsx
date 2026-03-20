@@ -681,6 +681,10 @@ function AdminView({ onExit, menu, saveMenu }) {
     setOrders(p => p.map(o => o.id===order.id ? {...o,status:ns} : o));
     await supabase.from("orders").update({status:ns}).eq("id", order.id);
   };
+  const updatePago = async (order, pago) => {
+    setOrders(p => p.map(o => o.id===order.id ? {...o,pago} : o));
+    await supabase.from("orders").update({pago}).eq("id", order.id);
+  };
   const deleteOrder = async (id) => {
     setOrders(p => p.filter(o => o.id!==id));
     await supabase.from("orders").delete().eq("id", id);
@@ -950,7 +954,23 @@ function AdminView({ onExit, menu, saveMenu }) {
                         💬 <em>{order.notas}</em>
                       </div>
                     )}
-                    <div style={{display:"flex",gap:8,marginTop:10}}>
+                    {/* Cambio de método de pago */}
+                    <div style={{marginTop:10,marginBottom:8}}>
+                      <div style={{fontSize:10,color:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:6}}>MÉTODO DE PAGO</div>
+                      <div style={{display:"flex",gap:6}}>
+                        {[{v:"efectivo",l:"💵 Efectivo"},{v:"transferencia",l:"📲 Transf."},{v:"tarjeta",l:"💳 Tarjeta"}].map(p=>(
+                          <button key={p.v} className="btn" onClick={()=>updatePago(order,p.v)}
+                            style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:11,fontWeight:700,
+                              background:order.pago===p.v?"var(--red-light)":"var(--bg2)",
+                              border:`2px solid ${order.pago===p.v?"var(--red)":"var(--border)"}`,
+                              color:order.pago===p.v?"var(--red)":"var(--text3)",
+                              transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif"}}>
+                            {p.l}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div style={{display:"flex",gap:8,marginTop:6}}>
                       {est.next&&<button className="btn" onClick={()=>updateStatus(order,est.next)} style={{flex:1,padding:"12px 0",borderRadius:12,background:est.bg,border:`1px solid ${est.ring}`,color:est.color,fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{est.nextLabel} →</button>}
                       {order.status==="entregado"&&<button className="btn" onClick={()=>deleteOrder(order.id)} style={{padding:"12px 16px",borderRadius:12,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:600}}>Eliminar</button>}
                     </div>
