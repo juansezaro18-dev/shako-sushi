@@ -1939,12 +1939,9 @@ function MesasView({ onNewOrder }) {
 
   const getMesaOrders = (mesaId) => {
     const mesa = mesas.find(m=>m.id===mesaId);
-    if (mesa?.estado==="libre") return orders.filter(o=>o.mesa_id===mesaId&&["nuevo","preparando","listo"].includes(o.status));
-    const todayStart = new Date(); todayStart.setHours(0,0,0,0);
-    return orders.filter(o => o.mesa_id === mesaId && (
-      ["nuevo","preparando","listo"].includes(o.status) ||
-      (o.status==="entregado" && Number(o.created_at) >= todayStart.getTime())
-    ));
+    if (mesa?.estado==="libre") return [];
+    const currentSession = mesa?.session_num || 1;
+    return orders.filter(o => o.mesa_id === mesaId && (o.mesa_session||1) === currentSession);
   };
   const getMesaActiveOrders = (mesaId) => orders.filter(o => o.mesa_id === mesaId && ["nuevo","preparando","listo"].includes(o.status));
   const getMesaTotal  = (mesaId) => getMesaActiveOrders(mesaId).reduce((s,o)=>s+Number(o.total),0);
