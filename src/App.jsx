@@ -909,7 +909,8 @@ function AdminView({ onExit, menu, saveMenu }) {
   }));
   const topProds = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0,8);
   const todayStr = new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
-  const filtered = orders.filter(o => filter==="activos"?["nuevo","preparando","listo"].includes(o.status):filter==="entregados"?o.status==="entregado":o.status===filter);
+  const isMesaClosed = (o) => { if (!o.mesa_id) return true; const m=mesasData.find(x=>x.id===o.mesa_id); return m?(m.session_num||1)>(o.mesa_session||1):true; };
+  const filtered = orders.filter(o => { if (filter==="activos") return ["nuevo","preparando","listo"].includes(o.status); if (filter==="historial") return o.status==="entregado"&&(!o.mesa_id); return o.status===filter; });
   const counts   = {
     nuevo:     orders.filter(o=>o.status==="nuevo").length,
     preparando:orders.filter(o=>o.status==="preparando").length,
@@ -1073,34 +1074,73 @@ function AdminView({ onExit, menu, saveMenu }) {
           )}
           <Card>
             <Label>TODOS LOS PEDIDOS DE HOY</Label>
-            {ordersHoy.length===0&&<div style={{textAlign:"center",padding:"24px 0",color:"var(--text4)",fontSize:14}}>Todavía no hay pedidos hoy</div>}
-            {ordersHoy.map((o,i)=>{
-              const est=ESTADOS[o.status]||ESTADOS.nuevo;
-              return(
-                <div key={o.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<ordersHoy.length-1?"1px solid var(--border)":"none"}}>
-                  <div style={{width:8,height:8,borderRadius:"50%",background:est.ring,flexShrink:0}}/>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                      <span style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{o.nombre}</span>
-                      <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
-                      <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.bg,padding:"1px 6px",borderRadius:20}}>{est.label}</span>
+            {(()=>{
+              // Session-closed check
+              const isClosed = (o) => { if (!o.mesa_id) return true; const m=mesasData.find(x=>x.id===o.mesa_id); return m?(m.session_num||1)>(o.mesa_session||1):true; };
+              // Individual orders (no mesa)
+              const indiv = ordersHoy.filter(o=>!o.mesa_id);
+              // Mesa sessions that are closed - group by mesa+session
+              const sesMap = {};
+              ordersHoy.filter(o=>o.mesa_id&&isClosed(o)).forEach(o=>{
+                const key=o.mesa_id+"-"+(o.mesa_session||1);
+                if (!sesMap[key]) sesMap[key]={key,mesaId:o.mesa_id,session:o.mesa_session||1,orders:[],total:0,pago:o.pago,created_at:o.created_at};
+                sesMap[key].orders.push(o);
+                sesMap[key].total+=Number(o.total);
+                if(o.pago) sesMap[key].pago=o.pago;
+              });
+              const sessions = Object.values(sesMap);
+              const all = [...indiv, ...sessions.map(s=>({...s,_isMesaSession:true}))].sort((a,b)=>Number(b.created_at)-Number(a.created_at));
+              if (all.length===0) return <div style={{textAlign:"center",padding:"24px 0",color:"var(--text4)",fontSize:14}}>Todavía no hay pedidos hoy</div>;
+              return(<>
+                {all.map((o,i)=>{
+                  if (o._isMesaSession) {
+                    const hora = new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+                    const nItems = o.orders.reduce((s,p)=>s+(p.items?.reduce((a,c)=>a+c.qty,0)||0),0);
+                    return(
+                      <div key={o.key} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid var(--border)"}}>
+                        <div style={{width:8,height:8,borderRadius:"50%",background:"#16A34A",flexShrink:0}}/>
+                        <div style={{flex:1,minWidth:0}}>
+                          <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                            <span style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>Mesa {o.mesaId.replace("mv","V").replace("m","")}</span>
+                            <span style={{fontSize:10,fontWeight:700,color:"#16A34A",background:"#F0FDF4",padding:"1px 6px",borderRadius:20}}>Entregado</span>
+                          </div>
+                          <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
+                            {hora} · {o.orders.length} pedido{o.orders.length!==1?"s":""} · {nItems} items
+                            {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"}</span>}
+                          </div>
+                        </div>
+                        <span className="sh" style={{fontSize:15,color:"#16A34A",flexShrink:0}}>{fmt(o.total)}</span>
+                      </div>
+                    );
+                  }
+                  const est=ESTADOS[o.status]||ESTADOS.nuevo;
+                  return(
+                    <div key={o.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<all.length-1?"1px solid var(--border)":"none"}}>
+                      <div style={{width:8,height:8,borderRadius:"50%",background:est.ring,flexShrink:0}}/>
+                      <div style={{flex:1,minWidth:0}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                          <span style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{o.nombre}</span>
+                          <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
+                          <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.bg,padding:"1px 6px",borderRadius:20}}>{est.label}</span>
+                          {o.tipo==="delivery"&&<span style={{marginLeft:4,color:"#D97706"}}>🛵</span>}
+                        </div>
+                        <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
+                          {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · {o.items?.reduce((s,c)=>s+c.qty,0)||0} items
+                          {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"}</span>}
+                        </div>
+                      </div>
+                      <span className="sh" style={{fontSize:15,color:o.status==="entregado"?"#16A34A":"var(--text3)",flexShrink:0}}>{fmt(o.total)}</span>
                     </div>
-                    <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
-                      {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · {o.items?.reduce((s,c)=>s+c.qty,0)||0} items
-                      {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"}</span>}
-                      {o.tipo==="delivery"&&<span style={{marginLeft:4,color:"#D97706"}}>· 🛵</span>}
-                    </div>
+                  );
+                })}
+                {totDia>0&&(
+                  <div style={{display:"flex",justifyContent:"space-between",padding:"14px 0 0",fontWeight:800,fontSize:16,borderTop:"1px solid var(--border)",marginTop:4,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                    <span style={{color:"var(--text3)"}}>Total cobrado</span>
+                    <span style={{color:"#16A34A"}}>{fmt(totDia)}</span>
                   </div>
-                  <span className="sh" style={{fontSize:15,color:o.status==="entregado"?"#16A34A":"var(--text3)",flexShrink:0}}>{fmt(o.total)}</span>
-                </div>
-              );
-            })}
-            {entH.length>0&&(
-              <div style={{display:"flex",justifyContent:"space-between",padding:"14px 0 0",fontWeight:800,fontSize:16,borderTop:"1px solid var(--border)",marginTop:4,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                <span style={{color:"var(--text3)"}}>Total cobrado</span>
-                <span style={{color:"#16A34A"}}>{fmt(totDia)}</span>
-              </div>
-            )}
+                )}
+              </>);
+            })()}
           </Card>
           </>}
 
