@@ -333,6 +333,24 @@ function CustomerView({ menu, cajaStatus }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   // Detect mesa from URL: ?mesa=m5
   const mesaQR = new URLSearchParams(window.location.search).get("mesa") || "";
+  const pagoReturn = new URLSearchParams(window.location.search).get("pago") || "";
+  const orderReturn = new URLSearchParams(window.location.search).get("order") || "";
+  // If returning from MP payment
+  const [returnHandled, setReturnHandled] = useState(false);
+  useEffect(()=>{
+    if (pagoReturn && orderReturn && !returnHandled) {
+      setReturnHandled(true);
+      setOrderId(orderReturn);
+      if (pagoReturn === "ok") {
+        setStep("confirm");
+      } else if (pagoReturn === "pendiente") {
+        setStep("confirm");
+      } else {
+        setStep("menu");
+        alert("El pago no se pudo completar. Podés intentar de nuevo.");
+      }
+    }
+  }, [pagoReturn, orderReturn, returnHandled]);
   const [activeCat,  setActiveCat]  = useState(menuVis[0]?.id);
   const [search,     setSearch]     = useState("");
   const [cart,       setCart]       = useState([]);
@@ -421,7 +439,7 @@ function CustomerView({ menu, cajaStatus }) {
       const {data:mesaData} = await supabase.from("mesas").select("session_num").eq("id",mesaQR).maybeSingle();
       mesaSession = mesaData?.session_num || 1;
     }
-    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
+    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total, status: form.pago==="transferencia" ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
     // Esperar confirmación de Supabase antes de mostrar éxito
     const {error} = await supabase.from("orders").insert(order);
     if (error) {
@@ -433,8 +451,33 @@ function CustomerView({ menu, cajaStatus }) {
     setOrderId(order.id);
     setOrderTotal(order.total);
     setCart([]);
-    // Redirect to transfer page if transferencia selected
-    setStep(form.pago === "transferencia" ? "transferencia" : "confirm");
+    // Redirect to MP Checkout Pro for transferencia
+    if (form.pago === "transferencia") {
+      setStep("mp_loading");
+      try {
+        const res = await fetch("https://dinylgezchbrojrszalt.supabase.co/functions/v1/mp-preference", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({
+            orderId: order.id,
+            items: cart,
+            total,
+            payer: {nombre: form.nombre, telefono: form.telefono}
+          })
+        });
+        const data = await res.json();
+        if (data.init_point) {
+          window.location.href = data.init_point;
+          return;
+        }
+      } catch(e) {
+        console.error("MP error:", e);
+      }
+      // Fallback to manual transfer screen if MP fails
+      setStep("transferencia");
+      return;
+    }
+    setStep("confirm");
     setLoading(false);
     saveCustomer(order);
   };
@@ -460,6 +503,14 @@ function CustomerView({ menu, cajaStatus }) {
         <span style={{color:"var(--text4)"}}>·</span>
         <span style={{fontSize:13,color:"var(--text3)"}}>{CONFIG.horario}</span>
       </div>
+    </div>
+  );
+
+  if (step === "mp_loading") return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
+      <div style={{fontSize:48,marginBottom:16}}>⏳</div>
+      <div className="sh" style={{fontSize:22,color:"var(--text)",marginBottom:8}}>Preparando pago...</div>
+      <div style={{color:"var(--text3)",fontSize:14}}>Te redirigimos a Mercado Pago</div>
     </div>
   );
 
@@ -1009,6 +1060,7 @@ function AdminView({ onExit, menu, saveMenu }) {
     return orders.filter(o=>o.status===filter);
   })();
   const counts   = {
+    pendiente_pago: orders.filter(o=>o.status==="pendiente_pago").length,
     nuevo:     orders.filter(o=>o.status==="nuevo").length,
     preparando:orders.filter(o=>o.status==="preparando").length,
     listo:     orders.filter(o=>o.status==="listo").length,
@@ -1016,6 +1068,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   };
   const TABS = [
     {key:"activos",     label:"Activos",   val:counts.nuevo+counts.preparando+counts.listo, color:"var(--text)"},
+    {key:"pendiente_pago", label:"💳 Pendientes", val:counts.pendiente_pago||0, color:"#D97706"},
     {key:"nuevo",       label:"🔴 Nuevos", val:counts.nuevo,       color:"#CC1F1F"},
     {key:"preparando",  label:"🟡 Prep.",  val:counts.preparando,  color:"#D97706"},
     {key:"listo",       label:"🟢 Listos", val:counts.listo,       color:"#16A34A"},
@@ -1916,6 +1969,7 @@ function HistorialCajaTabla({ historial, onReload }) {
   };
 
   const ESTADOS = {
+    pendiente_pago: {label:"Pend. pago", color:"#D97706", bg:"rgba(217,119,6,.1)", ring:"#D97706", next:"nuevo", nextLabel:"✓ Confirmar pago"},
     nuevo:     {label:"Nuevo",     color:"#CC1F1F"},
     preparando:{label:"Preparando",color:"#D97706"},
     listo:     {label:"Listo",     color:"#16A34A"},
@@ -2220,6 +2274,7 @@ function MesasView({ onNewOrder }) {
   const pedidosActivos = selectedMesa ? getMesaActiveOrders(selectedMesa) : [];
 
   const ESTADOS = {
+    pendiente_pago: {label:"Pend. pago", color:"#D97706", bg:"rgba(217,119,6,.1)", ring:"#D97706", next:"nuevo", nextLabel:"✓ Confirmar pago"},
     nuevo:     {label:"Nuevo",     color:"#CC1F1F", bg:"rgba(204,31,31,.1)"},
     preparando:{label:"Preparando",color:"#D97706", bg:"rgba(217,119,6,.1)"},
     listo:     {label:"Listo ✓",  color:"#16A34A", bg:"rgba(22,163,74,.1)"},
