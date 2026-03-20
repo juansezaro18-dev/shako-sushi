@@ -14,7 +14,8 @@ const CONFIG = {
   aliasBanco: "CHACRA.BARRA.OSO",
   aliasMP: "turo22.mp",
   titular: "Juan Agusto Zaro",
-  whatsapp: "5491124832305", // número con código de país sin + ni espacios
+  whatsapp: "5491124832305",
+  recargoMP: 0.0355, // 3.55% comision MP // número con código de país sin + ni espacios
 };
 
 const MENU_DEFAULT = [
@@ -439,7 +440,7 @@ function CustomerView({ menu, cajaStatus }) {
       const {data:mesaData} = await supabase.from("mesas").select("session_num").eq("id",mesaQR).maybeSingle();
       mesaSession = mesaData?.session_num || 1;
     }
-    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total, status: form.pago==="tarjeta" ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
+    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total:totalConRecargo, status: form.pago==="tarjeta" ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
     // Esperar confirmación de Supabase antes de mostrar éxito
     const {error} = await supabase.from("orders").insert(order);
     if (error) {
@@ -462,7 +463,7 @@ function CustomerView({ menu, cajaStatus }) {
             "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbnlsZ2V6Y2hicm9qcnN6YWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDYzODMsImV4cCI6MjA4OTUyMjM4M30.Su_sQBfU88BZpCQcrLX2SVpE22d9BMm4wWdJsAUzJpo",
             "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbnlsZ2V6Y2hicm9qcnN6YWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDYzODMsImV4cCI6MjA4OTUyMjM4M30.Su_sQBfU88BZpCQcrLX2SVpE22d9BMm4wWdJsAUzJpo"
           },
-          body: JSON.stringify({ orderId: order.id, items: cart, total, payer: {nombre: form.nombre, telefono: form.telefono} })
+          body: JSON.stringify({ orderId: order.id, items: cart, total: totalConRecargo, payer: {nombre: form.nombre, telefono: form.telefono} })
         });
         const data = await res.json();
         if (data.init_point) {
@@ -484,7 +485,7 @@ function CustomerView({ menu, cajaStatus }) {
   const PAGOS = [
     {v:"efectivo",      l:"💵 Efectivo",      desc:"Pagás al recibir / retirar"},
     {v:"transferencia", l:"📲 Transferencia",  desc:"Te mandamos el CBU al confirmar"},
-    {v:"tarjeta",       l:"💳 Tarjeta / MP",    desc:"Pagá con tarjeta o Mercado Pago"},
+    {v:"tarjeta",       l:"💳 Tarjeta / MP",    desc:`+${(CONFIG.recargoMP*100).toFixed(2)}% comisión MP`},
   ];
 
   // Caja cerrada — mostrar pantalla de local cerrado
@@ -717,7 +718,7 @@ function CustomerView({ menu, cajaStatus }) {
         </Card>
         <button className="btn" onClick={placeOrder} disabled={!canConfirm||loading}
           style={{width:"100%",padding:"16px 0",borderRadius:14,fontSize:18,fontWeight:800,background:canConfirm?"var(--red)":"var(--border)",color:canConfirm?"#fff":"var(--text4)",boxShadow:canConfirm?"0 8px 24px var(--red-glow)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
-          {loading?"ENVIANDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
+          {loading?"ENVIANDO...":`CONFIRMAR PEDIDO · ${fmt(totalConRecargo)}`}
         </button>
       </div>
     </div>
