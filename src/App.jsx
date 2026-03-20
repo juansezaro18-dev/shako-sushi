@@ -910,7 +910,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   const topProds = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0,8);
   const todayStr = new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
   const isMesaClosed = (o) => { if (!o.mesa_id) return true; const m=mesasData.find(x=>x.id===o.mesa_id); return m?(m.session_num||1)>(o.mesa_session||1):true; };
-  const filtered = orders.filter(o => { if (filter==="activos") return ["nuevo","preparando","listo"].includes(o.status); if (filter==="historial") return o.status==="entregado"&&(!o.mesa_id); return o.status===filter; });
+  const filtered = orders.filter(o => { if (filter==="activos") return ["nuevo","preparando","listo"].includes(o.status); if (filter==="entregados") return o.status==="entregado"&&!o.mesa_id; return o.status===filter; });
   const counts   = {
     nuevo:     orders.filter(o=>o.status==="nuevo").length,
     preparando:orders.filter(o=>o.status==="preparando").length,
