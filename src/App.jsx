@@ -257,6 +257,7 @@ function AdminLogin({ menu, saveMenu }) {
 function CustomerView({ menu }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   const [activeCat,  setActiveCat]  = useState(menuVis[0]?.id);
+  const [search,     setSearch]     = useState("");
   const [cart,       setCart]       = useState([]);
   const [step,       setStep]       = useState("menu");
   const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",piso:"",barrio:"",pago:"efectivo"});
@@ -265,6 +266,10 @@ function CustomerView({ menu }) {
   const [orderTotal, setOrderTotal] = useState(0);
   const tabsRef = useRef(null);
   const sRefs   = useRef({});
+  const menuFiltered = search.trim()
+    ? menuVis.map(c=>({...c,items:c.items.filter(i=>i.nombre.toLowerCase().includes(search.toLowerCase())||i.desc.toLowerCase().includes(search.toLowerCase()))}))
+        .filter(c=>c.items.length>0)
+    : menuVis;
 
   useEffect(() => {
     const obs = new IntersectionObserver(
@@ -460,26 +465,52 @@ function CustomerView({ menu }) {
           <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>{CONFIG.horario}</span>
         </div>
       </div>
-      <div ref={tabsRef} style={{position:"sticky",top:0,background:"rgba(255,255,255,.98)",backdropFilter:"blur(14px)",borderBottom:"1px solid var(--border)",zIndex:9,overflowX:"auto",display:"flex",whiteSpace:"nowrap",boxShadow:"0 2px 8px rgba(0,0,0,.06)",padding:"0 2px"}}>
-        {menuVis.map(c=>{
-          const active=activeCat===c.id;
-          const COLORS={rolls:"#CC1F1F",nigiri:"#E07B39",combinados:"#7C3AED",temaki:"#16A34A",teppan:"#D97706",ceviche:"#0EA5E9",wok:"#EA580C",aperitivos:"#DC2626",vegetarianos:"#16A34A",salsas:"#CA8A04",adicionales:"#6B7280",bebidas:"#2563EB",cervezas:"#D97706",postres:"#DB2777"};
-          const col=COLORS[c.id]||"#CC1F1F";
-          return(
-            <button key={c.id} data-tid={c.id} className="btn" onClick={()=>scrollTo(c.id)}
-              style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,padding:"8px 8px 6px",borderRadius:0,borderBottom:active?"3px solid "+col:"3px solid transparent",background:"transparent",transition:"all .2s",flexShrink:0,minWidth:58}}>
-              <div style={{width:34,height:34,borderRadius:9,background:active?col+"18":"var(--surface2)",border:"1.5px solid "+(active?col:"var(--border)"),display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s"}}>
-                <span style={{fontSize:15,lineHeight:1}}>{c.emoji}</span>
-              </div>
-              <span style={{fontSize:9,fontWeight:700,color:active?col:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.3,textTransform:"uppercase",lineHeight:1.1,maxWidth:54,textAlign:"center",whiteSpace:"normal"}}>
-                {c.nombre.length>8?c.nombre.split(" ")[0]:c.nombre}
-              </span>
-            </button>
-          );
-        })}
+      <div style={{position:"sticky",top:0,background:"rgba(255,255,255,.98)",backdropFilter:"blur(14px)",zIndex:9,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+        <div style={{padding:"10px 14px 8px",borderBottom:"1px solid var(--border)"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10,background:"var(--bg2)",border:"1.5px solid var(--border)",borderRadius:12,padding:"9px 14px"}}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar productos..." style={{flex:1,fontSize:14,color:"var(--text)",background:"transparent",border:"none",outline:"none",fontFamily:"'Barlow',sans-serif"}}/>
+            {search&&<button className="btn" onClick={()=>setSearch("")} style={{color:"var(--text4)",fontSize:16,lineHeight:1,padding:0,background:"transparent"}}>✕</button>}
+          </div>
+        </div>
+        <div ref={tabsRef} style={{overflowX:"auto",display:"flex",whiteSpace:"nowrap",padding:"2px 2px 0",borderBottom:"1px solid var(--border)"}}>
+          {menuVis.map(c=>{
+            const active=activeCat===c.id;
+            const COLORS={rolls:"#CC1F1F",nigiri:"#E07B39",combinados:"#7C3AED",temaki:"#16A34A",teppan:"#D97706",ceviche:"#0EA5E9",wok:"#EA580C",aperitivos:"#DC2626",vegetarianos:"#16A34A",salsas:"#CA8A04",adicionales:"#6B7280",bebidas:"#2563EB",cervezas:"#D97706",postres:"#DB2877"};
+            const col=COLORS[c.id]||"#CC1F1F";
+            const ICONS={
+              rolls:     (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill={c} stroke="none"/></svg>,
+              nigiri:    (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><ellipse cx="12" cy="15" rx="7" ry="4"/><path d="M8 15 Q9 9 12 8 Q15 9 16 15"/></svg>,
+              combinados:(c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>,
+              temaki:    (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M7 3 L17 3 L13 21 L11 21 Z"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="8" y1="14" x2="16" y2="14"/></svg>,
+              teppan:    (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><rect x="2" y="14" width="20" height="6" rx="2"/><line x1="7" y1="14" x2="7" y2="10"/><line x1="12" y1="14" x2="12" y2="7"/><line x1="17" y1="14" x2="17" y2="10"/></svg>,
+              ceviche:   (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M3 12 Q7 5 12 12 Q17 19 21 12"/><circle cx="6" cy="8" r="1.5" fill={c} stroke="none"/><path d="M15 6 Q17 4 19 6"/></svg>,
+              wok:       (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M4 8 Q12 17 20 8"/><line x1="2" y1="8" x2="22" y2="8"/><line x1="9" y1="8" x2="7" y2="19"/><line x1="15" y1="8" x2="17" y2="19"/><line x1="7" y1="19" x2="17" y2="19"/></svg>,
+              aperitivos:(c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M12 3 Q14 7 14 10 Q14 13 12 13 Q10 13 10 10 Q10 7 12 3Z"/><path d="M7 13 Q5 16 5 18 Q5 21 9 21 L15 21 Q19 21 19 18 Q19 16 17 13Z"/></svg>,
+              vegetarianos:(c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M12 21 L12 11"/><path d="M12 11 Q17 7 21 9 Q19 16 12 15"/><path d="M12 11 Q7 7 3 9 Q5 16 12 15"/></svg>,
+              salsas:    (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M9 3h6l1 5H8z"/><rect x="7" y="8" width="10" height="12" rx="2"/><line x1="10" y1="12" x2="14" y2="12"/><line x1="10" y1="15" x2="14" y2="15"/></svg>,
+              adicionales:(c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="16"/><line x1="8" y1="12" x2="16" y2="12"/></svg>,
+              bebidas:   (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M7 4h10l-2 15a2 2 0 0 1-2 1H11a2 2 0 0 1-2-1Z"/><path d="M7 4 L5 10 L7 11"/><line x1="9" y1="9" x2="15" y2="9"/></svg>,
+              cervezas:  (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><rect x="6" y="6" width="10" height="14" rx="2"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><line x1="10" y1="3" x2="10" y2="6"/><line x1="14" y1="3" x2="14" y2="6"/></svg>,
+              postres:   (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M4 17 Q4 21 12 21 Q20 21 20 17 L18 8 Q16 4 12 4 Q8 4 6 8Z"/><path d="M8 13 Q10 15 12 13 Q14 11 16 13"/></svg>,
+            };
+            const Icon=ICONS[c.id];
+            return(
+              <button key={c.id} data-tid={c.id} className="btn" onClick={()=>scrollTo(c.id)}
+                style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"8px 10px 6px",borderRadius:0,borderBottom:active?"3px solid "+col:"3px solid transparent",background:"transparent",transition:"all .2s",flexShrink:0,minWidth:62}}>
+                <div style={{width:40,height:40,borderRadius:10,background:active?col+"15":"transparent",display:"flex",alignItems:"center",justifyContent:"center",transition:"all .2s"}}>
+                  {Icon?Icon(active?col:"#BBBBBB"):<span style={{fontSize:16}}>{c.emoji}</span>}
+                </div>
+                <span style={{fontSize:9,fontWeight:700,color:active?col:"#AAAAAA",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.3,textTransform:"uppercase",lineHeight:1.2,maxWidth:58,textAlign:"center",whiteSpace:"normal"}}>
+                  {c.nombre.split(",")[0].split(" ").slice(0,2).join(" ")}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
-      {menuVis.map(cat=>(
-        <div key={cat.id} ref={el=>sRefs.current[cat.id]=el} data-cat={cat.id}>
+      {menuFiltered.map(cat=>(
+        <div key={cat.id} ref={el=>{if(el)sRefs.current[cat.id]=el;}} data-cat={cat.id}>
           <div style={{padding:"20px 18px 8px"}}>
             <div className="sh" style={{fontSize:22,color:"var(--text)"}}>{cat.nombre}</div>
             {cat.desc&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{cat.desc}</div>}
