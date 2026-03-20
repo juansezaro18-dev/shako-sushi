@@ -317,6 +317,8 @@ function AdminLogin({ menu, saveMenu }) {
 
 function CustomerView({ menu, cajaStatus }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
+  // Detect mesa from URL: ?mesa=m5
+  const mesaQR = new URLSearchParams(window.location.search).get("mesa") || "";
   const [activeCat,  setActiveCat]  = useState(menuVis[0]?.id);
   const [search,     setSearch]     = useState("");
   const [cart,       setCart]       = useState([]);
@@ -398,7 +400,7 @@ function CustomerView({ menu, cajaStatus }) {
   const placeOrder = async () => {
     if (!canConfirm) return;
     setLoading(true);
-    const order = { id:genId(), ...form, items:cart, total, status:"nuevo", created_at:Date.now() };
+    const order = { id:genId(), ...form, items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaQR };
     // Mostrar confirmación al instante
     setOrderId(order.id);
     setOrderTotal(order.total);
@@ -586,7 +588,7 @@ function CustomerView({ menu, cajaStatus }) {
             <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.4)",flexShrink:0}}/>
             <div>
               <div className="sh" style={{fontSize:26,color:"#fff",lineHeight:1,letterSpacing:1}}>SHAKO SUSHI</div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>{CONFIG.ubicacion}</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>{mesaQR ? `🪑 Mesa ${mesaQR.replace("m","").replace("v","Vereda ")}` : CONFIG.ubicacion}</div>
             </div>
           </div>
           {count>0&&(
@@ -756,6 +758,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   const [filter,     setFilter]     = useState("activos");
   const [expandedId, setExpandedId] = useState(null);
   const [showNewOrder, setShowNewOrder] = useState(false);
+  const [nuevoPedidoMesaId, setNuevoPedidoMesaId] = useState(null);
 
   const [caja,         setCaja]         = useState(null);
   const [cajaLoading,  setCajaLoading]  = useState(false);
@@ -866,6 +869,7 @@ function AdminView({ onExit, menu, saveMenu }) {
     {key:"facturacion", label:"Caja",      val:null,               color:"#D97706"},
     {key:"editor",      label:"Menú",      val:null,               color:"#7C3AED"},
     {key:"nuevo_pedido", label:"Pedido",    val:null,               color:"#16A34A"},
+    {key:"mesas",        label:"Mesas",     val:null,               color:"#0EA5E9"},
   ];
 
   return (
@@ -1048,7 +1052,8 @@ function AdminView({ onExit, menu, saveMenu }) {
         </div>
       )}
 
-      {filter==="nuevo_pedido"&&<NuevoPedidoAdmin menu={menu} onClose={()=>setFilter("activos")} onOrderPlaced={loadOrders}/>}
+      {filter==="mesas"&&<MesasView onNewOrder={(mesaId)=>{setFilter("nuevo_pedido");setNuevoPedidoMesaId(mesaId);}} />}
+      {filter==="nuevo_pedido"&&<NuevoPedidoAdmin menu={menu} mesaId={nuevoPedidoMesaId} onClose={()=>{setFilter(nuevoPedidoMesaId?"mesas":"activos");setNuevoPedidoMesaId(null);}} onOrderPlaced={()=>{loadOrders();}} />}
 
       {!["editor","facturacion"].includes(filter)&&(
         <div style={{padding:"12px 12px 40px"}}>
@@ -1345,10 +1350,10 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
 }
 
 /* ══ NUEVO PEDIDO DESDE ADMIN ═════════════════════════════════ */
-function NuevoPedidoAdmin({ menu, onClose, onOrderPlaced }) {
+function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   const [cart,     setCart]     = useState([]);
-  const [form,     setForm]     = useState({nombre:"",telefono:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",notas:"",dni:""});
+  const [form,     setForm]     = useState({nombre:"",telefono:"",tipo:mesaId?"mesa":"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",notas:"",dni:""});
   const [loading,  setLoading]  = useState(false);
   const [dniFound, setDniFound] = useState(false);
   const [search,   setSearch]   = useState("");
@@ -1387,8 +1392,10 @@ function NuevoPedidoAdmin({ menu, onClose, onOrderPlaced }) {
     if (!cart.length || !form.nombre.trim()) return;
     setLoading(true);
     const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-    const order = { id:genId(), ...form, items:cart, total, status:"nuevo", created_at:Date.now() };
+    const order = { id:genId(), ...form, items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"" };
     await supabase.from("orders").insert(order);
+    // Mark mesa as ocupada
+    if (mesaId) await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesaId);
     onOrderPlaced();
     onClose();
     setLoading(false);
@@ -1398,6 +1405,12 @@ function NuevoPedidoAdmin({ menu, onClose, onOrderPlaced }) {
 
   return (
     <div className="fade-in" style={{padding:14,paddingBottom:40}}>
+      {mesaId&&(
+        <div style={{background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
+          <span style={{fontSize:20}}>🪑</span>
+          <div className="sh" style={{fontSize:16,color:"#2563EB"}}>PEDIDO PARA MESA {mesaId.toUpperCase().replace("M","")}</div>
+        </div>
+      )}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div className="sh" style={{fontSize:22,color:"var(--text)"}}>NUEVO PEDIDO</div>
         <button className="btn" onClick={onClose} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"7px 16px",color:"var(--text3)",fontSize:13,fontWeight:600}}>← Volver</button>
@@ -1786,6 +1799,244 @@ function HistorialCajaTabla({ historial, onReload }) {
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ══ MESAS VIEW ═══════════════════════════════════════════════ */
+function MesasView({ onNewOrder }) {
+  const [mesas,       setMesas]       = useState([]);
+  const [orders,      setOrders]      = useState([]);
+  const [selectedMesa,setSelectedMesa]= useState(null);
+  const [unirMode,    setUnirMode]    = useState(false);
+  const [unirTarget,  setUnirTarget]  = useState(null);
+  const [loading,     setLoading]     = useState(true);
+
+  const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
+
+  const SECTORES = ["Salón","Vereda","Barra"];
+  const ESTADOS_COLOR = {
+    libre:   {bg:"#F0FDF4", border:"#BBF7D0", text:"#16A34A", dot:"#16A34A"},
+    ocupada: {bg:"#FFF7ED", border:"#FED7AA", text:"#EA580C", dot:"#EA580C"},
+    cuenta:  {bg:"#FEF3C7", border:"#FDE68A", text:"#D97706", dot:"#D97706"},
+  };
+
+  const load = useCallback(async () => {
+    const [{ data: mesasData }, { data: ordersData }] = await Promise.all([
+      supabase.from("mesas").select("*").order("id"),
+      supabase.from("orders").select("*").in("status",["nuevo","preparando","listo"]).neq("mesa_id",""),
+    ]);
+    setMesas(mesasData || []);
+    setOrders(ordersData || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    load();
+    const iv = setInterval(load, 5000);
+    const ch = supabase.channel("mesas-rt")
+      .on("postgres_changes",{event:"*",schema:"public",table:"mesas"},()=>load())
+      .on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>load())
+      .subscribe();
+    return () => { clearInterval(iv); supabase.removeChannel(ch); };
+  }, [load]);
+
+  const getMesaOrders = (mesaId) => orders.filter(o => o.mesa_id === mesaId);
+  const getMesaTotal  = (mesaId) => getMesaOrders(mesaId).reduce((s,o)=>s+Number(o.total),0);
+
+  const setEstado = async (mesaId, estado) => {
+    await supabase.from("mesas").update({estado}).eq("id", mesaId);
+    setMesas(p => p.map(m => m.id===mesaId ? {...m,estado} : m));
+  };
+
+  const liberarMesa = async (mesaId) => {
+    if (!window.confirm("¿Cerrar la cuenta y liberar la mesa?")) return;
+    await supabase.from("orders").update({status:"entregado"})
+      .eq("mesa_id", mesaId).in("status",["nuevo","preparando","listo"]);
+    await supabase.from("mesas").update({estado:"libre", pedidos_ids:[]}).eq("id", mesaId);
+    load();
+  };
+
+  const unirMesas = async (mesa1Id, mesa2Id) => {
+    // Mark mesa2 orders as belonging to mesa1
+    await supabase.from("orders").update({mesa_id: mesa1Id})
+      .eq("mesa_id", mesa2Id).in("status",["nuevo","preparando","listo"]);
+    await supabase.from("mesas").update({estado:"libre", pedidos_ids:[]}).eq("id", mesa2Id);
+    setUnirMode(false); setUnirTarget(null);
+    load();
+    setSelectedMesa(mesa1Id);
+  };
+
+  const mesaSeleccionada = mesas.find(m => m.id === selectedMesa);
+  const mesaOrders = selectedMesa ? getMesaOrders(selectedMesa) : [];
+
+  const ESTADOS = {
+    nuevo:     {label:"Nuevo",     color:"#CC1F1F", bg:"rgba(204,31,31,.1)"},
+    preparando:{label:"Preparando",color:"#D97706", bg:"rgba(217,119,6,.1)"},
+    listo:     {label:"Listo ✓",  color:"#16A34A", bg:"rgba(22,163,74,.1)"},
+  };
+
+  if (loading) return <div style={{padding:40,textAlign:"center",color:"var(--text4)"}}>Cargando mesas...</div>;
+
+  return (
+    <div className="fade-in" style={{padding:14,paddingBottom:40}}>
+      {/* Header */}
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div className="sh" style={{fontSize:24,color:"var(--text)"}}>MESAS</div>
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn" onClick={()=>{setUnirMode(!unirMode);setUnirTarget(null);}}
+            style={{padding:"8px 14px",borderRadius:10,background:unirMode?"#FEF3C7":"var(--bg2)",border:`1px solid ${unirMode?"#FDE68A":"var(--border)"}`,color:unirMode?"#D97706":"var(--text3)",fontSize:13,fontWeight:600}}>
+            {unirMode?"✕ Cancelar unir":"⊕ Unir mesas"}
+          </button>
+          <button className="btn" onClick={load}
+            style={{padding:"8px 12px",borderRadius:10,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:13}}>↻</button>
+        </div>
+      </div>
+
+      {unirMode && (
+        <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#92400E"}}>
+          {!unirTarget
+            ? "Tocá la mesa ORIGEN (la que va a absorber los pedidos)"
+            : `Mesa ${mesas.find(m=>m.id===unirTarget)?.nombre} seleccionada. Ahora tocá la mesa que querés UNIR a ella.`}
+        </div>
+      )}
+
+      {/* Leyenda */}
+      <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
+        {[{e:"libre",l:"Libre"},{e:"ocupada",l:"Ocupada"},{e:"cuenta",l:"Pidiendo cuenta"}].map(x=>(
+          <div key={x.e} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"var(--text3)"}}>
+            <div style={{width:10,height:10,borderRadius:"50%",background:ESTADOS_COLOR[x.e].dot}}/>
+            {x.l}
+          </div>
+        ))}
+      </div>
+
+      {/* Mesas por sector */}
+      {SECTORES.map(sector => {
+        const mesasSector = mesas.filter(m => m.sector === sector);
+        if (!mesasSector.length) return null;
+        return (
+          <div key={sector} style={{marginBottom:20}}>
+            <div style={{fontSize:11,fontWeight:700,color:"var(--text4)",letterSpacing:2,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:10}}>{sector.toUpperCase()}</div>
+            <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
+              {mesasSector.map(mesa => {
+                const ec = ESTADOS_COLOR[mesa.estado] || ESTADOS_COLOR.libre;
+                const total = getMesaTotal(mesa.id);
+                const nOrders = getMesaOrders(mesa.id).length;
+                const isSelected = selectedMesa === mesa.id;
+                const isUnirTarget = unirTarget === mesa.id;
+
+                const handleClick = () => {
+                  if (unirMode) {
+                    if (!unirTarget) { setUnirTarget(mesa.id); return; }
+                    if (mesa.id !== unirTarget) unirMesas(unirTarget, mesa.id);
+                    return;
+                  }
+                  setSelectedMesa(isSelected ? null : mesa.id);
+                };
+
+                return (
+                  <div key={mesa.id} onClick={handleClick}
+                    style={{
+                      width:90, minHeight:80, borderRadius:14, padding:"10px 8px",
+                      background:isUnirTarget?"#FEF3C7":isSelected?"var(--red-light)":ec.bg,
+                      border:`2px solid ${isUnirTarget?"#D97706":isSelected?"var(--red)":ec.border}`,
+                      cursor:"pointer", transition:"all .2s", textAlign:"center",
+                      boxShadow: mesa.estado!=="libre"?"0 2px 8px rgba(0,0,0,.08)":"none",
+                      position:"relative",
+                    }}>
+                    {/* Estado dot */}
+                    <div style={{position:"absolute",top:6,right:6,width:8,height:8,borderRadius:"50%",background:ec.dot}}/>
+                    <div className="sh" style={{fontSize:16,color:isSelected?"var(--red)":ec.text,marginBottom:4}}>{mesa.nombre}</div>
+                    {mesa.estado === "libre"
+                      ? <div style={{fontSize:10,color:"var(--text4)"}}>Libre</div>
+                      : <>
+                          <div style={{fontSize:10,color:ec.text,fontWeight:600}}>{nOrders} pedido{nOrders!==1?"s":""}</div>
+                          {total>0&&<div className="sh" style={{fontSize:13,color:ec.text,marginTop:2}}>{fmt(total)}</div>}
+                        </>
+                    }
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Panel de mesa seleccionada */}
+      {mesaSeleccionada && (
+        <div className="slide-up" style={{background:"var(--surface)",border:"2px solid var(--red-border)",borderRadius:16,padding:16,marginTop:8}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+            <div className="sh" style={{fontSize:20,color:"var(--text)"}}>{mesaSeleccionada.nombre}</div>
+            <div style={{display:"flex",gap:8}}>
+              {/* Cambiar estado */}
+              {["libre","ocupada","cuenta"].map(e=>(
+                <button key={e} className="btn" onClick={()=>setEstado(mesaSeleccionada.id,e)}
+                  style={{padding:"6px 12px",borderRadius:9,fontSize:11,fontWeight:700,
+                    background:mesaSeleccionada.estado===e?ESTADOS_COLOR[e].bg:"var(--bg2)",
+                    border:`1px solid ${mesaSeleccionada.estado===e?ESTADOS_COLOR[e].border:"var(--border)"}`,
+                    color:mesaSeleccionada.estado===e?ESTADOS_COLOR[e].text:"var(--text4)",
+                    fontFamily:"'Barlow Condensed',sans-serif",textTransform:"capitalize"}}>
+                  {e==="libre"?"Libre":e==="ocupada"?"Ocupada":"Cuenta"}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Pedidos de la mesa */}
+          {mesaOrders.length === 0
+            ? <div style={{textAlign:"center",padding:"20px 0",color:"var(--text4)",fontSize:13}}>Sin pedidos activos en esta mesa</div>
+            : <>
+                {mesaOrders.map(o => {
+                  const est = ESTADOS[o.status]||ESTADOS.nuevo;
+                  return(
+                    <div key={o.id} style={{background:"var(--bg2)",borderRadius:12,padding:"12px 14px",marginBottom:8,border:"1px solid var(--border)"}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                        <div style={{display:"flex",alignItems:"center",gap:8}}>
+                          <span className="sh" style={{fontSize:14,color:"var(--text)"}}>#{o.id.slice(-5).toUpperCase()}</span>
+                          <span style={{fontSize:11,fontWeight:700,color:est.color,background:est.bg,padding:"2px 8px",borderRadius:20}}>{est.label}</span>
+                        </div>
+                        <span className="sh" style={{fontSize:15,color:"var(--red)"}}>{fmt(o.total)}</span>
+                      </div>
+                      {o.items?.map(c=>(
+                        <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0",borderBottom:"1px solid var(--border)"}}>
+                          <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
+                          <span style={{color:"var(--text3)"}}>{fmt(c.item.precio*c.qty)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+                {/* Total y acciones */}
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0 0",borderTop:"1px solid var(--border)",marginTop:4}}>
+                  <div className="sh" style={{fontSize:20,color:"var(--text)"}}>TOTAL: <span style={{color:"var(--red)"}}>{fmt(getMesaTotal(mesaSeleccionada.id))}</span></div>
+                  <div style={{display:"flex",gap:8}}>
+                    <button className="btn" onClick={()=>printTicket({
+                      ...mesaOrders[0],
+                      nombre: mesaSeleccionada.nombre,
+                      items: mesaOrders.flatMap(o=>o.items||[]),
+                      total: getMesaTotal(mesaSeleccionada.id),
+                      notas: mesaOrders.map(o=>o.notas).filter(Boolean).join(" | "),
+                    })}
+                      style={{padding:"10px 16px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>
+                      🖨️ Ticket
+                    </button>
+                    <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id)}
+                      style={{padding:"10px 16px",borderRadius:12,background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                      ✓ Cerrar cuenta
+                    </button>
+                  </div>
+                </div>
+              </>
+          }
+
+          {/* Nuevo pedido para esta mesa */}
+          <button className="btn" onClick={()=>onNewOrder(mesaSeleccionada.id)}
+            style={{width:"100%",marginTop:12,padding:"12px 0",borderRadius:12,background:"var(--red-light)",border:"1px dashed var(--red-border)",color:"var(--red)",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+            + AGREGAR PEDIDO A {mesaSeleccionada.nombre.toUpperCase()}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
