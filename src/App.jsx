@@ -235,11 +235,21 @@ export default function App() {
     supabase.from("menu_config").select("data").eq("id",1).maybeSingle()
       .then(({data}) => { if (data?.data) setMenu(data.data); })
       .catch(() => {});
-    // Check caja status
-    const hoy = new Date().toISOString().split("T")[0];
-    supabase.from("caja").select("estado").eq("fecha", hoy).maybeSingle()
-      .then(({data}) => setCajaStatus(data?.estado || "cerrada"))
-      .catch(() => setCajaStatus("cerrada"));
+    // Check caja status - initial load
+    const checkCaja = () => {
+      const hoy = new Date().toISOString().split("T")[0];
+      supabase.from("caja").select("estado").eq("fecha", hoy).maybeSingle()
+        .then(({data}) => setCajaStatus(data?.estado || "cerrada"))
+        .catch(() => setCajaStatus("cerrada"));
+    };
+    checkCaja();
+    // Poll every 30 seconds so page updates when caja opens/closes
+    const iv = setInterval(checkCaja, 30000);
+    // Also realtime
+    const ch = supabase.channel("caja-status")
+      .on("postgres_changes", {event:"*", schema:"public", table:"caja"}, checkCaja)
+      .subscribe();
+    return () => { clearInterval(iv); supabase.removeChannel(ch); };
   }, []);
 
   const saveMenu = async (m) => {
