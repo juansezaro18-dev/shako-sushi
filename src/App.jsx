@@ -476,7 +476,7 @@ function CustomerView({ menu, cajaStatus }) {
       setStep("transferencia");
       return;
     }
-    setStep("confirm");
+    setStep(form.pago === "transferencia" ? "transferencia" : "confirm");
     setLoading(false);
     saveCustomer(order);
   };
