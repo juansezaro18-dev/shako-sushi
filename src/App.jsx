@@ -11,6 +11,9 @@ const LOGO_SRC = "/logo.png";
 const CONFIG = {
   nombre: "Shako Sushi", adminPin: "1234",
   ubicacion: "Hudson Plaza Comercial, Berazategui", horario: "16:30 a 23:30", abreH:16, abreM:30, cierraH:23, cierraM:30,
+  aliasBanco: "CHACRA.BARRA.OSO",
+  aliasMP: "turo22.mp",
+  titular: "Juan Agusto Zaro",
 };
 
 const MENU_DEFAULT = [
@@ -429,7 +432,8 @@ function CustomerView({ menu, cajaStatus }) {
     setOrderId(order.id);
     setOrderTotal(order.total);
     setCart([]);
-    setStep("confirm");
+    // Redirect to transfer page if transferencia selected
+    setStep(form.pago === "transferencia" ? "transferencia" : "confirm");
     setLoading(false);
     saveCustomer(order);
   };
@@ -454,6 +458,56 @@ function CustomerView({ menu, cajaStatus }) {
         <span style={{fontSize:13,color:"var(--text3)",fontWeight:600}}>Cerrado</span>
         <span style={{color:"var(--text4)"}}>·</span>
         <span style={{fontSize:13,color:"var(--text3)"}}>{CONFIG.horario}</span>
+      </div>
+    </div>
+  );
+
+  if (step === "transferencia") return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
+      <div className="slide-up" style={{width:"100%",maxWidth:400}}>
+        <div style={{fontSize:48,marginBottom:12}}>📲</div>
+        <div className="sh" style={{fontSize:28,color:"var(--text)",marginBottom:4}}>TRANSFERENCIA</div>
+        <div style={{color:"var(--text3)",fontSize:14,marginBottom:28}}>Realizá la transferencia por el monto exacto</div>
+
+        <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:20,padding:24,marginBottom:16,textAlign:"left"}}>
+          <div style={{marginBottom:16,padding:"14px 16px",background:"#F0FDF4",borderRadius:12,border:"1px solid #BBF7D0",textAlign:"center"}}>
+            <div style={{fontSize:11,color:"#16A34A",fontWeight:700,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:4}}>TOTAL A PAGAR</div>
+            <div className="sh" style={{fontSize:36,color:"#16A34A"}}>{fmt(orderTotal)}</div>
+          </div>
+
+          <div style={{marginBottom:14}}>
+            <div style={{fontSize:10,color:"var(--text4)",fontWeight:700,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:6}}>BANCO — ALIAS</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg2)",borderRadius:12,padding:"12px 16px",border:"1px solid var(--border)"}}>
+              <span className="sh" style={{fontSize:18,color:"var(--text)",letterSpacing:1}}>{CONFIG.aliasBanco}</span>
+              <button className="btn" onClick={()=>{navigator.clipboard?.writeText(CONFIG.aliasBanco);}} style={{background:"var(--red-light)",border:"1px solid var(--red-border)",borderRadius:8,padding:"4px 10px",color:"var(--red)",fontSize:11,fontWeight:600}}>Copiar</button>
+            </div>
+            <div style={{fontSize:11,color:"var(--text4)",marginTop:4,paddingLeft:4}}>Titular: {CONFIG.titular}</div>
+          </div>
+
+          <div style={{marginBottom:4}}>
+            <div style={{fontSize:10,color:"var(--text4)",fontWeight:700,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:6}}>MERCADO PAGO — ALIAS</div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg2)",borderRadius:12,padding:"12px 16px",border:"1px solid var(--border)"}}>
+              <span className="sh" style={{fontSize:18,color:"var(--text)",letterSpacing:1}}>{CONFIG.aliasMP}</span>
+              <button className="btn" onClick={()=>{navigator.clipboard?.writeText(CONFIG.aliasMP);}} style={{background:"var(--red-light)",border:"1px solid var(--red-border)",borderRadius:8,padding:"4px 10px",color:"var(--red)",fontSize:11,fontWeight:600}}>Copiar</button>
+            </div>
+            <div style={{fontSize:11,color:"var(--text4)",marginTop:4,paddingLeft:4}}>Titular: {CONFIG.titular}</div>
+          </div>
+        </div>
+
+        <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:12,padding:"12px 16px",marginBottom:24,fontSize:13,color:"#92400E"}}>
+          ⚠️ Una vez realizada la transferencia tu pedido será confirmado por el local
+        </div>
+
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <button className="btn" onClick={()=>setStep("confirm")}
+            style={{padding:"14px 0",borderRadius:40,background:"var(--red)",color:"#fff",fontSize:16,fontWeight:700,boxShadow:"0 8px 24px var(--red-glow)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
+            YA TRANSFERÍ ✓
+          </button>
+          <button className="btn" onClick={()=>setStep("checkout")}
+            style={{padding:"10px 0",borderRadius:40,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:14,fontWeight:600}}>
+            ← Volver
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -588,6 +642,24 @@ function CustomerView({ menu, cajaStatus }) {
         )}
         {/* Método de pago — se define al cobrar, no al pedir */}
         <Card>
+          {/* Método de pago — solo para delivery/retiro */}
+          <Card>
+            <Label>MÉTODO DE PAGO</Label>
+            <div style={{display:"flex",flexDirection:"column",gap:8}}>
+              {PAGOS.map(p=>(
+                <button key={p.v} className="btn" onClick={()=>setForm(f=>({...f,pago:p.v}))}
+                  style={{padding:"13px 16px",borderRadius:12,background:form.pago===p.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.pago===p.v?"var(--red)":"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all .2s"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:10}}>
+                    <div style={{width:20,height:20,borderRadius:"50%",background:form.pago===p.v?"var(--red)":"transparent",border:`2px solid ${form.pago===p.v?"var(--red)":"var(--border2)"}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {form.pago===p.v&&<div style={{width:7,height:7,borderRadius:"50%",background:"#fff"}}/>}
+                    </div>
+                    <span style={{fontSize:14,fontWeight:600,color:form.pago===p.v?"var(--red)":"var(--text2)"}}>{p.l}</span>
+                  </div>
+                  <span style={{fontSize:12,color:"var(--text4)"}}>{p.desc}</span>
+                </button>
+              ))}
+            </div>
+          </Card>
           <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOTAS ADICIONALES (opcional)</div>
           <textarea value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} placeholder="Alergias, aclaraciones, referencias para llegar..." rows={3}
             style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,resize:"none",lineHeight:1.6}}/>
