@@ -1919,9 +1919,26 @@ function MesasView({ onNewOrder }) {
       supabase.from("mesas").select("*").order("id"),
       supabase.from("orders").select("*").neq("mesa_id","").order("created_at",{ascending:false}).limit(200),
     ]);
-    setMesas(mesasData || []);
-    setOrders(ordersData || []);
+    const mesas_ = mesasData || [];
+    const orders_ = ordersData || [];
+    setMesas(mesas_);
+    setOrders(orders_);
     setLoading(false);
+    // Auto-update mesa states
+    const activeOrders_ = orders_.filter(o=>["nuevo","preparando","listo"].includes(o.status));
+    const mesasConPedidos = [...new Set(activeOrders_.map(o=>o.mesa_id).filter(Boolean))];
+    const mesasSinPedidos = mesas_.filter(m=>m.estado==="ocupada"&&!mesasConPedidos.includes(m.id)).map(m=>m.id);
+    for (const mId of mesasConPedidos) {
+      const mesa = mesas_.find(m=>m.id===mId);
+      if (mesa?.estado==="libre") {
+        await supabase.from("mesas").update({estado:"ocupada"}).eq("id",mId);
+        setMesas(p=>p.map(m=>m.id===mId?{...m,estado:"ocupada"}:m));
+      }
+    }
+    for (const mId of mesasSinPedidos) {
+      await supabase.from("mesas").update({estado:"libre"}).eq("id",mId);
+      setMesas(p=>p.map(m=>m.id===mId?{...m,estado:"libre"}:m));
+    }
   }, []);
 
   useEffect(() => {
