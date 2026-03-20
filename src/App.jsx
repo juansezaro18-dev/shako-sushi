@@ -238,8 +238,8 @@ export default function App() {
     // Check caja status - initial load
     const checkCaja = () => {
       const hoy = new Date().toISOString().split("T")[0];
-      supabase.from("caja").select("estado").eq("fecha", hoy).maybeSingle()
-        .then(({data}) => setCajaStatus(data?.estado || "cerrada"))
+      supabase.from("caja").select("estado").eq("fecha", hoy).eq("estado","abierta").limit(1)
+        .then(({data}) => setCajaStatus(data && data.length > 0 ? "abierta" : "cerrada"))
         .catch(() => setCajaStatus("cerrada"));
     };
     checkCaja();
@@ -777,8 +777,11 @@ function AdminView({ onExit, menu, saveMenu }) {
 
   const loadCaja = useCallback(async () => {
     const hoy = new Date().toISOString().split("T")[0];
-    const {data} = await supabase.from("caja").select("*").eq("fecha", hoy).maybeSingle();
-    setCaja(data || null);
+    // Prefer open caja, fallback to most recent of today
+    const {data: abierta} = await supabase.from("caja").select("*").eq("fecha", hoy).eq("estado","abierta").limit(1);
+    if (abierta && abierta.length > 0) { setCaja(abierta[0]); return; }
+    const {data: reciente} = await supabase.from("caja").select("*").eq("fecha", hoy).order("created_at",{ascending:false}).limit(1);
+    setCaja(reciente && reciente.length > 0 ? reciente[0] : null);
   }, []);
 
   const loadHistorialCaja = useCallback(async () => {
@@ -794,7 +797,7 @@ function AdminView({ onExit, menu, saveMenu }) {
     setCajaLoading(true);
     const hoy = new Date().toISOString().split("T")[0];
     const now = new Date(); const hora = now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
-    const {data} = await supabase.from("caja").upsert({fecha:hoy, estado:"abierta", hora_apertura:hora, monto_apertura:Number(monto), notas_apertura:notas}).select().single();
+    const {data} = await supabase.from("caja").insert({fecha:hoy, estado:"abierta", hora_apertura:hora, monto_apertura:Number(monto), notas_apertura:notas}).select().single();
     setCaja(data);
     setCajaLoading(false);
   };
