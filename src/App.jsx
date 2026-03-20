@@ -855,8 +855,6 @@ function AdminView({ onExit, menu, saveMenu }) {
   const updateStatus = async (order, ns) => {
     setOrders(p => p.map(o => o.id===order.id ? {...o,status:ns} : o));
     await supabase.from("orders").update({status:ns}).eq("id", order.id);
-    // Imprimir ticket automáticamente cuando el pedido está listo
-    if (ns === "listo") printTicket({...order, status:"listo"});
   };
   const updatePago = async (order, pago) => {
     setOrders(p => p.map(o => o.id===order.id ? {...o,pago} : o));
@@ -1885,6 +1883,19 @@ function MesasView({ onNewOrder }) {
 
   const liberarMesa = async (mesaId) => {
     if (!window.confirm("¿Cerrar la cuenta y liberar la mesa?")) return;
+    // Get orders before closing to print ticket
+    const mesaOrds = orders.filter(o=>o.mesa_id===mesaId&&["nuevo","preparando","listo"].includes(o.status));
+    const mesaNombre = mesas.find(m=>m.id===mesaId)?.nombre||mesaId;
+    const totalMesa = mesaOrds.reduce((s,o)=>s+Number(o.total),0);
+    if (mesaOrds.length > 0) {
+      printTicket({
+        ...mesaOrds[0],
+        nombre: mesaNombre,
+        items: mesaOrds.flatMap(o=>o.items||[]),
+        total: totalMesa,
+        notas: mesaOrds.map(o=>o.notas).filter(Boolean).join(" | "),
+      });
+    }
     await supabase.from("orders").update({status:"entregado"})
       .eq("mesa_id", mesaId).in("status",["nuevo","preparando","listo"]);
     await supabase.from("mesas").update({estado:"libre", pedidos_ids:[]}).eq("id", mesaId);
