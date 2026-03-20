@@ -858,14 +858,25 @@ function AdminView({ onExit, menu, saveMenu }) {
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const hoyTs = hoy.getTime();
   const ordersHoy = orders.filter(o => Number(o.created_at) >= hoyTs);
-  const entH   = ordersHoy.filter(o => o.status === "entregado");
-  const totDia = entH.reduce((s,o)=>s+Number(o.total),0);
-  const totEf  = entH.filter(o=>o.pago==="efectivo").reduce((s,o)=>s+Number(o.total),0);
-  const totTr  = entH.filter(o=>o.pago==="transferencia").reduce((s,o)=>s+Number(o.total),0);
-  const totTj  = entH.filter(o=>o.pago==="tarjeta").reduce((s,o)=>s+Number(o.total),0);
+  const entH   = ordersHoy.filter(o => o.status === "entregado" && !o.mesa_id);
+  // For mesa orders: count once per session (deduplicated by mesa+session key)
+  const mesaSessions = {};
+  ordersHoy.filter(o=>o.status==="entregado"&&o.mesa_id).forEach(o=>{
+    const key = o.mesa_id+"-"+(o.mesa_session||1);
+    if (!mesaSessions[key]) mesaSessions[key]={total:0,pago:o.pago,tipo:"mesa"};
+    mesaSessions[key].total += Number(o.total);
+    if (o.pago) mesaSessions[key].pago = o.pago;
+  });
+  const mesaSessionList = Object.values(mesaSessions);
+  const entHAll = [...entH, ...mesaSessionList.map(s=>({...s,status:"entregado"}))];
+  const totDia = entH.reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.reduce((s,m)=>s+m.total,0);
+  const totEf  = entH.filter(o=>o.pago==="efectivo").reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.filter(m=>m.pago==="efectivo").reduce((s,m)=>s+m.total,0);
+  const totTr  = entH.filter(o=>o.pago==="transferencia").reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.filter(m=>m.pago==="transferencia").reduce((s,m)=>s+m.total,0);
+  const totTj  = entH.filter(o=>o.pago==="tarjeta").reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.filter(m=>m.pago==="tarjeta").reduce((s,m)=>s+m.total,0);
   const totDel = entH.filter(o=>o.tipo==="delivery").reduce((s,o)=>s+Number(o.total),0);
   const totRet = entH.filter(o=>o.tipo==="retiro").reduce((s,o)=>s+Number(o.total),0);
-  const proyect = ordersHoy.reduce((s,o)=>s+Number(o.total),0);
+  const totMesa = mesaSessionList.reduce((s,m)=>s+m.total,0);
+  const proyect = ordersHoy.filter(o=>!o.mesa_id).reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.reduce((s,m)=>s+m.total,0);
   const prodMap = {};
   entH.forEach(o => o.items?.forEach(c => {
     if (!prodMap[c.item.nombre]) prodMap[c.item.nombre]={nombre:c.item.nombre,qty:0,total:0};
@@ -961,7 +972,7 @@ function AdminView({ onExit, menu, saveMenu }) {
             </div>
             <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"6px 14px",textAlign:"center"}}>
               <div style={{fontSize:10,color:"#92400E",letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>PEDIDOS HOY</div>
-              <div className="sh" style={{fontSize:26,color:"#D97706"}}>{ordersHoy.length}</div>
+              <div className="sh" style={{fontSize:26,color:"#D97706"}}>{ordersHoy.filter(o=>!o.mesa_id).length + mesaSessionList.length}</div>
             </div>
           </div>
           <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:16,padding:"20px 20px 16px",marginBottom:12}}>
@@ -998,6 +1009,7 @@ function AdminView({ onExit, menu, saveMenu }) {
           <div style={{display:"flex",gap:10,marginBottom:12}}>
             {[
               {label:"🏃 Retiro",  total:totRet, count:entH.filter(o=>o.tipo==="retiro").length,   color:"#7C3AED",bg:"#FAF5FF",border:"#E9D5FF"},
+              {label:"🍽️ Mesas",   total:totMesa,count:mesaSessionList.length,                         color:"#EA580C",bg:"#FFF7ED",border:"#FED7AA"},
               {label:"🛵 Delivery",total:totDel, count:entH.filter(o=>o.tipo==="delivery").length, color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
             ].map(t=>(
               <div key={t.label} style={{flex:1,background:t.bg,border:`1px solid ${t.border}`,borderRadius:14,padding:"14px 16px"}}>
@@ -1138,7 +1150,8 @@ function AdminView({ onExit, menu, saveMenu }) {
                         💬 <em>{order.notas}</em>
                       </div>
                     )}
-                    {/* Cambio de método de pago */}
+                    {/* Cambio de método de pago - solo para pedidos sin mesa */}
+                    {!order.mesa_id&&(
                     <div style={{marginTop:10,marginBottom:8}}>
                       <div style={{fontSize:10,color:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:6}}>MÉTODO DE PAGO</div>
                       <div style={{display:"flex",gap:6}}>
@@ -1153,7 +1166,7 @@ function AdminView({ onExit, menu, saveMenu }) {
                           </button>
                         ))}
                       </div>
-                    </div>
+                    </div>)}
                     <div style={{display:"flex",gap:8,marginTop:6}}>
                       {est.next&&<button className="btn" onClick={()=>updateStatus(order,est.next)} style={{flex:1,padding:"12px 0",borderRadius:12,background:est.bg,border:`1px solid ${est.ring}`,color:est.color,fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{est.nextLabel} →</button>}
                       <button className="btn" onClick={()=>printTicket(order)} style={{padding:"12px 14px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>🖨️ Ticket</button>
