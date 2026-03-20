@@ -364,7 +364,7 @@ function CustomerView({ menu, cajaStatus }) {
   const getQty = (id)   => cart.find(c=>c.item.id===id)?.qty||0;
   const total      = cart.reduce((s,c) => s+c.item.precio*c.qty, 0);
   const count      = cart.reduce((s,c) => s+c.qty, 0);
-  const canConfirm = form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim())));
+  const canConfirm = mesaQR ? true : (form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim()))));
 
   const lookupDni = async (val) => {
     setForm(p=>({...p,dni:val}));
@@ -498,29 +498,43 @@ function CustomerView({ menu, cajaStatus }) {
             <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(total)}</span>
           </div>
         </Card>
-        <Card>
-          <Label>TUS DATOS</Label>
-          {/* DNI / Teléfono para autocompletar */}
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DNI O TELÉFONO</div>
-            <div style={{position:"relative"}}>
-              <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Ingresá tu DNI o teléfono"
-                style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:14,transition:"border .2s"}}/>
-              {dniLooking&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--text4)"}}>🔍</span>}
-              {dniFound&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>✓</span>}
+        {/* Si viene de mesa QR, mostrar banner de mesa en lugar de formulario de datos */}
+        {mesaQR ? (
+          <Card>
+            <div style={{display:"flex",alignItems:"center",gap:12,padding:"4px 0"}}>
+              <span style={{fontSize:28}}>🪑</span>
+              <div>
+                <div className="sh" style={{fontSize:18,color:"var(--text)"}}>
+                  Mesa {mesaQR.replace("mv","Vereda ").replace("m","")}
+                </div>
+                <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>Tu pedido se asignará a esta mesa</div>
+              </div>
             </div>
-            {dniFound&&<div style={{fontSize:11,color:"#16A34A",marginTop:5,fontWeight:600}}>✓ Cliente encontrado — datos completados automáticamente</div>}
-          </div>
-          {[{k:"nombre",l:"Nombre *",p:"¿Cómo te llamás?"},{k:"telefono",l:"Teléfono",p:"(opcional)"}].map(f=>(
-            <div key={f.k} style={{marginBottom:12}}>
-              <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{f.l}</div>
-              <input value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p}
-                style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
-            </div>
-          ))}
-        </Card>
-        <Card>
-          <Label>TIPO DE PEDIDO</Label>
+          </Card>
+        ) : (
+          <>
+            <Card>
+              <Label>TUS DATOS</Label>
+              <div style={{marginBottom:14}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DNI O TELÉFONO</div>
+                <div style={{position:"relative"}}>
+                  <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Ingresá tu DNI o teléfono"
+                    style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:14,transition:"border .2s"}}/>
+                  {dniLooking&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--text4)"}}>🔍</span>}
+                  {dniFound&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>✓</span>}
+                </div>
+                {dniFound&&<div style={{fontSize:11,color:"#16A34A",marginTop:5,fontWeight:600}}>✓ Cliente encontrado — datos completados automáticamente</div>}
+              </div>
+              {[{k:"nombre",l:"Nombre *",p:"¿Cómo te llamás?"},{k:"telefono",l:"Teléfono",p:"(opcional)"}].map(f=>(
+                <div key={f.k} style={{marginBottom:12}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{f.l}</div>
+                  <input value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p}
+                    style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
+                </div>
+              ))}
+            </Card>
+            <Card>
+              <Label>TIPO DE PEDIDO</Label>
           <div style={{display:"flex",gap:8,marginBottom:form.tipo==="delivery"?16:0}}>
             {[{v:"retiro",l:"🏃 Retiro en local"},{v:"delivery",l:"🛵 Delivery"}].map(t=>(
               <button key={t.v} className="btn" onClick={()=>setForm(p=>({...p,tipo:t.v}))}
@@ -563,7 +577,9 @@ function CustomerView({ menu, cajaStatus }) {
             </div>
           )}
           {form.tipo==="retiro"&&<div style={{marginTop:8,background:"var(--bg2)",borderRadius:10,padding:"10px 14px",border:"1px solid var(--border)",fontSize:12,color:"var(--text3)"}}>📍 Retirás en <strong style={{color:"var(--text2)"}}>Hudson Plaza Comercial, Berazategui</strong></div>}
-        </Card>
+            </Card>
+          </>
+        )}
         <Card>
           <Label>MÉTODO DE PAGO</Label>
           <div style={{display:"flex",flexDirection:"column",gap:8}}>
