@@ -10,7 +10,7 @@ const LOGO_SRC = "/logo.png";
 
 const CONFIG = {
   nombre: "Shako Sushi", adminPin: "1234",
-  ubicacion: "Hudson Plaza Comercial, Berazategui", horario: "16:30 a 23:30",
+  ubicacion: "Hudson Plaza Comercial, Berazategui", horario: "16:30 a 23:30", abreH:16, abreM:30, cierraH:23, cierraM:30,
 };
 
 const MENU_DEFAULT = [
@@ -131,6 +131,14 @@ const ESTADOS = {
   preparando:{label:"Preparando", next:"listo",      nextLabel:"Marcar como listo ✓",  color:"#D97706", bg:"rgba(217,119,6,.1)",   ring:"#D97706"},
   listo:     {label:"Listo ✓",   next:"entregado",  nextLabel:"Entregar / Despachar",  color:"#16A34A", bg:"rgba(22,163,74,.1)",   ring:"#16A34A"},
   entregado: {label:"Entregado",  next:null,         nextLabel:null,                    color:"#9CA3AF", bg:"rgba(156,163,175,.1)", ring:"#9CA3AF"},
+};
+
+const isOpen = () => {
+  const now = new Date();
+  const mins = now.getHours()*60 + now.getMinutes();
+  const abre  = CONFIG.abreH*60  + CONFIG.abreM;
+  const cierra= CONFIG.cierraH*60+ CONFIG.cierraM;
+  return mins >= abre && mins < cierra;
 };
 
 const GS = () => (
@@ -458,12 +466,17 @@ function CustomerView({ menu }) {
             </button>
           )}
         </div>
-        <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
-          <div style={{width:7,height:7,borderRadius:"50%",background:"#4ADE80",boxShadow:"0 0 6px #4ADE80"}}/>
-          <span style={{fontSize:12,color:"rgba(255,255,255,.9)",fontWeight:600}}>Abierto hoy</span>
-          <span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>·</span>
-          <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>{CONFIG.horario}</span>
-        </div>
+        {(()=>{
+          const open=isOpen();
+          return(
+            <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
+              <div style={{width:7,height:7,borderRadius:"50%",background:open?"#4ADE80":"#FF4757",boxShadow:open?"0 0 6px #4ADE80":"0 0 6px #FF4757"}}/>
+              <span style={{fontSize:12,color:"rgba(255,255,255,.9)",fontWeight:600}}>{open?"Abierto ahora":"Cerrado"}</span>
+              <span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>·</span>
+              <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>{CONFIG.horario}</span>
+            </div>
+          );
+        })()}
       </div>
       <div style={{position:"sticky",top:0,background:"rgba(255,255,255,.98)",backdropFilter:"blur(14px)",zIndex:9,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
         <div style={{padding:"10px 14px 8px",borderBottom:"1px solid var(--border)"}}>
