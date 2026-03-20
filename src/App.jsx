@@ -130,20 +130,21 @@ const timeAgo = (ts) => { const d=Math.floor((Date.now()-Number(ts))/1000); retu
 const parseDireccion = (dir) => {
   if (!dir) return {calle:"", nro:"", barrio:""};
   dir = dir.trim();
-  // Pattern: explicit NRO/N keyword
-  const nroExp = dir.match(/N(?:RO|°|º|\.?)\s*(\d{3,5})/i);
-  if (nroExp) {
-    const idx = dir.search(/N(?:RO|°|º|\.?)\s*\d/i);
-    return {calle: dir.substring(0,idx).trim(), nro: nroExp[1], barrio: dir.substring(idx+nroExp[0].length).trim()};
+  // Pattern 1: explicit NRO/N/N° keyword — "CALLE 39 NRO 1234"
+  const m1 = dir.match(/N(?:RO|°|º|\.?)\s*(\d{3,5})/i);
+  if (m1) {
+    const idx = dir.toLowerCase().indexOf(m1[0].toLowerCase());
+    return {calle: dir.substring(0,idx).trim(), nro: m1[1], barrio: dir.substring(idx+m1[0].length).trim()};
   }
-  // Pattern: "NAME/NUM NUM NUM" — two consecutive numbers, first is street number
-  const twoNums = dir.match(/^(\D+?\s\d{2,4})\s+(\d{3,5})\s*(.*)$/);
-  if (twoNums) return {calle: twoNums[1].trim(), nro: twoNums[2], barrio: twoNums[3].trim()};
-  // Pattern: single number at end
-  const oneNum = dir.match(/^(.*\D)\s+(\d{3,5})\s*(.*)$/);
-  if (oneNum) return {calle: oneNum[1].trim(), nro: oneNum[2], barrio: oneNum[3].trim()};
+  // Pattern 2: starts with number(s) — La Plata style "471 1470 City Bell"
+  const m2 = dir.match(/^(\d{1,4})\s+(\d{3,5})\s*(.*)$/);
+  if (m2) return {calle: m2[1].trim(), nro: m2[2], barrio: m2[3].trim()};
+  // Pattern 3: "TEXT NUM" — "Av. San Martín 1234"
+  const m3 = dir.match(/^(.*\D)\s+(\d{3,5})\s*(.*)$/);
+  if (m3) return {calle: m3[1].trim(), nro: m3[2], barrio: m3[3].trim()};
   return {calle: dir, nro: "", barrio: ""};
 };
+
 
 
 const ESTADOS = {
