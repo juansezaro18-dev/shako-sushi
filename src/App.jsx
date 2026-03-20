@@ -904,7 +904,12 @@ function AdminView({ onExit, menu, saveMenu }) {
   };
 
   const loadOrders = useCallback(async () => {
-    const { data, error } = await supabase.from("orders").select("*").order("created_at", {ascending:false});
+    // Load active orders + last 90 days of history
+    const since90 = new Date(); since90.setDate(since90.getDate()-90);
+    const { data, error } = await supabase.from("orders").select("*")
+      .or(`status.in.(nuevo,preparando,listo),created_at.gte.${since90.getTime()}`)
+      .order("created_at", {ascending:false})
+      .limit(500);
     if (!error && data) setOrders(data);
   }, []);
 
