@@ -317,11 +317,19 @@ function CustomerView({ menu, cajaStatus }) {
     if (data && data.length > 0) {
       const c = data[0];
       setDniFound(true);
+      // Parse direccion: try to split "CALLE 39 NRO 1234 BARRIO" or "Av. San Martín 1234"
+      const dir = c.direccion || "";
+      const nroMatch = dir.match(/(\d{3,5})/);
+      const nro = nroMatch ? nroMatch[1] : "";
+      const calleClean = nro ? dir.substring(0, dir.indexOf(nro)).trim().replace(/NRO\.?$/i,"").trim() : dir.trim();
+      const barrioMatch = dir.match(/(?:E\/|ENTRE|BARRIO|B°|BO\.?)?\s*(.+)$/i);
       setForm(p=>({...p,
-        nombre:    p.nombre || c.nombre || "",
-        telefono:  p.telefono || c.telefono || "",
-        calle:     p.calle || c.direccion?.split(" ")[0] || "",
-        barrio:    p.barrio || "",
+        nombre:   p.nombre   || c.nombre   || "",
+        telefono: p.telefono || c.telefono || "",
+        calle:    p.calle    || calleClean  || "",
+        numero:   p.numero   || nro         || "",
+        barrio:   p.barrio   || "",
+        tipo:     calleClean ? "delivery" : p.tipo,
       }));
     } else {
       setDniFound(false);
@@ -330,13 +338,17 @@ function CustomerView({ menu, cajaStatus }) {
 
   const saveCustomer = async (order) => {
     if (!order.dni && !order.telefono) return;
-    const {data} = await supabase.from("customers")
-      .select("id").or(`dni.eq.${order.dni||"0"},telefono.eq.${order.telefono||"0"}`).limit(1);
+    const key = `dni.eq.${order.dni||"NADA"},telefono.eq.${order.telefono||"NADA"}`;
+    const {data} = await supabase.from("customers").select("id,direccion").or(key).limit(1);
+    const direccion = [order.calle, order.numero, order.piso, order.barrio].filter(Boolean).join(" ");
     if (!data || data.length === 0) {
+      // New customer
       supabase.from("customers").insert({
-        nombre: order.nombre, dni: order.dni||"", telefono: order.telefono||"",
-        direccion: [order.calle, order.numero, order.barrio].filter(Boolean).join(" ")
+        nombre: order.nombre, dni: order.dni||"", telefono: order.telefono||"", direccion
       }).then(()=>{});
+    } else if (direccion && !data[0].direccion) {
+      // Update address if we now have one
+      supabase.from("customers").update({direccion, nombre: order.nombre}).eq("id", data[0].id).then(()=>{});
     }
   };
 
@@ -1250,7 +1262,17 @@ function NuevoPedidoAdmin({ menu, onClose, onOrderPlaced }) {
     if (data && data.length > 0) {
       const c = data[0];
       setDniFound(true);
-      setForm(p=>({...p, nombre:p.nombre||c.nombre||"", telefono:p.telefono||c.telefono||"", calle:p.calle||c.direccion||""}));
+      const dir = c.direccion || "";
+      const nroMatch = dir.match(/(\d{3,5})/);
+      const nro = nroMatch ? nroMatch[1] : "";
+      const calleClean = nro ? dir.substring(0, dir.indexOf(nro)).trim().replace(/NRO\.?$/i,"").trim() : dir.trim();
+      setForm(p=>({...p,
+        nombre:   p.nombre   || c.nombre   || "",
+        telefono: p.telefono || c.telefono || "",
+        calle:    p.calle    || calleClean  || "",
+        numero:   p.numero   || nro         || "",
+        tipo:     calleClean ? "delivery" : p.tipo,
+      }));
     } else { setDniFound(false); }
   };
 
