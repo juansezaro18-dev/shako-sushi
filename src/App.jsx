@@ -790,9 +790,9 @@ function AdminView({ onExit, menu, saveMenu }) {
     {key:"preparando",  label:"🟡 Prep.",  val:counts.preparando,  color:"#D97706"},
     {key:"listo",       label:"🟢 Listos", val:counts.listo,       color:"#16A34A"},
     {key:"entregados",  label:"Historial", val:counts.entregado,   color:"var(--text3)"},
-    {key:"facturacion", label:"💰 Caja",   val:null,               color:"#D97706"},
-    {key:"editor",      label:"✏️ Menú",   val:null,               color:"#7C3AED"},
-    {key:"nuevo_pedido", label:"➕ Pedido",  val:null,               color:"#16A34A"},
+    {key:"facturacion", label:"Caja",      val:null,               color:"#D97706"},
+    {key:"editor",      label:"Menú",      val:null,               color:"#7C3AED"},
+    {key:"nuevo_pedido", label:"Pedido",    val:null,               color:"#16A34A"},
   ];
 
   return (
@@ -818,7 +818,7 @@ function AdminView({ onExit, menu, saveMenu }) {
             style={{flex:1,minWidth:48,padding:"12px 4px",textAlign:"center",borderBottom:filter===f.key?"3px solid var(--red)":"3px solid transparent",background:"transparent",transition:"all .2s",flexShrink:0}}>
             {f.val!==null
               ?<div className="sh" style={{fontSize:20,color:filter===f.key?"var(--red)":f.val>0?f.color:"var(--text4)"}}>{f.val}</div>
-              :<div style={{fontSize:16,color:filter===f.key?"var(--red)":"var(--text4)"}}>{f.key==="facturacion"?"💰":f.key==="editor"?"✏️":"➕"}</div>}
+              :<div style={{fontSize:13,color:filter===f.key?"var(--red)":"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{f.label}</div>}
             <div style={{fontSize:10,color:filter===f.key?"var(--red)":"var(--text4)",marginTop:1,whiteSpace:"nowrap",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{f.label}</div>
           </button>
         ))}
@@ -1623,7 +1623,7 @@ function HistorialCajaTabla({ historial, onReload }) {
                   {[
                     {l:"Efectivo apertura", v:fmt(c.monto_apertura),                                          col:"#2563EB"},
                     {l:"Efectivo cierre",   v:abierta?"—":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
-                    {l:"Total ventas",      v:fmt(c.total_ventas),                                             col:"var(--red)"},
+                    {l:"Total ventas",      v:pedidosDia[c.fecha] ? fmt(pedidosDia[c.fecha].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas), col:"var(--red)"},
                     {l:"Diferencia caja",   v:abierta?"—":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)), col:"#7C3AED"},
                   ].map(k=>(
                     <div key={k.l} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",border:"1px solid var(--border)"}}>
