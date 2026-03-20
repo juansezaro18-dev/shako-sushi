@@ -983,7 +983,26 @@ function AdminView({ onExit, menu, saveMenu }) {
   const topProds = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0,8);
   const todayStr = new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
   const isMesaClosed = (o) => { if (!o.mesa_id) return true; const m=mesasData.find(x=>x.id===o.mesa_id); return m?(m.session_num||1)>(o.mesa_session||1):true; };
-  const filtered = orders.filter(o => { if (filter==="activos") return ["nuevo","preparando","listo"].includes(o.status); if (filter==="entregados") return o.status==="entregado"&&!o.mesa_id; return o.status===filter; });
+  const filtered = (() => {
+    if (filter==="activos") return orders.filter(o=>["nuevo","preparando","listo"].includes(o.status));
+    if (filter==="entregados") {
+      // Individual orders (no mesa)
+      const indiv = orders.filter(o=>o.status==="entregado"&&!o.mesa_id);
+      // Closed mesa sessions - one synthetic row per session
+      const sesMap = {};
+      orders.filter(o=>o.status==="entregado"&&o.mesa_id).forEach(o=>{
+        const m=mesasData.find(x=>x.id===o.mesa_id);
+        if (!m||(m.session_num||1)<=(o.mesa_session||1)) return;
+        const key=o.mesa_id+"-"+(o.mesa_session||1);
+        if (!sesMap[key]) sesMap[key]={_mesaSession:true,id:key,mesa_id:o.mesa_id,mesa_session:o.mesa_session||1,orders:[],total:0,pago:o.pago,created_at:o.created_at,status:"entregado"};
+        sesMap[key].orders.push(o);
+        sesMap[key].total+=Number(o.total);
+        if(o.pago) sesMap[key].pago=o.pago;
+      });
+      return [...indiv,...Object.values(sesMap)].sort((a,b)=>Number(b.created_at)-Number(a.created_at));
+    }
+    return orders.filter(o=>o.status===filter);
+  })();
   const counts   = {
     nuevo:     orders.filter(o=>o.status==="nuevo").length,
     preparando:orders.filter(o=>o.status==="preparando").length,
@@ -995,7 +1014,7 @@ function AdminView({ onExit, menu, saveMenu }) {
     {key:"nuevo",       label:"🔴 Nuevos", val:counts.nuevo,       color:"#CC1F1F"},
     {key:"preparando",  label:"🟡 Prep.",  val:counts.preparando,  color:"#D97706"},
     {key:"listo",       label:"🟢 Listos", val:counts.listo,       color:"#16A34A"},
-    {key:"entregados",  label:"Historial", val:counts.entregado,   color:"var(--text3)"},
+    {key:"entregados",  label:"Historial", val:(()=>{ const indiv=orders.filter(o=>o.status==="entregado"&&!o.mesa_id).length; const sesMap={}; orders.filter(o=>o.status==="entregado"&&o.mesa_id).forEach(o=>{const m=mesasData.find(x=>x.id===o.mesa_id);if(m&&(m.session_num||1)>(o.mesa_session||1)){sesMap[o.mesa_id+"-"+(o.mesa_session||1)]=1;}}); return indiv+Object.keys(sesMap).length; })(), color:"var(--text3)"},
     {key:"facturacion", label:"Caja",      val:null,               color:"#D97706"},
     {key:"editor",      label:"Menú",      val:null,               color:"#7C3AED"},
     {key:"nuevo_pedido", label:"Pedido",    val:null,               color:"#16A34A"},
@@ -1235,6 +1254,53 @@ function AdminView({ onExit, menu, saveMenu }) {
             </div>
           )}
           {filtered.map(order=>{
+            // Mesa session row
+            if (order._mesaSession) {
+              const isExp = expandedId===order.id;
+              const nItems = order.orders.reduce((s,o)=>s+(o.items?.reduce((a,c)=>a+c.qty,0)||0),0);
+              const fmt2 = (n)=>`$${Number(n||0).toLocaleString("es-AR")}`;
+              return(
+                <div key={order.id} style={{background:"var(--surface)",border:`2px solid ${isExp?"var(--red-border)":"var(--border)"}`,borderRadius:16,marginBottom:10,overflow:"hidden"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:order.id)}>
+                    <div style={{width:10,height:10,borderRadius:"50%",background:"#16A34A",boxShadow:"0 0 6px #16A34A",flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:8}}>
+                        <span className="sh" style={{fontSize:15,color:"var(--text)"}}>Mesa {order.mesa_id.replace("mv","V").replace("m","")}</span>
+                        <span style={{fontSize:12,fontWeight:700,color:"#16A34A",background:"#F0FDF4",padding:"2px 8px",borderRadius:20}}>Entregado</span>
+                        <span style={{fontSize:11,color:"var(--text4)",background:"var(--bg2)",padding:"2px 6px",borderRadius:20}}>🍽️ Mesa</span>
+                      </div>
+                      <div style={{fontSize:13,color:"var(--text3)",marginTop:3}}>
+                        {order.orders.length} pedido{order.orders.length!==1?"s":""} · {nItems} items · {timeAgo(order.created_at)}
+                        {order.pago&&<span style={{marginLeft:6,color:order.pago==="efectivo"?"#16A34A":order.pago==="transferencia"?"#D97706":"#2563EB"}}>{order.pago==="efectivo"?"💵":order.pago==="transferencia"?"📲":"💳"} {order.pago}</span>}
+                      </div>
+                    </div>
+                    <div style={{textAlign:"right",flexShrink:0}}>
+                      <div className="sh" style={{fontSize:17,color:"#16A34A"}}>{fmt2(order.total)}</div>
+                      <div style={{fontSize:10,color:"var(--text4)",marginTop:2}}>{isExp?"▲":"▼"}</div>
+                    </div>
+                  </div>
+                  {isExp&&(
+                    <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
+                      {order.orders.map(o=>(
+                        <div key={o.id} style={{marginBottom:8,padding:"8px 12px",background:"var(--bg2)",borderRadius:10,border:"1px solid var(--border)"}}>
+                          <div style={{fontSize:11,color:"var(--text4)",marginBottom:4}}>#{o.id.slice(-5).toUpperCase()} · {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}</div>
+                          {o.items?.map(c=>(
+                            <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0"}}>
+                              <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
+                              <span style={{color:"var(--text3)"}}>{fmt2(c.item.precio*c.qty)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      ))}
+                      <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0 0",borderTop:"1px solid var(--border)",fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                        <span style={{color:"var(--text3)"}}>TOTAL MESA</span>
+                        <span style={{color:"#16A34A"}}>{fmt2(order.total)}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            }
             const est=ESTADOS[order.status]||ESTADOS.nuevo; const isExp=expandedId===order.id;
             return(
               <div key={order.id} className={order.status==="nuevo"?"pulse-new":""}
