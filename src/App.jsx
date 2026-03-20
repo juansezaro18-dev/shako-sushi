@@ -1807,10 +1807,17 @@ function HistorialCajaResumen({ historial, vista, orders }) {
   });
 
   const dias          = filtrado.length;
-  const totalVentas   = filtrado.reduce((s,c)=>s+Number(c.total_ventas||0),0);
-  const promDiario    = dias>0 ? totalVentas/dias : 0;
+  // For open cajas, calculate real total from orders
+  const getTotalCaja = (c) => {
+    if (c.estado === "cerrada") return Number(c.total_ventas||0);
+    // Open caja: calculate from orders
+    const aperturaTs = c.hora_apertura ? new Date(c.fecha+"T"+c.hora_apertura+":00").getTime() : new Date(c.fecha+"T00:00:00").getTime();
+    return orders.filter(o=>o.status==="entregado"&&Number(o.created_at)>=aperturaTs&&(!o.mesa_id)).reduce((s,o)=>s+Number(o.total),0);
+  };
+  const totalVentas   = filtrado.reduce((s,c)=>s+getTotalCaja(c),0);
   const diasAbiertos  = filtrado.filter(c=>c.estado==="cerrada").length;
-  const maxDia        = filtrado.reduce((max,c)=>Number(c.total_ventas||0)>Number(max.total_ventas||0)?c:max, filtrado[0]||{});
+  const promDiario    = dias>0 ? totalVentas/dias : 0;
+  const maxDia        = filtrado.reduce((max,c)=>getTotalCaja(c)>getTotalCaja(max)?c:max, filtrado[0]||{});
 
   // Bar chart data
   const maxVal = Math.max(...filtrado.map(c=>Number(c.total_ventas||0)), 1);
