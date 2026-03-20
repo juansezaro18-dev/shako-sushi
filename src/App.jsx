@@ -2002,6 +2002,8 @@ function MesasView({ onNewOrder }) {
 
   const mesaSeleccionada = mesas.find(m => m.id === selectedMesa);
   const mesaOrders = selectedMesa ? getMesaOrders(selectedMesa) : [];
+  const pedidos = mesaOrders;
+  const pedidosActivos = selectedMesa ? getMesaActiveOrders(selectedMesa) : [];
 
   const ESTADOS = {
     nuevo:     {label:"Nuevo",     color:"#CC1F1F", bg:"rgba(204,31,31,.1)"},
