@@ -1924,20 +1924,15 @@ function MesasView({ onNewOrder }) {
     setMesas(mesas_);
     setOrders(orders_);
     setLoading(false);
-    // Auto-update mesa states
+    // Auto-update: only mark as ocupada if there are active orders and mesa is libre
     const activeOrders_ = orders_.filter(o=>["nuevo","preparando","listo"].includes(o.status));
     const mesasConPedidos = [...new Set(activeOrders_.map(o=>o.mesa_id).filter(Boolean))];
-    const mesasSinPedidos = mesas_.filter(m=>m.estado==="ocupada"&&!mesasConPedidos.includes(m.id)).map(m=>m.id);
     for (const mId of mesasConPedidos) {
       const mesa = mesas_.find(m=>m.id===mId);
       if (mesa?.estado==="libre") {
         await supabase.from("mesas").update({estado:"ocupada"}).eq("id",mId);
         setMesas(p=>p.map(m=>m.id===mId?{...m,estado:"ocupada"}:m));
       }
-    }
-    for (const mId of mesasSinPedidos) {
-      await supabase.from("mesas").update({estado:"libre"}).eq("id",mId);
-      setMesas(p=>p.map(m=>m.id===mId?{...m,estado:"libre"}:m));
     }
   }, []);
 
@@ -1968,10 +1963,18 @@ function MesasView({ onNewOrder }) {
 
   const liberarMesa = async (mesaId) => {
     if (!window.confirm("¿Cerrar la cuenta y liberar la mesa?")) return;
-    // Get orders before closing to print ticket
     const mesaOrds = orders.filter(o=>o.mesa_id===mesaId&&["nuevo","preparando","listo"].includes(o.status));
     const mesaNombre = mesas.find(m=>m.id===mesaId)?.nombre||mesaId;
     const totalMesa = mesaOrds.reduce((s,o)=>s+Number(o.total),0);
+    // First close account in DB
+    await supabase.from("orders").update({status:"entregado"})
+      .eq("mesa_id", mesaId).in("status",["nuevo","preparando","listo"]);
+    const {data:mesaActual} = await supabase.from("mesas").select("session_num").eq("id",mesaId).maybeSingle();
+    const nextSession = (mesaActual?.session_num || 1) + 1;
+    await supabase.from("mesas").update({estado:"libre", pedidos_ids:[], session_num: nextSession}).eq("id", mesaId);
+    setSelectedMesa(null);
+    load();
+    // Print ticket after closing
     if (mesaOrds.length > 0) {
       printTicket({
         ...mesaOrds[0],
@@ -1981,13 +1984,6 @@ function MesasView({ onNewOrder }) {
         notas: mesaOrds.map(o=>o.notas).filter(Boolean).join(" | "),
       });
     }
-    await supabase.from("orders").update({status:"entregado"})
-      .eq("mesa_id", mesaId).in("status",["nuevo","preparando","listo"]);
-    // Increment session number so next group gets a new session
-    const {data:mesaActual} = await supabase.from("mesas").select("session_num").eq("id",mesaId).maybeSingle();
-    const nextSession = (mesaActual?.session_num || 1) + 1;
-    await supabase.from("mesas").update({estado:"libre", pedidos_ids:[], session_num: nextSession}).eq("id", mesaId);
-    load();
   };
 
   const unirMesas = async (mesa1Id, mesa2Id) => {
