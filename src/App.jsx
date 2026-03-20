@@ -14,6 +14,7 @@ const CONFIG = {
   aliasBanco: "CHACRA.BARRA.OSO",
   aliasMP: "turo22.mp",
   titular: "Juan Agusto Zaro",
+  whatsapp: "5492215037919", // número con código de país sin + ni espacios
 };
 
 const MENU_DEFAULT = [
