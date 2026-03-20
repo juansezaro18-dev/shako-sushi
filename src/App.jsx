@@ -181,12 +181,18 @@ const Label = ({children}) => (
 
 export default function App() {
   const isAdmin = window.location.pathname === "/admin";
-  const [menu, setMenu] = useState(MENU_DEFAULT);
+  const [menu,       setMenu]       = useState(MENU_DEFAULT);
+  const [cajaStatus, setCajaStatus] = useState(null); // null=loading, 'abierta', 'cerrada'
 
   useEffect(() => {
     supabase.from("menu_config").select("data").eq("id",1).maybeSingle()
       .then(({data}) => { if (data?.data) setMenu(data.data); })
       .catch(() => {});
+    // Check caja status
+    const hoy = new Date().toISOString().split("T")[0];
+    supabase.from("caja").select("estado").eq("fecha", hoy).maybeSingle()
+      .then(({data}) => setCajaStatus(data?.estado || "cerrada"))
+      .catch(() => setCajaStatus("cerrada"));
   }, []);
 
   const saveMenu = async (m) => {
@@ -199,7 +205,7 @@ export default function App() {
       <GS/>
       {isAdmin
         ? <AdminLogin menu={menu} saveMenu={saveMenu}/>
-        : <CustomerView menu={menu}/>}
+        : <CustomerView menu={menu} cajaStatus={cajaStatus}/>}
     </>
   );
 }
@@ -262,7 +268,7 @@ function AdminLogin({ menu, saveMenu }) {
   );
 }
 
-function CustomerView({ menu }) {
+function CustomerView({ menu, cajaStatus }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   const [activeCat,  setActiveCat]  = useState(menuVis[0]?.id);
   const [search,     setSearch]     = useState("");
@@ -356,6 +362,24 @@ function CustomerView({ menu }) {
     {v:"transferencia", l:"📲 Transferencia",  desc:"Te mandamos el CBU al confirmar"},
     {v:"tarjeta",       l:"💳 Tarjeta",        desc:"Débito o crédito en el local"},
   ];
+
+  // Caja cerrada — mostrar pantalla de local cerrado
+  if (cajaStatus === "cerrada") return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
+      <img src={LOGO_SRC} alt="Shako Sushi" style={{width:90,height:90,borderRadius:"50%",objectFit:"cover",marginBottom:20,opacity:.7}}/>
+      <div className="sh" style={{fontSize:30,color:"var(--text)",marginBottom:8}}>Estamos cerrados</div>
+      <div style={{color:"var(--text3)",fontSize:15,marginBottom:16,lineHeight:1.7}}>
+        Por el momento no estamos tomando pedidos.<br/>
+        Volvemos pronto.
+      </div>
+      <div style={{display:"inline-flex",alignItems:"center",gap:8,background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:40,padding:"10px 22px"}}>
+        <div style={{width:7,height:7,borderRadius:"50%",background:"#DC2626",boxShadow:"0 0 6px #DC2626"}}/>
+        <span style={{fontSize:13,color:"var(--text3)",fontWeight:600}}>Cerrado</span>
+        <span style={{color:"var(--text4)"}}>·</span>
+        <span style={{fontSize:13,color:"var(--text3)"}}>{CONFIG.horario}</span>
+      </div>
+    </div>
+  );
 
   if (step === "confirm") return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
@@ -755,6 +779,21 @@ function AdminView({ onExit, menu, saveMenu }) {
           </button>
         ))}
       </div>
+
+      {/* Banner caja cerrada */}
+      {!["editor","nuevo_pedido"].includes(filter) && filter!=="facturacion" && (!caja || caja.estado==="cerrada") && (
+        <div style={{margin:"12px 12px 0",background:"#FFF7ED",border:"2px solid #FED7AA",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
+          <div style={{width:10,height:10,borderRadius:"50%",background:"#EA580C",flexShrink:0,boxShadow:"0 0 6px #EA580C"}}/>
+          <div style={{flex:1}}>
+            <div className="sh" style={{fontSize:14,color:"#EA580C"}}>CAJA CERRADA</div>
+            <div style={{fontSize:12,color:"#9A3412",marginTop:2}}>Abrí la caja antes de empezar a tomar pedidos — andá a la tab 💰 Caja</div>
+          </div>
+          <button className="btn" onClick={()=>setFilter("facturacion")}
+            style={{background:"#EA580C",borderRadius:10,padding:"7px 14px",color:"#fff",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0}}>
+            ABRIR CAJA
+          </button>
+        </div>
+      )}
 
       {filter==="editor" && <MenuEditor menu={menu} saveMenu={saveMenu}/>}
 
@@ -1454,9 +1493,11 @@ function HistorialCajaTabla({ historial, onReload }) {
     setExpandedId(isExp ? null : c.id);
     if (!isExp && !pedidosDia[c.fecha]) {
       setLoadingDia(c.fecha);
-      // Pedidos del día: created_at entre inicio y fin del día
-      const inicio = new Date(c.fecha + "T00:00:00").getTime();
-      const fin    = new Date(c.fecha + "T23:59:59").getTime();
+      // Pedidos de esa caja: entre hora de apertura y cierre (o fin del día si sigue abierta)
+      const aperturaStr = c.hora_apertura ? c.fecha + "T" + c.hora_apertura + ":00" : c.fecha + "T00:00:00";
+      const cierreStr   = c.hora_cierre   ? c.fecha + "T" + c.hora_cierre   + ":59" : c.fecha + "T23:59:59";
+      const inicio = new Date(aperturaStr).getTime();
+      const fin    = new Date(cierreStr).getTime();
       const {data} = await supabase.from("orders")
         .select("*")
         .gte("created_at", inicio)
