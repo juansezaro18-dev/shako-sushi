@@ -455,34 +455,14 @@ function CustomerView({ menu, cajaStatus }) {
     if (form.pago === "transferencia") {
       setStep("mp_loading");
       try {
-        // Call MP API directly via Supabase Edge Function proxy
-        const mpToken = import.meta.env.VITE_MP_ACCESS_TOKEN;
-        const preference = {
-          items: cart.map(c=>({
-            id: c.item.id,
-            title: c.item.nombre,
-            quantity: c.qty,
-            unit_price: c.item.precio,
-            currency_id: "ARS",
-          })),
-          payer: { name: form.nombre||"Cliente" },
-          external_reference: order.id,
-          back_urls: {
-            success: `${window.location.origin}/?pago=ok&order=${order.id}`,
-            failure: `${window.location.origin}/?pago=error&order=${order.id}`,
-            pending: `${window.location.origin}/?pago=pendiente&order=${order.id}`,
-          },
-          auto_return: "approved",
-          statement_descriptor: "SHAKO SUSHI",
-          notification_url: "https://dinylgezchbrojrszalt.supabase.co/functions/v1/mp-webhook",
-        };
-        const res = await fetch("https://api.mercadopago.com/checkout/preferences", {
+        const res = await fetch("https://dinylgezchbrojrszalt.supabase.co/functions/v1/mp-preference", {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${mpToken}`,
             "Content-Type": "application/json",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbnlsZ2V6Y2hicm9qcnN6YWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDYzODMsImV4cCI6MjA4OTUyMjM4M30.Su_sQBfU88BZpCQcrLX2SVpE22d9BMm4wWdJsAUzJpo",
+            "apikey": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRpbnlsZ2V6Y2hicm9qcnN6YWx0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5NDYzODMsImV4cCI6MjA4OTUyMjM4M30.Su_sQBfU88BZpCQcrLX2SVpE22d9BMm4wWdJsAUzJpo"
           },
-          body: JSON.stringify(preference),
+          body: JSON.stringify({ orderId: order.id, items: cart, total, payer: {nombre: form.nombre, telefono: form.telefono} })
         });
         const data = await res.json();
         if (data.init_point) {

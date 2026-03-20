@@ -1,30 +1,33 @@
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
-
 Deno.serve(async (req) => {
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Content-Type": "application/json",
+  };
+
   if (req.method === "OPTIONS") {
-    return new Response("ok", { status: 200, headers: corsHeaders });
+    return new Response(null, { status: 204, headers });
   }
 
   try {
-    const { orderId, items, total, payer } = await req.json();
-    const mpToken = Deno.env.get("MP_ACCESS_TOKEN")!;
+    const body = await req.json();
+    const { orderId, items, payer } = body;
+    const mpToken = Deno.env.get("MP_ACCESS_TOKEN");
+
+    if (!mpToken) {
+      return new Response(JSON.stringify({ error: "MP token not configured" }), { status: 500, headers });
+    }
 
     const preference = {
-      items: items.map((c: any) => ({
+      items: items.map((c: { qty: number; item: { id: string; nombre: string; precio: number } }) => ({
         id: c.item.id,
         title: c.item.nombre,
         quantity: c.qty,
         unit_price: c.item.precio,
         currency_id: "ARS",
       })),
-      payer: {
-        name: payer?.nombre || "Cliente",
-        phone: payer?.telefono ? { number: payer.telefono } : undefined,
-      },
+      payer: { name: payer?.nombre || "Cliente" },
       external_reference: orderId,
       back_urls: {
         success: `https://shako-sushi.vercel.app/?pago=ok&order=${orderId}`,
@@ -36,7 +39,7 @@ Deno.serve(async (req) => {
       notification_url: "https://dinylgezchbrojrszalt.supabase.co/functions/v1/mp-webhook",
     };
 
-    const res = await fetch("https://api.mercadopago.com/checkout/preferences", {
+    const mpRes = await fetch("https://api.mercadopago.com/checkout/preferences", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${mpToken}`,
@@ -45,24 +48,15 @@ Deno.serve(async (req) => {
       body: JSON.stringify(preference),
     });
 
-    const data = await res.json();
-    console.log("Preference created:", data.id, "init_point:", data.init_point);
+    const data = await mpRes.json();
 
     if (!data.init_point) {
-      console.error("MP error:", JSON.stringify(data));
-      return new Response(JSON.stringify({ error: "No se pudo crear el link de pago" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
-      });
+      return new Response(JSON.stringify({ error: "MP error", detail: data }), { status: 500, headers });
     }
 
-    return new Response(JSON.stringify({ init_point: data.init_point, id: data.id }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    return new Response(JSON.stringify({ init_point: data.init_point }), { status: 200, headers });
 
   } catch (e) {
-    console.error("Error:", e);
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" }
-    });
+    return new Response(JSON.stringify({ error: String(e) }), { status: 500, headers });
   }
 });
