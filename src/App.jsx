@@ -439,7 +439,7 @@ function CustomerView({ menu, cajaStatus }) {
       const {data:mesaData} = await supabase.from("mesas").select("session_num").eq("id",mesaQR).maybeSingle();
       mesaSession = mesaData?.session_num || 1;
     }
-    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total, status: form.pago==="transferencia" ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
+    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total, status: form.pago==="tarjeta" ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
     // Esperar confirmación de Supabase antes de mostrar éxito
     const {error} = await supabase.from("orders").insert(order);
     if (error) {
@@ -452,7 +452,7 @@ function CustomerView({ menu, cajaStatus }) {
     setOrderTotal(order.total);
     setCart([]);
     // Redirect to MP Checkout Pro for transferencia
-    if (form.pago === "transferencia") {
+    if (form.pago === "tarjeta") {
       setStep("mp_loading");
       try {
         const res = await fetch("https://dinylgezchbrojrszalt.supabase.co/functions/v1/mp-preference", {
@@ -484,7 +484,7 @@ function CustomerView({ menu, cajaStatus }) {
   const PAGOS = [
     {v:"efectivo",      l:"💵 Efectivo",      desc:"Pagás al recibir / retirar"},
     {v:"transferencia", l:"📲 Transferencia",  desc:"Te mandamos el CBU al confirmar"},
-    {v:"tarjeta",       l:"💳 Tarjeta",        desc:"Débito o crédito en el local"},
+    {v:"tarjeta",       l:"💳 Tarjeta / MP",    desc:"Pagá con tarjeta o Mercado Pago"},
   ];
 
   // Caja cerrada — mostrar pantalla de local cerrado
