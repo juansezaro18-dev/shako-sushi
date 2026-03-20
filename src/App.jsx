@@ -128,21 +128,34 @@ const timeAgo = (ts) => { const d=Math.floor((Date.now()-Number(ts))/1000); retu
 
 // Parse Argentine address into parts
 const parseDireccion = (dir) => {
-  if (!dir) return {calle:"", nro:"", barrio:""};
-  dir = dir.trim();
-  // Pattern 1: explicit NRO/N/N° keyword — "CALLE 39 NRO 1234"
-  const m1 = dir.match(/N(?:RO|°|º|\.?)\s*(\d{3,5})/i);
-  if (m1) {
-    const idx = dir.toLowerCase().indexOf(m1[0].toLowerCase());
-    return {calle: dir.substring(0,idx).trim(), nro: m1[1], barrio: dir.substring(idx+m1[0].length).trim()};
+  if (!dir) return {calle:"", nro:"", entreCalle:"", barrio:""};
+  dir = dir.trim().replace(/^[!%#]/, ""); // remove leading garbage chars
+  // Detect intersection markers → put everything in entreCalle
+  const interMatch = dir.match(/^(.*?)\s+(E\/|ESQ\.?|ENTRE)\s+(.+)$/i);
+  if (interMatch) {
+    // "CALLE 39 E/ 150 Y 150 A" → calle=CALLE 39, entreCalle=150 Y 150 A
+    const calleBase = interMatch[1].trim();
+    const entreResto = interMatch[3].trim();
+    // Extract number from calleBase if any
+    const numInBase = calleBase.match(/(\d{3,5})/);
+    const nroBase = numInBase ? numInBase[1] : "";
+    const calleClean = nroBase ? calleBase.replace(nroBase,"").trim() : calleBase;
+    return {calle: calleBase, nro: "", entreCalle: entreResto, barrio: ""};
   }
-  // Pattern 2: starts with number(s) — La Plata style "471 1470 City Bell"
+  // Pattern 1: explicit NRO/N/N° keyword — "CALLE 159 N 4956"
+  const m1 = dir.match(/N(?:RO|°|º|\.?)\s*(\d{3,5})/i);
+  if (m1) {
+    const idx = dir.search(/N(?:RO|°|º|\.?)\s*\d/i);
+    const resto = dir.substring(idx + m1[0].length).trim();
+    return {calle: dir.substring(0,idx).trim(), nro: m1[1], entreCalle: "", barrio: resto};
+  }
+  // Pattern 2: La Plata style — starts with short num then house num "471 1470 City Bell"
   const m2 = dir.match(/^(\d{1,4})\s+(\d{3,5})\s*(.*)$/);
-  if (m2) return {calle: m2[1].trim(), nro: m2[2], barrio: m2[3].trim()};
-  // Pattern 3: "TEXT NUM" — "Av. San Martín 1234"
+  if (m2) return {calle: m2[1].trim(), nro: m2[2], entreCalle: "", barrio: m2[3].trim()};
+  // Pattern 3: "TEXT 1234 barrio" — "Av. San Martín 1234 City Bell"
   const m3 = dir.match(/^(.*\D)\s+(\d{3,5})\s*(.*)$/);
-  if (m3) return {calle: m3[1].trim(), nro: m3[2], barrio: m3[3].trim()};
-  return {calle: dir, nro: "", barrio: ""};
+  if (m3) return {calle: m3[1].trim(), nro: m3[2], entreCalle: "", barrio: m3[3].trim()};
+  return {calle: dir, nro: "", entreCalle: "", barrio: ""};
 };
 
 
@@ -295,7 +308,7 @@ function CustomerView({ menu, cajaStatus }) {
   const [search,     setSearch]     = useState("");
   const [cart,       setCart]       = useState([]);
   const [step,       setStep]       = useState("menu");
-  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",piso:"",barrio:"",pago:"efectivo",dni:""});
+  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",dni:""});
   const [dniLooking, setDniLooking] = useState(false);
   const [dniFound,   setDniFound]   = useState(false);
   const [loading,    setLoading]    = useState(false);
@@ -326,7 +339,7 @@ function CustomerView({ menu, cajaStatus }) {
   const getQty = (id)   => cart.find(c=>c.item.id===id)?.qty||0;
   const total      = cart.reduce((s,c) => s+c.item.precio*c.qty, 0);
   const count      = cart.reduce((s,c) => s+c.qty, 0);
-  const canConfirm = form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&form.numero.trim()));
+  const canConfirm = form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim())));
 
   const lookupDni = async (val) => {
     setForm(p=>({...p,dni:val}));
@@ -338,14 +351,15 @@ function CustomerView({ menu, cajaStatus }) {
     if (data && data.length > 0) {
       const c = data[0];
       setDniFound(true);
-      const {calle:pc, nro:pn, barrio:pb} = parseDireccion(c.direccion);
+      const {calle:pc, nro:pn, entreCalle:pec, barrio:pb} = parseDireccion(c.direccion);
       setForm(p=>({...p,
-        nombre:   p.nombre   || c.nombre   || "",
-        telefono: p.telefono || c.telefono || "",
-        calle:    p.calle    || pc || "",
-        numero:   p.numero   || pn || "",
-        barrio:   p.barrio   || pb || "",
-        tipo:     pc ? "delivery" : p.tipo,
+        nombre:      p.nombre      || c.nombre   || "",
+        telefono:    p.telefono    || c.telefono || "",
+        calle:       p.calle       || pc  || "",
+        numero:      p.numero      || pn  || "",
+        entreCalle:  p.entreCalle  || pec || "",
+        barrio:      p.barrio      || pb  || "",
+        tipo:        pc ? "delivery" : p.tipo,
       }));
     } else {
       setDniFound(false);
@@ -356,7 +370,7 @@ function CustomerView({ menu, cajaStatus }) {
     if (!order.dni && !order.telefono) return;
     const key = `dni.eq.${order.dni||"NADA"},telefono.eq.${order.telefono||"NADA"}`;
     const {data} = await supabase.from("customers").select("id,direccion").or(key).limit(1);
-    const direccion = [order.calle, order.numero, order.piso, order.barrio].filter(Boolean).join(" ");
+    const direccion = [order.calle, order.numero, order.entreCalle?"E/"+order.entreCalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
     if (!data || data.length === 0) {
       // New customer
       supabase.from("customers").insert({
@@ -498,6 +512,11 @@ function CustomerView({ menu, cajaStatus }) {
                   <input value={form.numero} onChange={e=>setForm(p=>({...p,numero:e.target.value}))} placeholder="1234"
                     style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${form.numero.trim()?"var(--red-border)":"var(--border)"}`,borderRadius:10,fontSize:14}}/>
                 </div>
+              </div>
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Entre calles (opcional)</div>
+                <input value={form.entreCalle} onChange={e=>setForm(p=>({...p,entreCalle:e.target.value}))} placeholder="Ej: 150 y 151"
+                  style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
               </div>
               <div style={{display:"flex",gap:8,marginBottom:8}}>
                 <div style={{flex:1}}>
@@ -1011,7 +1030,7 @@ function AdminView({ onExit, menu, saveMenu }) {
                         <span>🛵</span>
                         <div>
                           <div style={{color:"#D97706",fontSize:11,fontWeight:700,marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>DIRECCIÓN DE ENTREGA</div>
-                          <div style={{color:"var(--text2)"}}>{order.calle} {order.numero}{order.piso?`, ${order.piso}`:""}</div>
+                          <div style={{color:"var(--text2)"}}>{order.calle} {order.numero}{order.entreCalle?` e/ ${order.entreCalle}`:""}{order.piso?`, ${order.piso}`:""}</div>
                           {order.barrio&&<div style={{color:"var(--text3)",fontSize:12,marginTop:1}}>{order.barrio}</div>}
                         </div>
                       </div>
@@ -1256,7 +1275,7 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
 function NuevoPedidoAdmin({ menu, onClose, onOrderPlaced }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   const [cart,     setCart]     = useState([]);
-  const [form,     setForm]     = useState({nombre:"",telefono:"",tipo:"retiro",calle:"",numero:"",piso:"",barrio:"",pago:"efectivo",notas:"",dni:""});
+  const [form,     setForm]     = useState({nombre:"",telefono:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",notas:"",dni:""});
   const [loading,  setLoading]  = useState(false);
   const [dniFound, setDniFound] = useState(false);
   const [search,   setSearch]   = useState("");
@@ -1278,14 +1297,15 @@ function NuevoPedidoAdmin({ menu, onClose, onOrderPlaced }) {
     if (data && data.length > 0) {
       const c = data[0];
       setDniFound(true);
-      const {calle:pc2, nro:pn2, barrio:pb2} = parseDireccion(c.direccion);
+      const {calle:pc2, nro:pn2, entreCalle:pec2, barrio:pb2} = parseDireccion(c.direccion);
       setForm(p=>({...p,
-        nombre:   p.nombre   || c.nombre   || "",
-        telefono: p.telefono || c.telefono || "",
-        calle:    p.calle    || pc2 || "",
-        numero:   p.numero   || pn2 || "",
-        barrio:   p.barrio   || pb2 || "",
-        tipo:     pc2 ? "delivery" : p.tipo,
+        nombre:     p.nombre     || c.nombre   || "",
+        telefono:   p.telefono   || c.telefono || "",
+        calle:      p.calle      || pc2  || "",
+        numero:     p.numero     || pn2  || "",
+        entreCalle: p.entreCalle || pec2 || "",
+        barrio:     p.barrio     || pb2  || "",
+        tipo:       pc2 ? "delivery" : p.tipo,
       }));
     } else { setDniFound(false); }
   };
