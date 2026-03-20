@@ -618,13 +618,24 @@ function AdminView({ onExit, menu, saveMenu }) {
   const [expandedId, setExpandedId] = useState(null);
   const [showNewOrder, setShowNewOrder] = useState(false);
 
-  const [caja,     setCaja]     = useState(null);
-  const [cajaLoading,setCajaLoading]=useState(false);
+  const [caja,         setCaja]         = useState(null);
+  const [cajaLoading,  setCajaLoading]  = useState(false);
+  const [historialCaja,setHistorialCaja] = useState([]);
+  const [cajaVista,    setCajaVista]     = useState("hoy"); // 'hoy' | 'semana' | 'mes'
 
   const loadCaja = useCallback(async () => {
     const hoy = new Date().toISOString().split("T")[0];
     const {data} = await supabase.from("caja").select("*").eq("fecha", hoy).maybeSingle();
     setCaja(data || null);
+  }, []);
+
+  const loadHistorialCaja = useCallback(async () => {
+    // Último mes de caja
+    const hace30 = new Date();
+    hace30.setDate(hace30.getDate()-30);
+    const desde = hace30.toISOString().split("T")[0];
+    const {data} = await supabase.from("caja").select("*").gte("fecha", desde).order("fecha", {ascending:false});
+    setHistorialCaja(data || []);
   }, []);
 
   const abrirCaja = async (monto, notas) => {
@@ -656,6 +667,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   useEffect(() => {
     loadOrders();
     loadCaja();
+    loadHistorialCaja();
     // Polling cada 5 segundos como fallback
     const iv = setInterval(loadOrders, 5000);
     // Realtime
@@ -746,7 +758,15 @@ function AdminView({ onExit, menu, saveMenu }) {
         <div className="fade-in" style={{padding:14,paddingBottom:40}}>
           {/* ── ESTADO DE CAJA ── */}
           <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja}/>
+          {/* ── TABS HOY / SEMANA / MES ── */}
+          <div style={{display:"flex",gap:6,marginBottom:16,background:"var(--surface2)",borderRadius:12,padding:4}}>
+            {[{k:"hoy",l:"Hoy"},{k:"semana",l:"Esta semana"},{k:"mes",l:"Este mes"},{k:"historial",l:"Historial"}].map(t=>(
+              <button key={t.k} className="btn" onClick={()=>setCajaVista(t.k)}
+                style={{flex:1,padding:"8px 0",borderRadius:9,fontSize:12,fontWeight:700,background:cajaVista===t.k?"var(--surface)":"transparent",color:cajaVista===t.k?"var(--red)":"var(--text4)",boxShadow:cajaVista===t.k?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.3}}>{t.l}</button>
+            ))}
+          </div>
 
+          {cajaVista==="hoy"&&<>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
             <div>
               <div className="sh" style={{fontSize:24,color:"var(--text)"}}>FACTURACIÓN DEL DÍA</div>
@@ -859,6 +879,10 @@ function AdminView({ onExit, menu, saveMenu }) {
               </div>
             )}
           </Card>
+          </>}
+
+          {(cajaVista==="semana"||cajaVista==="mes")&&<HistorialCajaResumen historial={historialCaja} vista={cajaVista} orders={orders}/>}
+          {cajaVista==="historial"&&<HistorialCajaTabla historial={historialCaja} onReload={loadHistorialCaja}/>}
         </div>
       )}
 
@@ -1305,6 +1329,162 @@ function NuevoPedidoAdmin({ menu, onClose, onOrderPlaced }) {
         style={{width:"100%",padding:"15px 0",borderRadius:14,fontSize:17,fontWeight:800,background:cart.length&&form.nombre.trim()?"#16A34A":"var(--border)",color:cart.length&&form.nombre.trim()?"#fff":"var(--text4)",boxShadow:cart.length&&form.nombre.trim()?"0 6px 20px rgba(22,163,74,.3)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
         {loading?"CREANDO PEDIDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
       </button>
+    </div>
+  );
+}
+
+/* ══ HISTORIAL CAJA RESUMEN (SEMANA / MES) ════════════════════ */
+function HistorialCajaResumen({ historial, vista, orders }) {
+  const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
+  const now = new Date();
+
+  const filtrado = historial.filter(c => {
+    const d = new Date(c.fecha);
+    if (vista === "semana") {
+      const lunes = new Date(now);
+      lunes.setDate(now.getDate() - now.getDay() + 1);
+      lunes.setHours(0,0,0,0);
+      return d >= lunes;
+    } else {
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    }
+  });
+
+  const dias          = filtrado.length;
+  const totalVentas   = filtrado.reduce((s,c)=>s+Number(c.total_ventas||0),0);
+  const promDiario    = dias>0 ? totalVentas/dias : 0;
+  const diasAbiertos  = filtrado.filter(c=>c.estado==="cerrada").length;
+  const maxDia        = filtrado.reduce((max,c)=>Number(c.total_ventas||0)>Number(max.total_ventas||0)?c:max, filtrado[0]||{});
+
+  // Bar chart data
+  const maxVal = Math.max(...filtrado.map(c=>Number(c.total_ventas||0)), 1);
+
+  return (
+    <div className="fade-in">
+      {/* KPIs */}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginBottom:14}}>
+        {[
+          {l:vista==="semana"?"TOTAL SEMANA":"TOTAL MES",    v:fmt(totalVentas),  bg:"#F0FDF4",bc:"#BBF7D0",c:"#16A34A"},
+          {l:"PROMEDIO DIARIO",  v:fmt(promDiario),  bg:"#EFF6FF",bc:"#BFDBFE",c:"#2563EB"},
+          {l:"DÍAS TRABAJADOS",  v:`${diasAbiertos}/${dias}`, bg:"#FAF5FF",bc:"#E9D5FF",c:"#7C3AED"},
+          {l:"MEJOR DÍA",        v:maxDia?.fecha?new Date(maxDia.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"short",day:"numeric",month:"short"}):"—", bg:"#FEF3C7",bc:"#FDE68A",c:"#D97706"},
+        ].map(k=>(
+          <div key={k.l} style={{background:k.bg,border:`1px solid ${k.bc}`,borderRadius:12,padding:"12px 14px"}}>
+            <div style={{fontSize:9,fontWeight:700,color:k.c,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1,marginBottom:4}}>{k.l}</div>
+            <div className="sh" style={{fontSize:20,color:k.c}}>{k.v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Gráfico de barras */}
+      {filtrado.length > 0 && (
+        <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:14,fontFamily:"'Barlow Condensed',sans-serif"}}>
+            VENTAS POR DÍA
+          </div>
+          <div style={{display:"flex",alignItems:"flex-end",gap:4,height:120,overflowX:"auto",paddingBottom:8}}>
+            {[...filtrado].reverse().map(c=>{
+              const pct = (Number(c.total_ventas||0)/maxVal)*100;
+              const fecha = new Date(c.fecha+"T12:00:00");
+              const label = fecha.toLocaleDateString("es-AR",{weekday:"short",day:"numeric"});
+              const isHoy = c.fecha === new Date().toISOString().split("T")[0];
+              return(
+                <div key={c.fecha} style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1,minWidth:32}}>
+                  <div style={{fontSize:9,color:"var(--text4)",marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>
+                    {pct>5?`$${(Number(c.total_ventas||0)/1000).toFixed(0)}k`:""}
+                  </div>
+                  <div style={{width:"100%",background:isHoy?"var(--red)":"#CBD5E1",borderRadius:"4px 4px 0 0",height:`${Math.max(pct,2)}%`,minHeight:2,transition:"height .4s",position:"relative"}}>
+                    {c.estado==="abierta"&&<div style={{position:"absolute",top:-4,left:"50%",transform:"translateX(-50%)",width:6,height:6,borderRadius:"50%",background:"#D97706"}}/>}
+                  </div>
+                  <div style={{fontSize:8,color:isHoy?"var(--red)":"var(--text4)",marginTop:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:isHoy?700:400,textAlign:"center",lineHeight:1.2}}>
+                    {label}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+          <div style={{fontSize:10,color:"var(--text4)",marginTop:4,display:"flex",alignItems:"center",gap:8}}>
+            <span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:"50%",background:"#D97706",display:"inline-block"}}/> Caja aún abierta</span>
+            <span style={{display:"inline-flex",alignItems:"center",gap:4}}><span style={{width:8,height:8,borderRadius:2,background:"var(--red)",display:"inline-block"}}/> Hoy</span>
+          </div>
+        </div>
+      )}
+
+      {filtrado.length === 0 && (
+        <div style={{textAlign:"center",padding:"32px 0",color:"var(--text4)"}}>
+          <div style={{fontSize:32,marginBottom:8}}>📊</div>
+          <div className="sh" style={{fontSize:16,color:"var(--text3)"}}>Sin datos para este período</div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ══ HISTORIAL CAJA TABLA ═════════════════════════════════════ */
+function HistorialCajaTabla({ historial, onReload }) {
+  const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
+  const [expandedId, setExpandedId] = useState(null);
+
+  useEffect(() => { onReload(); }, []);
+
+  return (
+    <div className="fade-in">
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+        <div className="sh" style={{fontSize:20,color:"var(--text)"}}>HISTORIAL DE CAJA</div>
+        <button className="btn" onClick={onReload}
+          style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"6px 12px",fontSize:12,color:"var(--text3)",fontWeight:600}}>↻ Actualizar</button>
+      </div>
+
+      {historial.length === 0 && (
+        <div style={{textAlign:"center",padding:"32px 0",color:"var(--text4)"}}>
+          <div style={{fontSize:32,marginBottom:8}}>🗂️</div>
+          <div className="sh" style={{fontSize:16,color:"var(--text3)"}}>No hay registros de caja todavía</div>
+        </div>
+      )}
+
+      {historial.map(c => {
+        const isExp = expandedId === c.id;
+        const abierta = c.estado === "abierta";
+        const fecha = new Date(c.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
+        return (
+          <div key={c.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--red-border)":"var(--border)"}`,borderRadius:14,marginBottom:8,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
+            <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:c.id)}>
+              <div style={{width:9,height:9,borderRadius:"50%",background:abierta?"#D97706":"#16A34A",flexShrink:0,boxShadow:`0 0 5px ${abierta?"#D97706":"#16A34A"}`}}/>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:13,fontWeight:600,color:"var(--text)",textTransform:"capitalize"}}>{fecha}</div>
+                <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
+                  {c.hora_apertura&&`Apertura: ${c.hora_apertura}`}
+                  {c.hora_cierre&&` · Cierre: ${c.hora_cierre}`}
+                </div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div className="sh" style={{fontSize:17,color:abierta?"#D97706":"#16A34A"}}>{fmt(c.total_ventas)}</div>
+                <div style={{fontSize:10,color:"var(--text4)",marginTop:1,fontWeight:600}}>{abierta?"EN CURSO":"CERRADA"}</div>
+              </div>
+              <span style={{color:"var(--text4)",fontSize:12}}>{isExp?"▲":"▼"}</span>
+            </div>
+            {isExp&&(
+              <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:12}}>
+                  {[
+                    {l:"Efectivo apertura",v:fmt(c.monto_apertura),c:"#2563EB"},
+                    {l:"Efectivo cierre",  v:abierta?"—":fmt(c.monto_cierre),c:abierta?"var(--text4)":"#16A34A"},
+                    {l:"Total ventas",     v:fmt(c.total_ventas),c:"var(--red)"},
+                    {l:"Diferencia",       v:abierta?"—":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)),c:"#7C3AED"},
+                  ].map(k=>(
+                    <div key={k.l} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",border:"1px solid var(--border)"}}>
+                      <div style={{fontSize:9,color:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:.5,marginBottom:3}}>{k.l.toUpperCase()}</div>
+                      <div className="sh" style={{fontSize:17,color:k.c}}>{k.v}</div>
+                    </div>
+                  ))}
+                </div>
+                {c.notas_apertura&&<div style={{marginTop:10,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>📝 Apertura: <em>{c.notas_apertura}</em></div>}
+                {c.notas_cierre&&<div style={{marginTop:6,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>📝 Cierre: <em>{c.notas_cierre}</em></div>}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }
