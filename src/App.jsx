@@ -665,7 +665,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   const abrirCaja = async (monto, notas) => {
     setCajaLoading(true);
     const hoy = new Date().toISOString().split("T")[0];
-    const hora = new Date().toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+    const now = new Date(); const hora = now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
     const {data} = await supabase.from("caja").upsert({fecha:hoy, estado:"abierta", hora_apertura:hora, monto_apertura:Number(monto), notas_apertura:notas}).select().single();
     setCaja(data);
     setCajaLoading(false);
@@ -674,7 +674,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   const cerrarCaja = async (monto, notas) => {
     if (!caja) return;
     setCajaLoading(true);
-    const hora = new Date().toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+    const now2 = new Date(); const hora = now2.getHours().toString().padStart(2,"0")+":"+now2.getMinutes().toString().padStart(2,"0");
     const hoy = new Date().toISOString().split("T")[0];
     const ordersHoyLocal = orders.filter(o=>Number(o.created_at)>=new Date(hoy).setHours(0,0,0,0));
     const totalVentas = ordersHoyLocal.filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0);
@@ -1494,8 +1494,12 @@ function HistorialCajaTabla({ historial, onReload }) {
     if (!isExp && !pedidosDia[c.fecha]) {
       setLoadingDia(c.fecha);
       // Pedidos de esa caja: entre hora de apertura y cierre (o fin del día si sigue abierta)
-      const aperturaStr = c.hora_apertura ? c.fecha + "T" + c.hora_apertura + ":00" : c.fecha + "T00:00:00";
-      const cierreStr   = c.hora_cierre   ? c.fecha + "T" + c.hora_cierre   + ":59" : c.fecha + "T23:59:59";
+      // Normalize hora to HH:MM (handles both "04:39" and "04:39 a. m." formats)
+      const parseHora = (h) => { if (!h) return null; const m = h.match(/(\d{1,2}):(\d{2})/); if (!m) return null; let hh=parseInt(m[1]); const mm=m[2]; if (h.toLowerCase().includes("p") && hh<12) hh+=12; if (h.toLowerCase().includes("a") && hh===12) hh=0; return hh.toString().padStart(2,"0")+":"+mm; };
+      const aperturaHora = parseHora(c.hora_apertura);
+      const cierreHora   = parseHora(c.hora_cierre);
+      const aperturaStr = aperturaHora ? c.fecha + "T" + aperturaHora + ":00" : c.fecha + "T00:00:00";
+      const cierreStr   = cierreHora   ? c.fecha + "T" + cierreHora   + ":59" : c.fecha + "T23:59:59";
       const inicio = new Date(aperturaStr).getTime();
       const fin    = new Date(cierreStr).getTime();
       const {data} = await supabase.from("orders")
