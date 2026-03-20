@@ -586,23 +586,7 @@ function CustomerView({ menu, cajaStatus }) {
             </Card>
           </>
         )}
-        <Card>
-          <Label>MÉTODO DE PAGO</Label>
-          <div style={{display:"flex",flexDirection:"column",gap:8}}>
-            {PAGOS.map(p=>(
-              <button key={p.v} className="btn" onClick={()=>setForm(f=>({...f,pago:p.v}))}
-                style={{padding:"13px 16px",borderRadius:12,background:form.pago===p.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.pago===p.v?"var(--red)":"var(--border)"}`,display:"flex",alignItems:"center",justifyContent:"space-between",transition:"all .2s"}}>
-                <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <div style={{width:20,height:20,borderRadius:"50%",background:form.pago===p.v?"var(--red)":"transparent",border:`2px solid ${form.pago===p.v?"var(--red)":"var(--border2)"}`,display:"flex",alignItems:"center",justifyContent:"center"}}>
-                    {form.pago===p.v&&<div style={{width:7,height:7,borderRadius:"50%",background:"#fff"}}/>}
-                  </div>
-                  <span style={{fontSize:14,fontWeight:600,color:form.pago===p.v?"var(--red)":"var(--text2)"}}>{p.l}</span>
-                </div>
-                <span style={{fontSize:12,color:"var(--text4)"}}>{p.desc}</span>
-              </button>
-            ))}
-          </div>
-        </Card>
+        {/* Método de pago — se define al cobrar, no al pedir */}
         <Card>
           <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOTAS ADICIONALES (opcional)</div>
           <textarea value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} placeholder="Alergias, aclaraciones, referencias para llegar..." rows={3}
@@ -1426,16 +1410,18 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
   };
 
   const placeOrder = async () => {
-    if (!cart.length || !form.nombre.trim()) return;
+    if (!cart.length) return;
+    if (!mesaId && !form.nombre.trim()) return;
     setLoading(true);
     const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
     const {entreCalle:ec2, ...formRest2} = form;
+    const orderNombre = form.nombre.trim() || (mesaId ? 'Mesa '+(mesaId.replace('mv','V').replace('m','')) : '');
     let mesaSession2 = 1;
     if (mesaId) {
       const {data:md2} = await supabase.from("mesas").select("session_num").eq("id",mesaId).maybeSingle();
       mesaSession2 = md2?.session_num || 1;
     }
-    const order = { id:genId(), ...formRest2, entrecalle:ec2||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
+    const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
     await supabase.from("orders").insert(order);
     // Mark mesa as ocupada
     if (mesaId) await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesaId);
@@ -1569,8 +1555,8 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
         </div>
       </div>
 
-      <button className="btn" onClick={placeOrder} disabled={!cart.length||!form.nombre.trim()||loading}
-        style={{width:"100%",padding:"15px 0",borderRadius:14,fontSize:17,fontWeight:800,background:cart.length&&form.nombre.trim()?"#16A34A":"var(--border)",color:cart.length&&form.nombre.trim()?"#fff":"var(--text4)",boxShadow:cart.length&&form.nombre.trim()?"0 6px 20px rgba(22,163,74,.3)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+      <button className="btn" onClick={placeOrder} disabled={!cart.length||((!mesaId)&&!form.nombre.trim())||loading}
+        style={{width:"100%",padding:"15px 0",borderRadius:14,fontSize:17,fontWeight:800,background:(cart.length&&(mesaId||form.nombre.trim()))?"#16A34A":"var(--border)",color:(cart.length&&(mesaId||form.nombre.trim()))?"#fff":"var(--text4)",boxShadow:(cart.length&&(mesaId||form.nombre.trim()))?"0 6px 20px rgba(22,163,74,.3)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
         {loading?"CREANDO PEDIDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
       </button>
     </div>
@@ -1963,13 +1949,13 @@ function MesasView({ onNewOrder }) {
     setMesas(p => p.map(m => m.id===mesaId ? {...m,estado} : m));
   };
 
-  const liberarMesa = async (mesaId) => {
+  const liberarMesa = async (mesaId, pago="efectivo") => {
     if (!window.confirm("¿Cerrar la cuenta y liberar la mesa?")) return;
     const mesaOrds = orders.filter(o=>o.mesa_id===mesaId&&["nuevo","preparando","listo"].includes(o.status));
     const mesaNombre = mesas.find(m=>m.id===mesaId)?.nombre||mesaId;
     const totalMesa = mesaOrds.reduce((s,o)=>s+Number(o.total),0);
     // First close account in DB
-    await supabase.from("orders").update({status:"entregado"})
+    await supabase.from("orders").update({status:"entregado", pago})
       .eq("mesa_id", mesaId).in("status",["nuevo","preparando","listo"]);
     const {data:mesaActual} = await supabase.from("mesas").select("session_num").eq("id",mesaId).maybeSingle();
     const nextSession = (mesaActual?.session_num || 1) + 1;
@@ -2165,9 +2151,17 @@ function MesasView({ onNewOrder }) {
                       style={{padding:"10px 16px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>
                       🖨️ Ticket
                     </button>
-                    <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id)}
-                      style={{padding:"10px 16px",borderRadius:12,background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                      ✓ Cerrar cuenta
+                    <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id,"efectivo")}
+                      style={{padding:"10px 12px",borderRadius:12,background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                      💵 Efectivo
+                    </button>
+                    <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id,"transferencia")}
+                      style={{padding:"10px 12px",borderRadius:12,background:"#FFFBEB",border:"1px solid #FDE68A",color:"#D97706",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                      📲 Transf.
+                    </button>
+                    <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id,"tarjeta")}
+                      style={{padding:"10px 12px",borderRadius:12,background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#2563EB",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                      💳 Tarjeta
                     </button>
                   </div>
                 </div>
