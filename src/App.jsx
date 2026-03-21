@@ -489,11 +489,12 @@ function CustomerView({ menu, cajaStatus }) {
     saveCustomer(order);
   };
 
-  const PAGOS = [
+  const PAGOS_BASE = [
     {v:"efectivo",      l:"💵 Efectivo",      desc:"Pagás al recibir / retirar"},
     {v:"transferencia", l:"📲 Transferencia",  desc:"Alias bancario o MP"},
-    ...(tarjetaEnabled ? [{v:"tarjeta", l:"💳 Tarjeta / MP", desc:`+${(CONFIG.recargoMP*100).toFixed(2)}% recargo`}] : []),
   ];
+  if (tarjetaEnabled) PAGOS_BASE.push({v:"tarjeta", l:"💳 Tarjeta / MP", desc:`+${(CONFIG.recargoMP*100).toFixed(2)}% recargo`});
+  const PAGOS = PAGOS_BASE;
 
   // Caja cerrada — mostrar pantalla de local cerrado
   if (cajaStatus === "cerrada") return (
