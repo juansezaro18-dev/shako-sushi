@@ -17,6 +17,7 @@ const CONFIG = {
   whatsapp: "5491124832305",
   recargoMP: 0.0868, // 8.68% para cubrir comision MP al instante
   tarjetaHabilitada: false, // cambiar a true para habilitar tarjeta/MP en el checkout
+  repartidores: ["Marcos", "Lucas", "Nico", "Santiago"], // nombres de los repartidores
 };
 
 const MENU_DEFAULT = [
@@ -996,6 +997,11 @@ function AdminView({ onExit, menu, saveMenu }) {
     setOrders(p => p.map(o => o.id===order.id ? {...o,pago} : o));
     await supabase.from("orders").update({pago}).eq("id", order.id);
   };
+  const updateRepartidor = async (order, repartidor) => {
+    const nuevo = order.repartidor === repartidor ? null : repartidor; // toggle
+    setOrders(p => p.map(o => o.id===order.id ? {...o,repartidor:nuevo} : o));
+    await supabase.from("orders").update({repartidor:nuevo}).eq("id", order.id);
+  };
   const deleteOrder = async (id) => {
     setOrders(p => p.filter(o => o.id!==id));
     await supabase.from("orders").delete().eq("id", id);
@@ -1383,6 +1389,7 @@ function AdminView({ onExit, menu, saveMenu }) {
                       <span className="sh" style={{fontSize:15,color:"var(--text)"}}>#{order.id.slice(-6).toUpperCase()}</span>
                       <span style={{fontSize:12,fontWeight:700,color:est.color,background:est.bg,padding:"2px 8px",borderRadius:20}}>{est.label}</span>
                       {order.tipo==="delivery"&&<span style={{fontSize:11,color:"#D97706",background:"#FFFBEB",padding:"2px 6px",borderRadius:20,fontWeight:600}}>🛵 Delivery</span>}
+                      {order.repartidor&&<span style={{fontSize:11,color:"#7C3AED",background:"#FAF5FF",padding:"2px 6px",borderRadius:20,fontWeight:600,border:"1px solid #E9D5FF"}}>🏍️ {order.repartidor}</span>}
                     </div>
                     <div style={{fontSize:13,color:"var(--text3)",marginTop:3}}>{order.nombre} · {timeAgo(order.created_at)}</div>
                   </div>
@@ -1422,6 +1429,29 @@ function AdminView({ onExit, menu, saveMenu }) {
                     {order.notas&&(
                       <div style={{fontSize:13,color:"var(--text2)",background:"var(--bg2)",borderRadius:10,padding:"10px 14px",marginBottom:12,borderLeft:`3px solid ${est.ring}`,lineHeight:1.5}}>
                         💬 <em>{order.notas}</em>
+                      </div>
+                    )}
+                    {/* Asignar repartidor - solo para pedidos delivery */}
+                    {order.tipo==="delivery"&&(
+                      <div style={{marginBottom:12,background:"#FAF5FF",borderRadius:12,padding:"10px 12px",border:"1px solid #E9D5FF"}}>
+                        <div style={{fontSize:10,color:"#7C3AED",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:8}}>🏍️ REPARTIDOR</div>
+                        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                          {CONFIG.repartidores.map(r=>(
+                            <button key={r} className="btn" onClick={()=>updateRepartidor(order,r)}
+                              style={{padding:"7px 12px",borderRadius:10,fontSize:12,fontWeight:700,
+                                background:order.repartidor===r?"#7C3AED":"var(--surface)",
+                                border:`2px solid ${order.repartidor===r?"#7C3AED":"#E9D5FF"}`,
+                                color:order.repartidor===r?"#fff":"#7C3AED",
+                                transition:"all .15s",fontFamily:"'Barlow Condensed',sans-serif"}}>
+                              {r}
+                            </button>
+                          ))}
+                        </div>
+                        {order.repartidor&&(
+                          <div style={{marginTop:8,fontSize:12,color:"#7C3AED",fontWeight:600}}>
+                            ✓ Asignado a <strong>{order.repartidor}</strong>
+                          </div>
+                        )}
                       </div>
                     )}
                     {/* Cambio de método de pago - solo para pedidos sin mesa */}
