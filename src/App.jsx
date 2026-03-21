@@ -1891,10 +1891,22 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
                     style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
                 </div>
               </div>
-              <div>
-                <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Barrio / Localidad</div>
-                <input value={form.barrio} onChange={e=>setForm(p=>({...p,barrio:e.target.value}))} placeholder="Ej: Hudson, Berazategui..."
+              <div style={{marginBottom:8}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Entre calles (opcional)</div>
+                <input value={form.entreCalle} onChange={e=>setForm(p=>({...p,entreCalle:e.target.value}))} placeholder="Ej: 150 y 151"
                   style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Piso / Depto</div>
+                  <input value={form.piso} onChange={e=>setForm(p=>({...p,piso:e.target.value}))} placeholder="Ej: 3° B"
+                    style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
+                </div>
+                <div style={{flex:2}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Barrio / Localidad</div>
+                  <input value={form.barrio} onChange={e=>setForm(p=>({...p,barrio:e.target.value}))} placeholder="Ej: Hudson, Berazategui..."
+                    style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
+                </div>
               </div>
             </div>
           )}
