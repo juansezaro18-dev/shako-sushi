@@ -334,6 +334,12 @@ function CustomerView({ menu, cajaStatus }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   // Detect mesa from URL: ?mesa=m5
   const mesaQR = new URLSearchParams(window.location.search).get("mesa") || "";
+  const [tarjetaEnabled, setTarjetaEnabled] = useState(true);
+  useEffect(()=>{
+    supabase.from("menu_config").select("data").eq("id",1).maybeSingle().then(({data})=>{
+      if (data?.data?.tarjetaHabilitada===false) setTarjetaEnabled(false);
+    });
+  },[]);
   const pagoReturn = new URLSearchParams(window.location.search).get("pago") || "";
   const orderReturn = new URLSearchParams(window.location.search).get("order") || "";
   // If returning from MP payment
@@ -441,7 +447,7 @@ function CustomerView({ menu, cajaStatus }) {
       const {data:mesaData} = await supabase.from("mesas").select("session_num").eq("id",mesaQR).maybeSingle();
       mesaSession = mesaData?.session_num || 1;
     }
-    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total:totalConRecargo, status: form.pago==="tarjeta" ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
+    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total:totalConRecargo, status: (form.pago==="tarjeta"||form.pago==="transferencia") ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
     // Esperar confirmación de Supabase antes de mostrar éxito
     const {error} = await supabase.from("orders").insert(order);
     if (error) {
@@ -485,8 +491,8 @@ function CustomerView({ menu, cajaStatus }) {
 
   const PAGOS = [
     {v:"efectivo",      l:"💵 Efectivo",      desc:"Pagás al recibir / retirar"},
-    {v:"transferencia", l:"📲 Transferencia",  desc:"Te mandamos el CBU al confirmar"},
-    {v:"tarjeta",       l:"💳 Tarjeta / MP",    desc:`+${(CONFIG.recargoMP*100).toFixed(2)}% comisión MP`},
+    {v:"transferencia", l:"📲 Transferencia",  desc:"Alias bancario o MP"},
+    ...(tarjetaEnabled ? [{v:"tarjeta", l:"💳 Tarjeta / MP", desc:`+${(CONFIG.recargoMP*100).toFixed(2)}% recargo`}] : []),
   ];
 
   // Caja cerrada — mostrar pantalla de local cerrado
@@ -905,6 +911,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [nuevoPedidoMesaId, setNuevoPedidoMesaId] = useState(null);
   const [mesasData, setMesasData] = useState([]);
+  const [tarjetaHabilitada, setTarjetaHabilitada] = useState(true);
 
   const [caja,         setCaja]         = useState(null);
   const [cajaLoading,  setCajaLoading]  = useState(false);
@@ -919,6 +926,15 @@ function AdminView({ onExit, menu, saveMenu }) {
     const {data: reciente} = await supabase.from("caja").select("*").eq("fecha", hoy).order("created_at",{ascending:false}).limit(1);
     setCaja(reciente && reciente.length > 0 ? reciente[0] : null);
   }, []);
+
+  const toggleTarjeta = async () => {
+    const newVal = !tarjetaHabilitada;
+    setTarjetaHabilitada(newVal);
+    // Save to menu_config
+    const {data:mc} = await supabase.from("menu_config").select("data").eq("id",1).maybeSingle();
+    const newData = {...(mc?.data||{}), tarjetaHabilitada: newVal};
+    await supabase.from("menu_config").update({data: newData}).eq("id",1);
+  };
 
   const loadHistorialCaja = useCallback(async () => {
     // Último mes de caja
@@ -970,6 +986,9 @@ function AdminView({ onExit, menu, saveMenu }) {
     loadCaja();
     loadHistorialCaja();
     supabase.from("mesas").select("id,session_num,estado").then(({data})=>setMesasData(data||[]));
+    supabase.from("menu_config").select("data").eq("id",1).maybeSingle().then(({data})=>{
+      if (data?.data?.tarjetaHabilitada===false) setTarjetaHabilitada(false);
+    });
     // Polling cada 5 segundos como fallback
     const iv = setInterval(loadOrders, 5000);
     // Realtime

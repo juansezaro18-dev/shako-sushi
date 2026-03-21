@@ -6,31 +6,44 @@ Deno.serve(async (req) => {
     "Content-Type": "application/json",
   };
 
-  // Handle CORS preflight BEFORE reading body
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 204, headers });
   }
 
   try {
     const text = await req.text();
-    if (!text) {
-      return new Response(JSON.stringify({ error: "empty body" }), { status: 400, headers });
-    }
-    const { orderId, items, payer } = JSON.parse(text);
+    if (!text) return new Response(JSON.stringify({ error: "empty body" }), { status: 400, headers });
+    
+    const { orderId, items, total, payer } = JSON.parse(text);
     const mpToken = Deno.env.get("MP_ACCESS_TOKEN");
+    if (!mpToken) return new Response(JSON.stringify({ error: "MP token not configured" }), { status: 500, headers });
 
-    if (!mpToken) {
-      return new Response(JSON.stringify({ error: "MP token not configured" }), { status: 500, headers });
+    // Calculate original total from items
+    const originalTotal = items.reduce((s: number, c: any) => s + c.item.precio * c.qty, 0);
+    const surcharge = Math.round(total - originalTotal);
+
+    // Build items array
+    const mpItems = items.map((c: any) => ({
+      id: c.item.id,
+      title: c.item.nombre,
+      quantity: c.qty,
+      unit_price: c.item.precio,
+      currency_id: "ARS",
+    }));
+
+    // Add surcharge item if needed
+    if (surcharge > 0) {
+      mpItems.push({
+        id: "recargo_mp",
+        title: "Recargo por pago con tarjeta/MP",
+        quantity: 1,
+        unit_price: surcharge,
+        currency_id: "ARS",
+      });
     }
 
     const preference = {
-      items: items.map((c: any) => ({
-        id: c.item.id,
-        title: c.item.nombre,
-        quantity: c.qty,
-        unit_price: c.item.precio,
-        currency_id: "ARS",
-      })),
+      items: mpItems,
       payer: { name: payer?.nombre || "Cliente" },
       external_reference: orderId,
       back_urls: {
@@ -53,10 +66,7 @@ Deno.serve(async (req) => {
     });
 
     const data = await mpRes.json();
-
-    if (!data.init_point) {
-      return new Response(JSON.stringify({ error: "MP error", detail: data }), { status: 500, headers });
-    }
+    if (!data.init_point) return new Response(JSON.stringify({ error: "MP error", detail: data }), { status: 500, headers });
 
     return new Response(JSON.stringify({ init_point: data.init_point }), { status: 200, headers });
 
