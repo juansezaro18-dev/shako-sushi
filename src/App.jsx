@@ -1499,7 +1499,22 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                       </div>
                     </div>)}
                     <div style={{display:"flex",gap:8,marginTop:6}}>
-                      {est.next&&<button className="btn" onClick={()=>{updateStatus(order,est.next);if(est.next==="entregado")printTicket(order);}} style={{flex:1,padding:"12px 0",borderRadius:12,background:est.bg,border:`1px solid ${est.ring}`,color:est.color,fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{est.nextLabel} →</button>}
+                      {est.next&&(()=>{
+                        const needsRep = est.next==="entregado" && order.tipo==="delivery" && !order.repartidor;
+                        return(
+                          <button className="btn"
+                            onClick={()=>{ if(needsRep) return; updateStatus(order,est.next); if(est.next==="entregado") printTicket(order); }}
+                            title={needsRep?"Asigná un repartidor antes de despachar":""}
+                            style={{flex:1,padding:"12px 0",borderRadius:12,
+                              background:needsRep?"var(--border)":est.bg,
+                              border:`1px solid ${needsRep?"var(--border2)":est.ring}`,
+                              color:needsRep?"var(--text4)":est.color,
+                              fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,
+                              cursor:needsRep?"not-allowed":"pointer",opacity:needsRep?.6:1,transition:"all .2s"}}>
+                            {needsRep?"⚠ Elegí un repartidor primero":`${est.nextLabel} →`}
+                          </button>
+                        );
+                      })()}
                       <button className="btn" onClick={()=>printTicket(order)} style={{padding:"12px 14px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>🖨️ Ticket</button>
                       {order.status==="entregado"&&<button className="btn" onClick={()=>deleteOrder(order.id)} style={{padding:"12px 16px",borderRadius:12,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:600}}>Eliminar</button>}
                     </div>
