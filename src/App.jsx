@@ -15,7 +15,7 @@ const CONFIG = {
   aliasMP: "turo22.mp",
   titular: "Juan Agusto Zaro",
   whatsapp: "5491124832305",
-  recargoMP: 0.0355, // 3.55% comision MP // número con código de país sin + ni espacios
+  recargoMP: 0.0868, // 8.68% para cubrir comision MP al instante // número con código de país sin + ni espacios
 };
 
 const MENU_DEFAULT = [
