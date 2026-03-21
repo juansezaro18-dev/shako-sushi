@@ -452,7 +452,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
       const {data:mesaData} = await supabase.from("mesas").select("session_num").eq("id",mesaQR).maybeSingle();
       mesaSession = mesaData?.session_num || 1;
     }
-    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, total:totalConRecargo, status: (form.pago==="tarjeta"||form.pago==="transferencia") ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
+    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, subtotal:total, total:totalConRecargo, source:"customer", status: (form.pago==="tarjeta"||form.pago==="transferencia") ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
     // Esperar confirmación de Supabase antes de mostrar éxito
     const {error} = await supabase.from("orders").insert(order);
     if (error) {
@@ -1010,8 +1010,14 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     await supabase.from("orders").update({status:ns}).eq("id", order.id);
   };
   const updatePago = async (order, pago) => {
-    setOrders(p => p.map(o => o.id===order.id ? {...o,pago} : o));
-    await supabase.from("orders").update({pago}).eq("id", order.id);
+    // Only recalculate total for customer-placed orders (admin orders never have recargo)
+    let nuevoTotal = order.total;
+    if (order.source === "customer") {
+      const base = order.subtotal || order.total; // fallback for old orders without subtotal
+      nuevoTotal = pago === "tarjeta" ? Math.round(base * (1 + appConfig.recargoMP)) : base;
+    }
+    setOrders(p => p.map(o => o.id===order.id ? {...o, pago, total:nuevoTotal} : o));
+    await supabase.from("orders").update({pago, total:nuevoTotal}).eq("id", order.id);
   };
   const updateRepartidor = async (order, repartidor) => {
     const nuevo = order.repartidor === repartidor ? null : repartidor; // toggle
@@ -1913,7 +1919,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
       const {data:md2} = await supabase.from("mesas").select("session_num").eq("id",mesaId).maybeSingle();
       mesaSession2 = md2?.session_num || 1;
     }
-    const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", items:cart, total, status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
+    const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", items:cart, subtotal:total, total, source:"admin", status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
     await supabase.from("orders").insert(order);
     // Mark mesa as ocupada
     if (mesaId) await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesaId);
