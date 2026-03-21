@@ -1909,10 +1909,20 @@ function HistorialCajaResumen({ historial, vista, orders }) {
     const aperturaTs = c.hora_apertura ? new Date(c.fecha+"T"+c.hora_apertura+":00").getTime() : new Date(c.fecha+"T00:00:00").getTime();
     return orders.filter(o=>o.status==="entregado"&&Number(o.created_at)>=aperturaTs&&(!o.mesa_id)).reduce((s,o)=>s+Number(o.total),0);
   };
-  const totalVentas   = filtrado.reduce((s,c)=>s+getTotalCaja(c),0);
-  const diasAbiertos  = filtrado.filter(c=>c.estado==="cerrada").length;
-  const promDiario    = dias>0 ? totalVentas/dias : 0;
-  const maxDia        = filtrado.reduce((max,c)=>getTotalCaja(c)>getTotalCaja(max)?c:max, filtrado[0]||{});
+  // Group by day for accurate stats
+  const byDay = {};
+  filtrado.forEach(c=>{
+    if (!byDay[c.fecha]) byDay[c.fecha]={fecha:c.fecha,total:0,hasClosed:false,hasOpen:false};
+    byDay[c.fecha].total += getTotalCaja(c);
+    if (c.estado==="cerrada") byDay[c.fecha].hasClosed=true;
+    else byDay[c.fecha].hasOpen=true;
+  });
+  const dayList = Object.values(byDay).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const totalVentas   = dayList.reduce((s,d)=>s+d.total,0);
+  const diasAbiertos  = dayList.filter(d=>d.hasClosed).length;
+  const promDiario    = diasAbiertos>0 ? totalVentas/diasAbiertos : 0;
+  const maxDiaObj     = dayList.reduce((max,d)=>d.total>max.total?d:max, dayList[0]||{total:0});
+  const maxDia        = maxDiaObj; // used for display
   // Days elapsed in period
   const diasDelPeriodo = (() => {
     const n = new Date();
@@ -1923,14 +1933,8 @@ function HistorialCajaResumen({ historial, vista, orders }) {
     return n.getDate();
   })();
 
-  // Bar chart data - group by day
-  const barByDay = {};
-  filtrado.forEach(c=>{
-    if (!barByDay[c.fecha]) barByDay[c.fecha]={fecha:c.fecha,total:0,abierta:false};
-    barByDay[c.fecha].total += getTotalCaja(c);
-    if (c.estado==="abierta") barByDay[c.fecha].abierta = true;
-  });
-  const barDays = Object.values(barByDay).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  // Bar chart data - already grouped in dayList
+  const barDays = dayList;
   const maxVal = Math.max(...barDays.map(d=>d.total), 1);
 
   return (
@@ -1968,7 +1972,7 @@ function HistorialCajaResumen({ historial, vista, orders }) {
                     {pct>5?`$${(d.total/1000).toFixed(0)}k`:""}
                   </div>
                   <div style={{width:"100%",background:isHoy?"var(--red)":"#CBD5E1",borderRadius:"4px 4px 0 0",height:`${Math.max(pct,2)}%`,minHeight:2,transition:"height .4s",position:"relative"}}>
-                    {d.abierta&&<div style={{position:"absolute",top:-4,left:"50%",transform:"translateX(-50%)",width:6,height:6,borderRadius:"50%",background:"#D97706"}}/>}
+                    {d.hasOpen&&<div style={{position:"absolute",top:-4,left:"50%",transform:"translateX(-50%)",width:6,height:6,borderRadius:"50%",background:"#D97706"}}/>}
                   </div>
                   <div style={{fontSize:8,color:isHoy?"var(--red)":"var(--text4)",marginTop:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:isHoy?700:400,textAlign:"center",lineHeight:1.2}}>
                     {label}
