@@ -922,6 +922,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [nuevoPedidoMesaId, setNuevoPedidoMesaId] = useState(null);
   const [mesasData, setMesasData] = useState([]);
+  const repartidorOverrides = useRef({}); // persists through polling cycles
 
   const [caja,         setCaja]         = useState(null);
   const [cajaLoading,  setCajaLoading]  = useState(false);
@@ -979,7 +980,14 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       .or(`status.in.(nuevo,preparando,listo),created_at.gte.${since90.getTime()}`)
       .order("created_at", {ascending:false})
       .limit(500);
-    if (!error && data) setOrders(data);
+    if (!error && data) {
+      // Apply any pending repartidor overrides (survive polling)
+      const overrides = repartidorOverrides.current;
+      const merged = Object.keys(overrides).length
+        ? data.map(o => overrides[o.id] !== undefined ? {...o, repartidor: overrides[o.id]} : o)
+        : data;
+      setOrders(merged);
+    }
   }, []);
 
   useEffect(() => {
@@ -1007,8 +1015,11 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   };
   const updateRepartidor = async (order, repartidor) => {
     const nuevo = order.repartidor === repartidor ? null : repartidor; // toggle
+    repartidorOverrides.current[order.id] = nuevo; // persist through polling
     setOrders(p => p.map(o => o.id===order.id ? {...o,repartidor:nuevo} : o));
     await supabase.from("orders").update({repartidor:nuevo}).eq("id", order.id);
+    // Once saved, remove from overrides (DB is the source of truth now)
+    delete repartidorOverrides.current[order.id];
   };
   const deleteOrder = async (id) => {
     setOrders(p => p.filter(o => o.id!==id));
@@ -1104,7 +1115,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     {key:"editor",      label:"Menú",      val:null,               color:"#7C3AED"},
     {key:"nuevo_pedido", label:"Pedido",    val:null,               color:"#16A34A"},
     {key:"mesas",        label:"Mesas",     val:null,               color:"#0EA5E9"},
-    {key:"config",        label:"⚙️ Config",  val:null,               color:"#6B7280"},
+    {key:"config",        label:"Config",     val:null,               color:"#6B7280"},
   ];
 
   return (
@@ -1131,7 +1142,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
             {f.val!==null
               ?<div className="sh" style={{fontSize:20,color:filter===f.key?"var(--red)":f.val>0?f.color:"var(--text4)"}}>{f.val}</div>
               :<div style={{fontSize:18,color:filter===f.key?"var(--red)":"var(--text4)"}}>
-                {f.key==="facturacion"?"💰":f.key==="editor"?"✏️":f.key==="mesas"?"🍽️":"🛒"}
+                {f.key==="facturacion"?"💰":f.key==="editor"?"✏️":f.key==="mesas"?"🍽️":f.key==="config"?"⚙️":"🛒"}
               </div>}
             <div style={{fontSize:10,color:filter===f.key?"var(--red)":"var(--text4)",marginTop:1,whiteSpace:"nowrap",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{f.label}</div>
           </button>
@@ -1730,15 +1741,9 @@ function ConfigEditor({ appConfig, saveAppConfig }) {
 
   return (
     <div className="fade-in" style={{padding:14,paddingBottom:40}}>
-      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
-        <div>
-          <div className="sh" style={{fontSize:24,color:"var(--text)"}}>CONFIGURACIÓN</div>
-          <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>Los cambios se aplican al guardar</div>
-        </div>
-        <button className="btn" onClick={save}
-          style={{padding:"10px 22px",borderRadius:12,background:saved?"#16A34A":"var(--red)",color:"#fff",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,boxShadow:saved?"0 4px 14px rgba(22,163,74,.3)":"0 4px 14px var(--red-glow)"}}>
-          {saved?"✓ GUARDADO":"GUARDAR"}
-        </button>
+      <div style={{marginBottom:20}}>
+        <div className="sh" style={{fontSize:24,color:"var(--text)"}}>CONFIGURACIÓN</div>
+        <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>Los cambios se aplican al guardar</div>
       </div>
 
       {/* Repartidores */}
