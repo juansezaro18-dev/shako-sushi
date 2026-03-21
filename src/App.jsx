@@ -16,7 +16,7 @@ const CONFIG = {
   titular: "Juan Agusto Zaro",
   whatsapp: "5491124832305",
   recargoMP: 0.0868, // 8.68% para cubrir comision MP al instante
-  tarjetaHabilitada: true, // cambiar a false para deshabilitar tarjeta/MP // número con código de país sin + ni espacios
+  tarjetaHabilitada: false, // cambiar a true para habilitar tarjeta/MP en el checkout
 };
 
 const MENU_DEFAULT = [
