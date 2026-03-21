@@ -392,8 +392,8 @@ function CustomerView({ menu, cajaStatus }) {
   const count      = cart.reduce((s,c) => s+c.qty, 0);
   const canConfirm = mesaQR ? true : (form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim()))));
 
-  const lookupDni = async (val) => {
-    setForm(p=>({...p,dni:val}));
+  const lookupDni = async (val, isPhone=false) => {
+    setForm(p=>({...p,[isPhone?"telefono":"dni"]:val}));
     if (val.length < 6) { setDniFound(false); return; }
     setDniLooking(true);
     const {data} = await supabase.from("customers")
@@ -631,23 +631,31 @@ function CustomerView({ menu, cajaStatus }) {
           <>
             <Card>
               <Label>TUS DATOS</Label>
-              <div style={{marginBottom:14}}>
-                <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DNI O TELÉFONO</div>
-                <div style={{position:"relative"}}>
-                  <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Ingresá tu DNI o teléfono"
-                    style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:14,transition:"border .2s"}}/>
-                  {dniLooking&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--text4)"}}>🔍</span>}
-                  {dniFound&&<span style={{position:"absolute",right:12,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>✓</span>}
+              <div style={{display:"flex",gap:8,marginBottom:10}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DNI</div>
+                  <div style={{position:"relative"}}>
+                    <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Tu DNI"
+                      style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:14,transition:"border .2s"}}/>
+                    {dniLooking&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--text4)"}}>🔍</span>}
+                    {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>✓</span>}
+                  </div>
                 </div>
-                {dniFound&&<div style={{fontSize:11,color:"#16A34A",marginTop:5,fontWeight:600}}>✓ Cliente encontrado — datos completados automáticamente</div>}
+                <div style={{flex:1}}>
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>TELÉFONO</div>
+                  <div style={{position:"relative"}}>
+                    <input value={form.telefono} onChange={e=>lookupDni(e.target.value,true)} placeholder="Tu teléfono"
+                      style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:14,transition:"border .2s"}}/>
+                    {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>✓</span>}
+                  </div>
+                </div>
               </div>
-              {[{k:"nombre",l:"Nombre *",p:"¿Cómo te llamás?"},{k:"telefono",l:"Teléfono",p:"(opcional)"}].map(f=>(
-                <div key={f.k} style={{marginBottom:12}}>
-                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{f.l}</div>
-                  <input value={form[f.k]} onChange={e=>setForm(p=>({...p,[f.k]:e.target.value}))} placeholder={f.p}
-                    style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
-                </div>
-              ))}
+              {dniFound&&<div style={{fontSize:11,color:"#16A34A",marginBottom:10,fontWeight:600}}>✓ Cliente encontrado — datos completados automáticamente</div>}
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOMBRE *</div>
+                <input value={form.nombre} onChange={e=>setForm(p=>({...p,nombre:e.target.value}))} placeholder="¿Cómo te llamás?"
+                  style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
+              </div>
             </Card>
             <Card>
               <Label>TIPO DE PEDIDO</Label>
