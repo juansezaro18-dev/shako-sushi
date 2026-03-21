@@ -1130,6 +1130,18 @@ function AdminView({ onExit, menu, saveMenu }) {
         ))}
       </div>
 
+      {/* Tarjeta toggle */}
+      <div style={{padding:"8px 12px 0",display:"flex",justifyContent:"flex-end"}}>
+        <button className="btn" onClick={toggleTarjeta}
+          style={{padding:"5px 12px",borderRadius:10,fontSize:11,fontWeight:700,
+            background:tarjetaHabilitada?"#F0FDF4":"#FEF2F2",
+            border:`1px solid ${tarjetaHabilitada?"#BBF7D0":"#FECACA"}`,
+            color:tarjetaHabilitada?"#16A34A":"#DC2626",
+            fontFamily:"'Barlow Condensed',sans-serif"}}>
+          💳 Tarjeta/MP: {tarjetaHabilitada?"HABILITADA ✓":"DESHABILITADA ✗"}
+        </button>
+      </div>
+
       {/* Banner caja cerrada */}
       {!["editor","nuevo_pedido"].includes(filter) && filter!=="facturacion" && (!caja || caja.estado==="cerrada") && (
         <div style={{margin:"12px 12px 0",background:"#FFF7ED",border:"2px solid #FED7AA",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
@@ -1672,6 +1684,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
   const [loading,  setLoading]  = useState(false);
   const [dniFound, setDniFound] = useState(false);
   const [search,   setSearch]   = useState("");
+  const [lastOrders, setLastOrders] = useState([]);
 
   const add    = (item) => setCart(p => { const ex=p.find(c=>c.item.id===item.id); return ex?p.map(c=>c.item.id===item.id?{...c,qty:c.qty+1}:c):[...p,{item,qty:1}]; });
   const setQty = (id,q) => setCart(p => q<=0?p.filter(c=>c.item.id!==id):p.map(c=>c.item.id===id?{...c,qty:q}:c));
@@ -1685,7 +1698,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
 
   const lookupDni = async (val) => {
     setForm(p=>({...p,dni:val}));
-    if (val.length < 6) { setDniFound(false); return; }
+    if (val.length < 6) { setDniFound(false); setLastOrders([]); return; }
     const {data} = await supabase.from("customers").select("*").or(`dni.eq.${val},telefono.eq.${val}`).limit(1);
     if (data && data.length > 0) {
       const c = data[0];
@@ -1700,7 +1713,14 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
         barrio:     p.barrio     || pb2  || "",
         tipo:       pc2 ? "delivery" : p.tipo,
       }));
-    } else { setDniFound(false); }
+      // Load last 5 orders for this customer
+      const {data:ords} = await supabase.from("orders").select("*")
+        .or(`nombre.ilike.${c.nombre},telefono.eq.${c.telefono||"__none__"}`)
+        .eq("status","entregado")
+        .order("created_at",{ascending:false})
+        .limit(5);
+      setLastOrders(ords||[]);
+    } else { setDniFound(false); setLastOrders([]); }
   };
 
   const placeOrder = async () => {
@@ -1799,6 +1819,31 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
             {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"#16A34A",fontSize:14}}>✓</span>}
           </div>
         </div>}
+        {/* Últimos pedidos del cliente */}
+        {lastOrders.length>0&&(
+          <div style={{marginBottom:12}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>REPETIR PEDIDO ANTERIOR</div>
+            <div style={{display:"flex",flexDirection:"column",gap:6}}>
+              {lastOrders.map(o=>(
+                <button key={o.id} className="btn" onClick={()=>{
+                  setCart(o.items||[]);
+                }} style={{padding:"8px 12px",borderRadius:10,background:"var(--bg2)",border:"1px solid var(--border)",textAlign:"left",cursor:"pointer"}}>
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>
+                        {o.items?.map(c=>`${c.qty}× ${c.item.nombre}`).join(", ").slice(0,50)}{o.items?.length>2?"...":""}
+                      </div>
+                      <div style={{fontSize:11,color:"var(--text4)",marginTop:2}}>
+                        {new Date(Number(o.created_at)).toLocaleDateString("es-AR",{day:"2-digit",month:"2-digit"})} · {o.items?.reduce((s,c)=>s+c.qty,0)} items
+                      </div>
+                    </div>
+                    <div style={{fontSize:13,fontWeight:700,color:"var(--red)",flexShrink:0,marginLeft:8}}>${Number(o.total).toLocaleString("es-AR")}</div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <div style={{marginBottom:10}}>
           <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{mesaId?"NOMBRE (opcional)":"NOMBRE *"}</div>
           <input value={form.nombre} onChange={e=>setForm(p=>({...p,nombre:e.target.value}))} placeholder="Nombre del cliente"
