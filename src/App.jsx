@@ -699,11 +699,9 @@ function CustomerView({ menu, cajaStatus }) {
             </Card>
           </>
         )}
-        {/* Método de pago — se define al cobrar, no al pedir */}
+        {/* Método de pago — solo para delivery/retiro */}
         <Card>
-          {/* Método de pago — solo para delivery/retiro */}
-          <Card>
-            <Label>MÉTODO DE PAGO</Label>
+          <Label>MÉTODO DE PAGO</Label>
             <div style={{display:"flex",flexDirection:"column",gap:8}}>
               {PAGOS.map(p=>(
                 <button key={p.v} className="btn" onClick={()=>setForm(f=>({...f,pago:p.v}))}
