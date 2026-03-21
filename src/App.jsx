@@ -1452,8 +1452,8 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                         💬 <em>{order.notas}</em>
                       </div>
                     )}
-                    {/* Asignar repartidor - solo para pedidos delivery */}
-                    {order.tipo==="delivery"&&(
+                    {/* Asignar repartidor - solo cuando está listo para despachar */}
+                    {order.tipo==="delivery"&&order.status==="listo"&&(
                       <div style={{marginBottom:12,background:"#FAF5FF",borderRadius:12,padding:"10px 12px",border:"1px solid #E9D5FF"}}>
                         <div style={{fontSize:10,color:"#7C3AED",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:8}}>🏍️ REPARTIDOR</div>
                         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
@@ -1493,7 +1493,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                       </div>
                     </div>)}
                     <div style={{display:"flex",gap:8,marginTop:6}}>
-                      {est.next&&<button className="btn" onClick={()=>updateStatus(order,est.next)} style={{flex:1,padding:"12px 0",borderRadius:12,background:est.bg,border:`1px solid ${est.ring}`,color:est.color,fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{est.nextLabel} →</button>}
+                      {est.next&&<button className="btn" onClick={()=>{updateStatus(order,est.next);if(est.next==="entregado")printTicket(order);}} style={{flex:1,padding:"12px 0",borderRadius:12,background:est.bg,border:`1px solid ${est.ring}`,color:est.color,fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>{est.nextLabel} →</button>}
                       <button className="btn" onClick={()=>printTicket(order)} style={{padding:"12px 14px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>🖨️ Ticket</button>
                       {order.status==="entregado"&&<button className="btn" onClick={()=>deleteOrder(order.id)} style={{padding:"12px 16px",borderRadius:12,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:600}}>Eliminar</button>}
                     </div>
