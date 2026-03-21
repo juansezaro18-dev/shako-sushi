@@ -1041,7 +1041,10 @@ function AdminView({ onExit, menu, saveMenu }) {
     return Object.values(open);
   })();
   const prodMap = {};
-  entH.forEach(o => o.items?.forEach(c => {
+  // Use orders from current week for the ranking (more meaningful than just today)
+  const inicioSemana = new Date(); inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay() + 1); inicioSemana.setHours(0,0,0,0);
+  const ordersSemanaProd = orders.filter(o=>o.status==="entregado"&&Number(o.created_at)>=inicioSemana.getTime());
+  ordersSemanaProd.forEach(o => o.items?.forEach(c => {
     if (!prodMap[c.item.nombre]) prodMap[c.item.nombre]={nombre:c.item.nombre,qty:0,total:0};
     prodMap[c.item.nombre].qty   += c.qty;
     prodMap[c.item.nombre].total += c.item.precio*c.qty;
@@ -1217,7 +1220,7 @@ function AdminView({ onExit, menu, saveMenu }) {
           </Card>
           {topProds.length>0&&(
             <Card style={{marginBottom:12}}>
-              <Label>🏆 PRODUCTOS MÁS VENDIDOS</Label>
+              <Label>🏆 PRODUCTOS MÁS VENDIDOS (esta semana)</Label>
               {topProds.map((p,i)=>(
                 <div key={p.nombre} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<topProds.length-1?"1px solid var(--border)":"none"}}>
                   <div style={{width:24,height:24,borderRadius:8,background:i===0?"#FEF3C7":i===1?"#F3F4F6":"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:i===0?"#D97706":i===1?"#6B7280":"var(--text4)",flexShrink:0,fontFamily:"'Barlow Condensed',sans-serif",border:"1px solid var(--border)"}}>{i+1}</div>
