@@ -171,11 +171,11 @@ const ESTADOS = {
   entregado: {label:"Entregado",  next:null,         nextLabel:null,                    color:"#9CA3AF", bg:"rgba(156,163,175,.1)", ring:"#9CA3AF"},
 };
 
-const isOpen = () => {
+const isOpen = (cfg=CONFIG) => {
   const now = new Date();
   const mins = now.getHours()*60 + now.getMinutes();
-  const abre  = CONFIG.abreH*60  + CONFIG.abreM;
-  const cierra= CONFIG.cierraH*60+ CONFIG.cierraM;
+  const abre  = cfg.abreH*60  + cfg.abreM;
+  const cierra= cfg.cierraH*60+ cfg.cierraM;
   return mins >= abre && mins < cierra;
 };
 
@@ -237,8 +237,16 @@ export default function App() {
   const isAdmin = window.location.pathname === "/admin";
   const [menu,       setMenu]       = useState(MENU_DEFAULT);
   const [cajaStatus, setCajaStatus] = useState(null); // null=loading, 'abierta', 'cerrada'
+  const [appConfig,  setAppConfig]  = useState({...CONFIG});
+
+  const saveAppConfig = async (cfg) => {
+    setAppConfig(cfg);
+    supabase.from("menu_config").upsert({id:2, data:cfg}).then(()=>{});
+  };
 
   useEffect(() => {
+    supabase.from("menu_config").select("data").eq("id",2).maybeSingle()
+      .then(({data}) => { if (data?.data) setAppConfig(prev=>({...prev,...data.data})); });
     supabase.from("menu_config").select("data").eq("id",1).maybeSingle()
       .then(({data}) => { if (data?.data) setMenu(data.data); })
       .catch(() => {});
@@ -268,13 +276,13 @@ export default function App() {
     <>
       <GS/>
       {isAdmin
-        ? <AdminLogin menu={menu} saveMenu={saveMenu}/>
-        : <CustomerView menu={menu} cajaStatus={cajaStatus}/>}
+        ? <AdminLogin menu={menu} saveMenu={saveMenu} appConfig={appConfig} saveAppConfig={saveAppConfig}/>
+        : <CustomerView menu={menu} cajaStatus={cajaStatus} appConfig={appConfig}/>}
     </>
   );
 }
 
-function AdminLogin({ menu, saveMenu }) {
+function AdminLogin({ menu, saveMenu, appConfig, saveAppConfig }) {
   const [authed,  setAuthed]  = useState(false);
   const [pin,     setPin]     = useState("");
   const [pinErr,  setPinErr]  = useState(false);
@@ -291,7 +299,7 @@ function AdminLogin({ menu, saveMenu }) {
     }
   };
 
-  if (authed) return <AdminView onExit={()=>{ window.location.href="/"; }} menu={menu} saveMenu={saveMenu}/>;
+  if (authed) return <AdminView onExit={()=>{ window.location.href="/"; }} menu={menu} saveMenu={saveMenu} appConfig={appConfig} saveAppConfig={saveAppConfig}/>;
 
   return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg2)"}}>
@@ -332,7 +340,7 @@ function AdminLogin({ menu, saveMenu }) {
   );
 }
 
-function CustomerView({ menu, cajaStatus }) {
+function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   // Detect mesa from URL: ?mesa=m5
   const mesaQR = new URLSearchParams(window.location.search).get("mesa") || "";
@@ -389,7 +397,7 @@ function CustomerView({ menu, cajaStatus }) {
   const setQty = (id,q) => setCart(p => q<=0?p.filter(c=>c.item.id!==id):p.map(c=>c.item.id===id?{...c,qty:q}:c));
   const getQty = (id)   => cart.find(c=>c.item.id===id)?.qty||0;
   const total      = cart.reduce((s,c) => s+c.item.precio*c.qty, 0);
-  const totalConRecargo = form.pago==="tarjeta" ? Math.round(total*(1+CONFIG.recargoMP)) : total;
+  const totalConRecargo = form.pago==="tarjeta" ? Math.round(total*(1+appConfig.recargoMP)) : total;
   const count      = cart.reduce((s,c) => s+c.qty, 0);
   const canConfirm = mesaQR ? true : (form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim()))));
 
@@ -490,7 +498,7 @@ function CustomerView({ menu, cajaStatus }) {
     {v:"efectivo",      l:"💵 Efectivo",      desc:"Pagás al recibir / retirar"},
     {v:"transferencia", l:"📲 Transferencia",  desc:"Alias bancario o MP"},
   ];
-  if (CONFIG.tarjetaHabilitada) PAGOS_BASE.push({v:"tarjeta", l:"💳 Tarjeta / MP", desc:`+${(CONFIG.recargoMP*100).toFixed(2)}% recargo`});
+  if (appConfig.tarjetaHabilitada) PAGOS_BASE.push({v:"tarjeta", l:"💳 Tarjeta / MP", desc:`+${(appConfig.recargoMP*100).toFixed(2)}% recargo`});
   const PAGOS = PAGOS_BASE;
 
   // Caja cerrada — mostrar pantalla de local cerrado
@@ -506,7 +514,7 @@ function CustomerView({ menu, cajaStatus }) {
         <div style={{width:7,height:7,borderRadius:"50%",background:"#DC2626",boxShadow:"0 0 6px #DC2626"}}/>
         <span style={{fontSize:13,color:"var(--text3)",fontWeight:600}}>Cerrado</span>
         <span style={{color:"var(--text4)"}}>·</span>
-        <span style={{fontSize:13,color:"var(--text3)"}}>{CONFIG.horario}</span>
+        <span style={{fontSize:13,color:"var(--text3)"}}>{appConfig.horario}</span>
       </div>
     </div>
   );
@@ -535,19 +543,19 @@ function CustomerView({ menu, cajaStatus }) {
           <div style={{marginBottom:14}}>
             <div style={{fontSize:10,color:"var(--text4)",fontWeight:700,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:6}}>BANCO — ALIAS</div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg2)",borderRadius:12,padding:"12px 16px",border:"1px solid var(--border)"}}>
-              <span className="sh" style={{fontSize:18,color:"var(--text)",letterSpacing:1}}>{CONFIG.aliasBanco}</span>
-              <button className="btn" onClick={()=>{navigator.clipboard?.writeText(CONFIG.aliasBanco);}} style={{background:"var(--red-light)",border:"1px solid var(--red-border)",borderRadius:8,padding:"4px 10px",color:"var(--red)",fontSize:11,fontWeight:600}}>Copiar</button>
+              <span className="sh" style={{fontSize:18,color:"var(--text)",letterSpacing:1}}>{appConfig.aliasBanco}</span>
+              <button className="btn" onClick={()=>{navigator.clipboard?.writeText(appConfig.aliasBanco);}} style={{background:"var(--red-light)",border:"1px solid var(--red-border)",borderRadius:8,padding:"4px 10px",color:"var(--red)",fontSize:11,fontWeight:600}}>Copiar</button>
             </div>
-            <div style={{fontSize:11,color:"var(--text4)",marginTop:4,paddingLeft:4}}>Titular: {CONFIG.titular}</div>
+            <div style={{fontSize:11,color:"var(--text4)",marginTop:4,paddingLeft:4}}>Titular: {appConfig.titular}</div>
           </div>
 
           <div style={{marginBottom:4}}>
             <div style={{fontSize:10,color:"var(--text4)",fontWeight:700,letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:6}}>MERCADO PAGO — ALIAS</div>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",background:"var(--bg2)",borderRadius:12,padding:"12px 16px",border:"1px solid var(--border)"}}>
-              <span className="sh" style={{fontSize:18,color:"var(--text)",letterSpacing:1}}>{CONFIG.aliasMP}</span>
-              <button className="btn" onClick={()=>{navigator.clipboard?.writeText(CONFIG.aliasMP);}} style={{background:"var(--red-light)",border:"1px solid var(--red-border)",borderRadius:8,padding:"4px 10px",color:"var(--red)",fontSize:11,fontWeight:600}}>Copiar</button>
+              <span className="sh" style={{fontSize:18,color:"var(--text)",letterSpacing:1}}>{appConfig.aliasMP}</span>
+              <button className="btn" onClick={()=>{navigator.clipboard?.writeText(appConfig.aliasMP);}} style={{background:"var(--red-light)",border:"1px solid var(--red-border)",borderRadius:8,padding:"4px 10px",color:"var(--red)",fontSize:11,fontWeight:600}}>Copiar</button>
             </div>
-            <div style={{fontSize:11,color:"var(--text4)",marginTop:4,paddingLeft:4}}>Titular: {CONFIG.titular}</div>
+            <div style={{fontSize:11,color:"var(--text4)",marginTop:4,paddingLeft:4}}>Titular: {appConfig.titular}</div>
           </div>
         </div>
 
@@ -742,7 +750,7 @@ function CustomerView({ menu, cajaStatus }) {
             <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.4)",flexShrink:0}}/>
             <div>
               <div className="sh" style={{fontSize:26,color:"#fff",lineHeight:1,letterSpacing:1}}>SHAKO SUSHI</div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>{mesaQR ? `🪑 Mesa ${mesaQR.replace("m","").replace("v","Vereda ")}` : CONFIG.ubicacion}</div>
+              <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>{mesaQR ? `🪑 Mesa ${mesaQR.replace("m","").replace("v","Vereda ")}` : appConfig.ubicacion}</div>
             </div>
           </div>
           {count>0&&(
@@ -754,13 +762,13 @@ function CustomerView({ menu, cajaStatus }) {
           )}
         </div>
         {(()=>{
-          const open=isOpen();
+          const open=isOpen(appConfig);
           return(
             <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
               <div style={{width:7,height:7,borderRadius:"50%",background:open?"#4ADE80":"#FF4757",boxShadow:open?"0 0 6px #4ADE80":"0 0 6px #FF4757"}}/>
               <span style={{fontSize:12,color:"rgba(255,255,255,.9)",fontWeight:600}}>{open?"Abierto ahora":"Cerrado"}</span>
               <span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>·</span>
-              <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>{CONFIG.horario}</span>
+              <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>{appConfig.horario}</span>
             </div>
           );
         })()}
@@ -907,7 +915,7 @@ const printTicket = (order) => {
   setTimeout(()=>{ win.print(); win.close(); }, 400);
 };
 
-function AdminView({ onExit, menu, saveMenu }) {
+function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) {
   const [orders,     setOrders]     = useState([]);
   const [filter,     setFilter]     = useState("activos");
   const [expandedId, setExpandedId] = useState(null);
@@ -1096,6 +1104,7 @@ function AdminView({ onExit, menu, saveMenu }) {
     {key:"editor",      label:"Menú",      val:null,               color:"#7C3AED"},
     {key:"nuevo_pedido", label:"Pedido",    val:null,               color:"#16A34A"},
     {key:"mesas",        label:"Mesas",     val:null,               color:"#0EA5E9"},
+    {key:"config",        label:"⚙️ Config",  val:null,               color:"#6B7280"},
   ];
 
   return (
@@ -1319,9 +1328,10 @@ function AdminView({ onExit, menu, saveMenu }) {
       )}
 
       {filter==="mesas"&&<MesasView onNewOrder={(mesaId)=>{setFilter("nuevo_pedido");setNuevoPedidoMesaId(mesaId);}} />}
-      {filter==="nuevo_pedido"&&<NuevoPedidoAdmin menu={menu} mesaId={nuevoPedidoMesaId} onClose={()=>{setFilter(nuevoPedidoMesaId?"mesas":"activos");setNuevoPedidoMesaId(null);}} onOrderPlaced={()=>{loadOrders();}} />}
+      {filter==="config"&&<ConfigEditor appConfig={appConfig} saveAppConfig={saveAppConfig}/>}
+      {filter==="nuevo_pedido"&&<NuevoPedidoAdmin menu={menu} mesaId={nuevoPedidoMesaId} appConfig={appConfig} onClose={()=>{setFilter(nuevoPedidoMesaId?"mesas":"activos");setNuevoPedidoMesaId(null);}} onOrderPlaced={()=>{loadOrders();}} />}
 
-      {!["editor","facturacion"].includes(filter)&&(
+      {!["editor","facturacion","config"].includes(filter)&&(
         <div style={{padding:"12px 12px 40px"}}>
           {filtered.length===0&&(
             <div style={{textAlign:"center",padding:"48px 20px",color:"var(--text3)"}}>
@@ -1436,7 +1446,7 @@ function AdminView({ onExit, menu, saveMenu }) {
                       <div style={{marginBottom:12,background:"#FAF5FF",borderRadius:12,padding:"10px 12px",border:"1px solid #E9D5FF"}}>
                         <div style={{fontSize:10,color:"#7C3AED",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:8}}>🏍️ REPARTIDOR</div>
                         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                          {CONFIG.repartidores.map(r=>(
+                          {appConfig.repartidores.map(r=>(
                             <button key={r} className="btn" onClick={()=>updateRepartidor(order,r)}
                               style={{padding:"7px 12px",borderRadius:10,fontSize:12,fontWeight:700,
                                 background:order.repartidor===r?"#7C3AED":"var(--surface)",
@@ -1687,8 +1697,160 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
   );
 }
 
+
+/* ══ CONFIG EDITOR ════════════════════════════════════════════ */
+function ConfigEditor({ appConfig, saveAppConfig }) {
+  const [cfg,     setCfg]     = useState({...appConfig});
+  const [saved,   setSaved]   = useState(false);
+  const [newRep,  setNewRep]  = useState("");
+
+  const save = () => {
+    saveAppConfig(cfg);
+    setSaved(true);
+    setTimeout(()=>setSaved(false), 2000);
+  };
+  const addRep = () => {
+    const name = newRep.trim();
+    if (!name || cfg.repartidores.includes(name)) return;
+    setCfg(p=>({...p, repartidores:[...p.repartidores, name]}));
+    setNewRep("");
+  };
+  const removeRep = (name) => setCfg(p=>({...p, repartidores:p.repartidores.filter(r=>r!==name)}));
+
+  const Field = ({label, children}) => (
+    <div style={{marginBottom:14}}>
+      <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>{label}</div>
+      {children}
+    </div>
+  );
+  const Input = ({val, onChange, placeholder=""}) => (
+    <input value={val} onChange={e=>onChange(e.target.value)} placeholder={placeholder}
+      style={{width:"100%",padding:"10px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,color:"var(--text)"}}/>
+  );
+
+  return (
+    <div className="fade-in" style={{padding:14,paddingBottom:40}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:20}}>
+        <div>
+          <div className="sh" style={{fontSize:24,color:"var(--text)"}}>CONFIGURACIÓN</div>
+          <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>Los cambios se aplican al guardar</div>
+        </div>
+        <button className="btn" onClick={save}
+          style={{padding:"10px 22px",borderRadius:12,background:saved?"#16A34A":"var(--red)",color:"#fff",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,boxShadow:saved?"0 4px 14px rgba(22,163,74,.3)":"0 4px 14px var(--red-glow)"}}>
+          {saved?"✓ GUARDADO":"GUARDAR"}
+        </button>
+      </div>
+
+      {/* Repartidores */}
+      <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
+        <div className="sh" style={{fontSize:13,color:"#7C3AED",letterSpacing:1,marginBottom:14}}>🏍️ REPARTIDORES</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
+          {cfg.repartidores.map(r=>(
+            <div key={r} style={{display:"flex",alignItems:"center",gap:6,background:"#FAF5FF",border:"1px solid #E9D5FF",borderRadius:20,padding:"6px 12px"}}>
+              <span style={{fontSize:13,fontWeight:600,color:"#7C3AED"}}>{r}</span>
+              <button className="btn" onClick={()=>removeRep(r)}
+                style={{background:"none",color:"#A78BFA",fontSize:14,lineHeight:1,padding:"0 2px",fontWeight:700}}>×</button>
+            </div>
+          ))}
+          {cfg.repartidores.length===0&&<div style={{fontSize:13,color:"var(--text4)"}}>Sin repartidores cargados</div>}
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <input value={newRep} onChange={e=>setNewRep(e.target.value)} onKeyDown={e=>e.key==="Enter"&&addRep()}
+            placeholder="Nombre del repartidor..."
+            style={{flex:1,padding:"10px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,color:"var(--text)"}}/>
+          <button className="btn" onClick={addRep}
+            style={{padding:"10px 18px",borderRadius:10,background:"#7C3AED",color:"#fff",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+            + AGREGAR
+          </button>
+        </div>
+      </div>
+
+      {/* Horario */}
+      <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
+        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:14}}>⏰ HORARIO</div>
+        <div style={{display:"flex",gap:12,alignItems:"flex-end"}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>APERTURA</div>
+            <div style={{display:"flex",gap:6}}>
+              <input type="number" min="0" max="23" value={cfg.abreH} onChange={e=>setCfg(p=>({...p,abreH:Number(e.target.value),horario:`${String(e.target.value).padStart(2,"0")}:${String(p.abreM).padStart(2,"0")} a ${String(p.cierraH).padStart(2,"0")}:${String(p.cierraM).padStart(2,"0")}`}))}
+                style={{width:60,padding:"10px 8px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,textAlign:"center",color:"var(--text)"}}/>
+              <span style={{fontSize:18,color:"var(--text3)",alignSelf:"center"}}>:</span>
+              <input type="number" min="0" max="59" value={cfg.abreM} onChange={e=>setCfg(p=>({...p,abreM:Number(e.target.value),horario:`${String(p.abreH).padStart(2,"0")}:${String(e.target.value).padStart(2,"0")} a ${String(p.cierraH).padStart(2,"0")}:${String(p.cierraM).padStart(2,"0")}`}))}
+                style={{width:60,padding:"10px 8px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,textAlign:"center",color:"var(--text)"}}/>
+            </div>
+          </div>
+          <div style={{fontSize:18,color:"var(--text3)",paddingBottom:10}}>→</div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>CIERRE</div>
+            <div style={{display:"flex",gap:6}}>
+              <input type="number" min="0" max="23" value={cfg.cierraH} onChange={e=>setCfg(p=>({...p,cierraH:Number(e.target.value),horario:`${String(p.abreH).padStart(2,"0")}:${String(p.abreM).padStart(2,"0")} a ${String(e.target.value).padStart(2,"0")}:${String(p.cierraM).padStart(2,"0")}`}))}
+                style={{width:60,padding:"10px 8px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,textAlign:"center",color:"var(--text)"}}/>
+              <span style={{fontSize:18,color:"var(--text3)",alignSelf:"center"}}>:</span>
+              <input type="number" min="0" max="59" value={cfg.cierraM} onChange={e=>setCfg(p=>({...p,cierraM:Number(e.target.value),horario:`${String(p.abreH).padStart(2,"0")}:${String(p.abreM).padStart(2,"0")} a ${String(p.cierraH).padStart(2,"0")}:${String(e.target.value).padStart(2,"0")}`}))}
+                style={{width:60,padding:"10px 8px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,textAlign:"center",color:"var(--text)"}}/>
+            </div>
+          </div>
+          <div style={{flex:2,paddingBottom:2}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>TEXTO HORARIO</div>
+            <input value={cfg.horario} onChange={e=>setCfg(p=>({...p,horario:e.target.value}))} placeholder="Ej: 16:30 a 23:30"
+              style={{width:"100%",padding:"10px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,color:"var(--text)"}}/>
+          </div>
+        </div>
+      </div>
+
+      {/* Pagos */}
+      <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
+        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:14}}>💳 PAGOS Y COMISIONES</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:cfg.tarjetaHabilitada?"#F0FDF4":"var(--bg2)",border:`1px solid ${cfg.tarjetaHabilitada?"#BBF7D0":"var(--border)"}`,borderRadius:12,marginBottom:12,cursor:"pointer"}}
+          onClick={()=>setCfg(p=>({...p,tarjetaHabilitada:!p.tarjetaHabilitada}))}>
+          <div>
+            <div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>💳 Tarjeta / Mercado Pago</div>
+            <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>Habilitar como método de pago en el checkout</div>
+          </div>
+          <div style={{width:44,height:24,borderRadius:12,background:cfg.tarjetaHabilitada?"#16A34A":"var(--border)",position:"relative",transition:"background .2s",flexShrink:0}}>
+            <div style={{position:"absolute",top:3,left:cfg.tarjetaHabilitada?22:3,width:18,height:18,borderRadius:9,background:"#fff",transition:"left .2s",boxShadow:"0 1px 4px rgba(0,0,0,.2)"}}/>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:12,alignItems:"flex-end"}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>% RECARGO MP (sin el %)</div>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <input type="number" min="0" max="30" step="0.01" value={(cfg.recargoMP*100).toFixed(2)}
+                onChange={e=>setCfg(p=>({...p,recargoMP:Number(e.target.value)/100}))}
+                style={{flex:1,padding:"10px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,color:"var(--text)"}}/>
+              <span style={{fontSize:16,color:"var(--text3)",fontWeight:600}}>%</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Alias y contacto */}
+      <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
+        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:14}}>📲 CONTACTO Y ALIASES</div>
+        <Field label="WHATSAPP (con código de país, sin +)">
+          <Input val={cfg.whatsapp} onChange={v=>setCfg(p=>({...p,whatsapp:v}))} placeholder="5491124832305"/>
+        </Field>
+        <Field label="ALIAS BANCO">
+          <Input val={cfg.aliasBanco} onChange={v=>setCfg(p=>({...p,aliasBanco:v}))} placeholder="ALIAS.BANCO"/>
+        </Field>
+        <Field label="ALIAS MERCADO PAGO">
+          <Input val={cfg.aliasMP} onChange={v=>setCfg(p=>({...p,aliasMP:v}))} placeholder="alias.mp"/>
+        </Field>
+        <Field label="TITULAR DE LA CUENTA">
+          <Input val={cfg.titular} onChange={v=>setCfg(p=>({...p,titular:v}))} placeholder="Nombre Apellido"/>
+        </Field>
+      </div>
+
+      <button className="btn" onClick={save}
+        style={{width:"100%",padding:"15px 0",borderRadius:14,background:saved?"#16A34A":"var(--red)",color:"#fff",fontSize:17,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,boxShadow:saved?"0 6px 20px rgba(22,163,74,.3)":"0 6px 20px var(--red-glow)"}}>
+        {saved?"✓ GUARDADO":"GUARDAR CONFIGURACIÓN"}
+      </button>
+    </div>
+  );
+}
+
 /* ══ NUEVO PEDIDO DESDE ADMIN ═════════════════════════════════ */
-function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
+function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONFIG }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   const [cart,     setCart]     = useState([]);
   const [form,     setForm]     = useState({nombre:"",telefono:"",tipo:mesaId?"mesa":"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",notas:"",dni:""});
