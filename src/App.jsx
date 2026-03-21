@@ -336,7 +336,9 @@ function CustomerView({ menu, cajaStatus }) {
   const mesaQR = new URLSearchParams(window.location.search).get("mesa") || "";
   const [tarjetaEnabled, setTarjetaEnabled] = useState(true);
   useEffect(()=>{
-    if (localStorage.getItem("tarjetaHabilitada") === "0") setTarjetaEnabled(false);
+    supabase.from("menu_config").select("config").eq("id",1).maybeSingle().then(({data})=>{
+      if (data?.config?.tarjetaHabilitada===false) setTarjetaEnabled(false);
+    });
   },[]);
   const pagoReturn = new URLSearchParams(window.location.search).get("pago") || "";
   const orderReturn = new URLSearchParams(window.location.search).get("order") || "";
@@ -927,7 +929,7 @@ function AdminView({ onExit, menu, saveMenu }) {
   const toggleTarjeta = async () => {
     const newVal = !tarjetaHabilitada;
     setTarjetaHabilitada(newVal);
-    localStorage.setItem("tarjetaHabilitada", newVal ? "1" : "0");
+    await supabase.from("menu_config").update({config: {tarjetaHabilitada: newVal}}).eq("id",1);
   };
 
   const loadHistorialCaja = useCallback(async () => {
@@ -980,7 +982,9 @@ function AdminView({ onExit, menu, saveMenu }) {
     loadCaja();
     loadHistorialCaja();
     supabase.from("mesas").select("id,session_num,estado").then(({data})=>setMesasData(data||[]));
-    if (localStorage.getItem("tarjetaHabilitada") === "0") setTarjetaHabilitada(false);
+    supabase.from("menu_config").select("config").eq("id",1).maybeSingle().then(({data})=>{
+      if (data?.config?.tarjetaHabilitada===false) setTarjetaHabilitada(false);
+    });
     // Polling cada 5 segundos como fallback
     const iv = setInterval(loadOrders, 5000);
     // Realtime
