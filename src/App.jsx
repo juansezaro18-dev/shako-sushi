@@ -15,7 +15,8 @@ const CONFIG = {
   aliasMP: "turo22.mp",
   titular: "Juan Agusto Zaro",
   whatsapp: "5491124832305",
-  recargoMP: 0.0868, // 8.68% para cubrir comision MP al instante // número con código de país sin + ni espacios
+  recargoMP: 0.0868, // 8.68% para cubrir comision MP al instante
+  tarjetaHabilitada: true, // cambiar a false para deshabilitar tarjeta/MP // número con código de país sin + ni espacios
 };
 
 const MENU_DEFAULT = [
@@ -334,12 +335,7 @@ function CustomerView({ menu, cajaStatus }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   // Detect mesa from URL: ?mesa=m5
   const mesaQR = new URLSearchParams(window.location.search).get("mesa") || "";
-  const [tarjetaEnabled, setTarjetaEnabled] = useState(true);
-  useEffect(()=>{
-    supabase.from("menu_config").select("config").eq("id",1).maybeSingle().then(({data})=>{
-      if (data?.config?.tarjetaHabilitada===false) setTarjetaEnabled(false);
-    });
-  },[]);
+
   const pagoReturn = new URLSearchParams(window.location.search).get("pago") || "";
   const orderReturn = new URLSearchParams(window.location.search).get("order") || "";
   // If returning from MP payment
@@ -493,7 +489,7 @@ function CustomerView({ menu, cajaStatus }) {
     {v:"efectivo",      l:"💵 Efectivo",      desc:"Pagás al recibir / retirar"},
     {v:"transferencia", l:"📲 Transferencia",  desc:"Alias bancario o MP"},
   ];
-  if (tarjetaEnabled) PAGOS_BASE.push({v:"tarjeta", l:"💳 Tarjeta / MP", desc:`+${(CONFIG.recargoMP*100).toFixed(2)}% recargo`});
+  if (CONFIG.tarjetaHabilitada) PAGOS_BASE.push({v:"tarjeta", l:"💳 Tarjeta / MP", desc:`+${(CONFIG.recargoMP*100).toFixed(2)}% recargo`});
   const PAGOS = PAGOS_BASE;
 
   // Caja cerrada — mostrar pantalla de local cerrado
@@ -910,7 +906,6 @@ function AdminView({ onExit, menu, saveMenu }) {
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [nuevoPedidoMesaId, setNuevoPedidoMesaId] = useState(null);
   const [mesasData, setMesasData] = useState([]);
-  const [tarjetaHabilitada, setTarjetaHabilitada] = useState(true);
 
   const [caja,         setCaja]         = useState(null);
   const [cajaLoading,  setCajaLoading]  = useState(false);
@@ -925,12 +920,6 @@ function AdminView({ onExit, menu, saveMenu }) {
     const {data: reciente} = await supabase.from("caja").select("*").eq("fecha", hoy).order("created_at",{ascending:false}).limit(1);
     setCaja(reciente && reciente.length > 0 ? reciente[0] : null);
   }, []);
-
-  const toggleTarjeta = async () => {
-    const newVal = !tarjetaHabilitada;
-    setTarjetaHabilitada(newVal);
-    await supabase.from("menu_config").update({config: {tarjetaHabilitada: newVal}}).eq("id",1);
-  };
 
   const loadHistorialCaja = useCallback(async () => {
     // Último mes de caja
@@ -982,9 +971,7 @@ function AdminView({ onExit, menu, saveMenu }) {
     loadCaja();
     loadHistorialCaja();
     supabase.from("mesas").select("id,session_num,estado").then(({data})=>setMesasData(data||[]));
-    supabase.from("menu_config").select("config").eq("id",1).maybeSingle().then(({data})=>{
-      if (data?.config?.tarjetaHabilitada===false) setTarjetaHabilitada(false);
-    });
+
     // Polling cada 5 segundos como fallback
     const iv = setInterval(loadOrders, 5000);
     // Realtime
@@ -1124,18 +1111,6 @@ function AdminView({ onExit, menu, saveMenu }) {
             <div style={{fontSize:10,color:filter===f.key?"var(--red)":"var(--text4)",marginTop:1,whiteSpace:"nowrap",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{f.label}</div>
           </button>
         ))}
-      </div>
-
-      {/* Tarjeta toggle */}
-      <div style={{padding:"8px 12px 0",display:"flex",justifyContent:"flex-end"}}>
-        <button className="btn" onClick={toggleTarjeta}
-          style={{padding:"5px 12px",borderRadius:10,fontSize:11,fontWeight:700,
-            background:tarjetaHabilitada?"#F0FDF4":"#FEF2F2",
-            border:`1px solid ${tarjetaHabilitada?"#BBF7D0":"#FECACA"}`,
-            color:tarjetaHabilitada?"#16A34A":"#DC2626",
-            fontFamily:"'Barlow Condensed',sans-serif"}}>
-          💳 Tarjeta/MP: {tarjetaHabilitada?"HABILITADA ✓":"DESHABILITADA ✗"}
-        </button>
       </div>
 
       {/* Banner caja cerrada */}
