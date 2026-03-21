@@ -386,6 +386,7 @@ function CustomerView({ menu, cajaStatus }) {
   const setQty = (id,q) => setCart(p => q<=0?p.filter(c=>c.item.id!==id):p.map(c=>c.item.id===id?{...c,qty:q}:c));
   const getQty = (id)   => cart.find(c=>c.item.id===id)?.qty||0;
   const total      = cart.reduce((s,c) => s+c.item.precio*c.qty, 0);
+  const totalConRecargo = form.pago==="tarjeta" ? Math.round(total*(1+CONFIG.recargoMP)) : total;
   const count      = cart.reduce((s,c) => s+c.qty, 0);
   const canConfirm = mesaQR ? true : (form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim()))));
 
