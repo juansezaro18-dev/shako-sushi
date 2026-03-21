@@ -1677,8 +1677,8 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
     ? menuVis.map(c=>({...c,items:c.items.filter(i=>i.nombre.toLowerCase().includes(search.toLowerCase()))})).filter(c=>c.items.length>0)
     : menuVis;
 
-  const lookupDni = async (val) => {
-    setForm(p=>({...p,dni:val}));
+  const lookupDni = async (val, isPhone=false) => {
+    setForm(p=>({...p,[isPhone?"telefono":"dni"]:val}));
     if (val.length < 6) { setDniFound(false); setLastOrders([]); return; }
     const {data} = await supabase.from("customers").select("*").or(`dni.eq.${val},telefono.eq.${val}`).limit(1);
     if (data && data.length > 0) {
@@ -1792,12 +1792,22 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
       {/* Datos del cliente */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:14,marginBottom:14}}>
         <div className="sh" style={{fontSize:13,color:"var(--red)",marginBottom:12,letterSpacing:1}}>DATOS DEL CLIENTE</div>
-        {!mesaId&&<div style={{marginBottom:10}}>
-          <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>DNI O TELÉFONO</div>
-          <div style={{position:"relative"}}>
-            <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Para autocompletar datos"
-              style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:13}}/>
-            {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"#16A34A",fontSize:14}}>✓</span>}
+        {!mesaId&&<div style={{display:"flex",gap:8,marginBottom:10}}>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>DNI</div>
+            <div style={{position:"relative"}}>
+              <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="DNI"
+                style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:13}}/>
+              {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"#16A34A",fontSize:14}}>✓</span>}
+            </div>
+          </div>
+          <div style={{flex:1}}>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>TELÉFONO</div>
+            <div style={{position:"relative"}}>
+              <input value={form.telefono} onChange={e=>lookupDni(e.target.value,true)} placeholder="Teléfono"
+                style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:13}}/>
+              {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"#16A34A",fontSize:14}}>✓</span>}
+            </div>
           </div>
         </div>}
         {/* Últimos pedidos del cliente */}
@@ -1831,11 +1841,6 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced }) {
             style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
         </div>
         {!mesaId&&<>
-          <div style={{marginBottom:10}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>TELÉFONO</div>
-            <input value={form.telefono} onChange={e=>setForm(p=>({...p,telefono:e.target.value}))} placeholder="(opcional)"
-              style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
-          </div>
           <div style={{display:"flex",gap:8,marginBottom:10}}>
             {[{v:"retiro",l:"🏃 Retiro"},{v:"delivery",l:"🛵 Delivery"}].map(t=>(
               <button key={t.v} className="btn" onClick={()=>setForm(p=>({...p,tipo:t.v}))}
