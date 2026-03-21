@@ -1543,7 +1543,15 @@ function MenuEditor({ menu, saveMenu }) {
   const addItem = (catId)           => { const ni={id:genId(),nombre:"Nuevo producto",desc:"",precio:0}; saveMenu(menu.map(c=>c.id===catId?{...c,items:[...c.items,ni]}:c)); setEditId(`${catId}:${ni.id}`); setExpandedCat(catId); };
   const addCat  = ()                => { const nc={id:genId(),nombre:"Nueva categoría",emoji:"🍴",desc:"",items:[]}; saveMenu([...menu,nc]); setExpandedCat(nc.id); };
   const delCat  = (catId)           => { if(!window.confirm("¿Eliminar esta categoría?"))return; saveMenu(menu.filter(c=>c.id!==catId)); if(expandedCat===catId)setExpandedCat(null); };
-  const handleFile = (catId,itemId,file) => { if(!file)return; const r=new FileReader(); r.onload=e=>updItem(catId,itemId,{imagen:e.target.result}); r.readAsDataURL(file); };
+  const handleFile = async (catId,itemId,file) => {
+    if(!file) return;
+    const ext = file.name.split(".").pop();
+    const path = `items/${catId}-${itemId}-${Date.now()}.${ext}`;
+    const { data, error } = await supabase.storage.from("menu-images").upload(path, file, { upsert:true });
+    if (error) { alert("Error al subir imagen: " + error.message); return; }
+    const { data: urlData } = supabase.storage.from("menu-images").getPublicUrl(path);
+    updItem(catId, itemId, { imagen: urlData.publicUrl });
+  };
   const flash = () => { setSaved(true); setTimeout(()=>setSaved(false),2000); };
 
   return (
