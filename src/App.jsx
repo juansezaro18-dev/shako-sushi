@@ -1906,7 +1906,6 @@ function HistorialCajaResumen({ historial, vista, orders }) {
   // For open cajas, calculate real total from orders
   const getTotalCaja = (c) => {
     if (c.estado === "cerrada") return Number(c.total_ventas||0);
-    // Open caja: calculate from orders
     const aperturaTs = c.hora_apertura ? new Date(c.fecha+"T"+c.hora_apertura+":00").getTime() : new Date(c.fecha+"T00:00:00").getTime();
     return orders.filter(o=>o.status==="entregado"&&Number(o.created_at)>=aperturaTs&&(!o.mesa_id)).reduce((s,o)=>s+Number(o.total),0);
   };
@@ -1914,9 +1913,25 @@ function HistorialCajaResumen({ historial, vista, orders }) {
   const diasAbiertos  = filtrado.filter(c=>c.estado==="cerrada").length;
   const promDiario    = dias>0 ? totalVentas/dias : 0;
   const maxDia        = filtrado.reduce((max,c)=>getTotalCaja(c)>getTotalCaja(max)?c:max, filtrado[0]||{});
+  // Days elapsed in period
+  const diasDelPeriodo = (() => {
+    const n = new Date();
+    if (vista === "semana") {
+      const lunes = new Date(n); lunes.setDate(n.getDate() - (n.getDay()||7) + 1); lunes.setHours(0,0,0,0);
+      return Math.min(7, Math.floor((n - lunes) / 86400000) + 1);
+    }
+    return n.getDate();
+  })();
 
-  // Bar chart data
-  const maxVal = Math.max(...filtrado.map(c=>Number(c.total_ventas||0)), 1);
+  // Bar chart data - group by day
+  const barByDay = {};
+  filtrado.forEach(c=>{
+    if (!barByDay[c.fecha]) barByDay[c.fecha]={fecha:c.fecha,total:0,abierta:false};
+    barByDay[c.fecha].total += getTotalCaja(c);
+    if (c.estado==="abierta") barByDay[c.fecha].abierta = true;
+  });
+  const barDays = Object.values(barByDay).sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const maxVal = Math.max(...barDays.map(d=>d.total), 1);
 
   return (
     <div className="fade-in">
@@ -1925,7 +1940,7 @@ function HistorialCajaResumen({ historial, vista, orders }) {
         {[
           {l:vista==="semana"?"TOTAL SEMANA":"TOTAL MES",    v:fmt(totalVentas),  bg:"#F0FDF4",bc:"#BBF7D0",c:"#16A34A"},
           {l:"PROMEDIO DIARIO",  v:fmt(promDiario),  bg:"#EFF6FF",bc:"#BFDBFE",c:"#2563EB"},
-          {l:"DÍAS TRABAJADOS",  v:`${diasAbiertos}/${dias}`, bg:"#FAF5FF",bc:"#E9D5FF",c:"#7C3AED"},
+          {l:"DÍAS TRABAJADOS",  v:`${diasAbiertos}/${diasDelPeriodo}`, bg:"#FAF5FF",bc:"#E9D5FF",c:"#7C3AED"},
           {l:"MEJOR DÍA",        v:maxDia?.fecha?new Date(maxDia.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"short",day:"numeric",month:"short"}):"—", bg:"#FEF3C7",bc:"#FDE68A",c:"#D97706"},
         ].map(k=>(
           <div key={k.l} style={{background:k.bg,border:`1px solid ${k.bc}`,borderRadius:12,padding:"12px 14px"}}>
@@ -1942,18 +1957,18 @@ function HistorialCajaResumen({ historial, vista, orders }) {
             VENTAS POR DÍA
           </div>
           <div style={{display:"flex",alignItems:"flex-end",gap:4,height:120,overflowX:"auto",paddingBottom:8}}>
-            {[...filtrado].reverse().map(c=>{
-              const pct = (Number(c.total_ventas||0)/maxVal)*100;
-              const fecha = new Date(c.fecha+"T12:00:00");
+            {barDays.map(d=>{
+              const pct = (d.total/maxVal)*100;
+              const fecha = new Date(d.fecha+"T12:00:00");
               const label = fecha.toLocaleDateString("es-AR",{weekday:"short",day:"numeric"});
-              const isHoy = c.fecha === new Date().toISOString().split("T")[0];
+              const isHoy = d.fecha === new Date().toISOString().split("T")[0];
               return(
-                <div key={c.fecha} style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1,minWidth:32}}>
+                <div key={d.fecha} style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1,minWidth:32}}>
                   <div style={{fontSize:9,color:"var(--text4)",marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>
-                    {pct>5?`$${(Number(c.total_ventas||0)/1000).toFixed(0)}k`:""}
+                    {pct>5?`$${(d.total/1000).toFixed(0)}k`:""}
                   </div>
                   <div style={{width:"100%",background:isHoy?"var(--red)":"#CBD5E1",borderRadius:"4px 4px 0 0",height:`${Math.max(pct,2)}%`,minHeight:2,transition:"height .4s",position:"relative"}}>
-                    {c.estado==="abierta"&&<div style={{position:"absolute",top:-4,left:"50%",transform:"translateX(-50%)",width:6,height:6,borderRadius:"50%",background:"#D97706"}}/>}
+                    {d.abierta&&<div style={{position:"absolute",top:-4,left:"50%",transform:"translateX(-50%)",width:6,height:6,borderRadius:"50%",background:"#D97706"}}/>}
                   </div>
                   <div style={{fontSize:8,color:isHoy?"var(--red)":"var(--text4)",marginTop:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:isHoy?700:400,textAlign:"center",lineHeight:1.2}}>
                     {label}
