@@ -670,6 +670,9 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
       const c = data[0];
       setDniFound(true);
       const {calle:pc, nro:pn, entreCalle:pec, barrio:pb} = parseDireccion(c.direccion);
+      // Try to detect zone from barrio name
+      const barrioLower = (pb||"").toLowerCase();
+      const zonaDetectada = pc ? ZONAS_ENVIO.find(z => barrioLower.includes(z.nombre.toLowerCase()) || z.nombre.toLowerCase().includes(barrioLower.split(" ")[0])) : null;
       setForm(p=>({...p,
         nombre:      p.nombre      || c.nombre   || "",
         telefono:    p.telefono    || c.telefono || "",
@@ -678,6 +681,8 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         entreCalle:  p.entreCalle  || pec || "",
         barrio:      p.barrio      || pb  || "",
         tipo:        pc ? "delivery" : p.tipo,
+        envio:       p.envio || (zonaDetectada?.precio||0),
+        zonaEnvio:   p.zonaEnvio || (zonaDetectada?`Grupo ${zonaDetectada.grupo}`:""),
       }));
     } else {
       setDniFound(false);
