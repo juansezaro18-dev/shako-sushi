@@ -2226,21 +2226,43 @@ function ConfigEditor({ appConfig, saveAppConfig }) {
 
       {/* Promociones */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
-        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:14}}>🔥 PROMOCIONES</div>
-        <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>Los productos en promoción aparecen destacados arriba del menú del cliente.</div>
+        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:4}}>🔥 PROMOCIONES</div>
+        <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>Aparecen destacados arriba del menú del cliente.</div>
         {(cfg.promociones||[]).map((p,i)=>{
-          // Find item name across all menu categories
-          let itemNombre = p.itemId;
+          const allItems = menu.flatMap(c=>c.items);
+          const itemEncontrado = allItems.find(it=>it.id===p.itemId);
           return(
             <div key={i} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",marginBottom:8,border:"1px solid var(--border)"}}>
-              <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
-                <input value={p.itemId} onChange={e=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,itemId:e.target.value}:x)}))}
-                  placeholder="ID del producto (ej: r1, n2, c1...)"
-                  style={{flex:2,padding:"8px 10px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,fontSize:12,color:"var(--text)"}}/>
-                <button className="btn" onClick={()=>setCfg(c=>({...c,promociones:c.promociones.filter((_,j)=>j!==i)}))}
-                  style={{width:28,height:28,borderRadius:7,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+              {/* Buscador por nombre */}
+              <div style={{marginBottom:8}}>
+                <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>PRODUCTO</div>
+                <div style={{position:"relative"}}>
+                  <input
+                    value={p._busqueda!==undefined?p._busqueda:(itemEncontrado?itemEncontrado.nombre:"")}
+                    onChange={e=>{
+                      setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,_busqueda:e.target.value,itemId:""}:x)}));
+                    }}
+                    placeholder="Escribí el nombre del producto..."
+                    style={{width:"100%",padding:"9px 11px",background:"var(--surface)",border:`1px solid ${itemEncontrado?"#16A34A":"var(--border)"}`,borderRadius:8,fontSize:13,color:"var(--text)"}}/>
+                  {itemEncontrado&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"#16A34A",fontSize:14}}>✓</span>}
+                  {/* Resultados */}
+                  {p._busqueda&&!itemEncontrado&&(()=>{
+                    const resultados = allItems.filter(it=>it.nombre.toLowerCase().includes(p._busqueda.toLowerCase())).slice(0,5);
+                    if(!resultados.length) return <div style={{fontSize:12,color:"var(--text4)",padding:"6px 0"}}>Sin resultados</div>;
+                    return(
+                      <div style={{position:"absolute",top:"100%",left:0,right:0,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,zIndex:10,boxShadow:"0 4px 12px rgba(0,0,0,.1)",marginTop:2}}>
+                        {resultados.map(it=>(
+                          <div key={it.id} onClick={()=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,itemId:it.id,_busqueda:undefined}:x)}))}
+                            style={{padding:"8px 12px",cursor:"pointer",borderBottom:"1px solid var(--border)",fontSize:13,color:"var(--text)"}}>
+                            {it.nombre} <span style={{fontSize:11,color:"var(--text4)"}}>· {fmt(it.precio)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
-              <div style={{display:"flex",gap:8}}>
+              <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>PRECIO PROMO ($)</div>
                   <input type="number" value={p.precioPromo||""} onChange={e=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,precioPromo:Number(e.target.value)||null}:x)}))}
@@ -2253,6 +2275,8 @@ function ConfigEditor({ appConfig, saveAppConfig }) {
                     placeholder="Ej: 2x1, -20%, Nuevo"
                     style={{width:"100%",padding:"7px 9px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:7,fontSize:12,color:"var(--text)"}}/>
                 </div>
+                <button className="btn" onClick={()=>setCfg(c=>({...c,promociones:c.promociones.filter((_,j)=>j!==i)}))}
+                  style={{width:32,height:32,borderRadius:7,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginBottom:1}}>✕</button>
               </div>
             </div>
           );
