@@ -243,6 +243,7 @@ const GS = () => (
     .upload-btn{cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--border2);border-radius:10px;background:transparent;color:var(--text3);font-size:13px;padding:10px;width:100%;transition:all .2s;font-family:'Barlow',sans-serif;}
     .upload-btn:hover{border-color:var(--red);color:var(--red);}
     .sh{font-family:'Barlow Condensed',sans-serif;font-weight:800;}
+    .leaflet-container { font-family: 'Barlow', sans-serif !important; }
     @media print {
       * { margin:0; padding:0; box-sizing:border-box; }
       body { background:#fff !important; }
@@ -417,6 +418,106 @@ const seleccionesLabel = (item, selecciones) => {
   return parts.join(" · ");
 };
 
+
+/* ══ MAP PICKER ════════════════════════════════════════════════ */
+function MapPicker({ onSelect, onClose }) {
+  const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
+  const markerRef = useRef(null);
+  const [addr, setAddr] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Load Leaflet dynamically
+    if (!window.L) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+      document.head.appendChild(link);
+      const script = document.createElement("script");
+      script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+      script.onload = () => initMap();
+      document.head.appendChild(script);
+    } else {
+      initMap();
+    }
+    return () => { mapInstanceRef.current?.remove(); };
+  }, []);
+
+  const initMap = () => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+    const map = window.L.map(mapRef.current, { zoomControl: true }).setView([-34.7963, -58.1760], 14);
+    window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution: "© OpenStreetMap"
+    }).addTo(map);
+    mapInstanceRef.current = map;
+
+    // Try to get user location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        map.setView([pos.coords.latitude, pos.coords.longitude], 16);
+      }, () => {});
+    }
+
+    map.on("click", async (e) => {
+      const { lat, lng } = e.latlng;
+      if (markerRef.current) markerRef.current.remove();
+      const icon = window.L.divIcon({
+        html: `<div style="background:#CC1F1F;width:20px;height:20px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>`,
+        iconSize: [20, 20], iconAnchor: [10, 20]
+      });
+      markerRef.current = window.L.marker([lat, lng], { icon }).addTo(map);
+      setLoading(true);
+      try {
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=es`);
+        const data = await res.json();
+        const a = data.address || {};
+        const calle = a.road || a.pedestrian || a.footway || "";
+        const numero = a.house_number || "";
+        const barrio = a.neighbourhood || a.suburb || a.city_district || a.town || a.city || "";
+        setAddr({ calle, numero, barrio, lat, lng });
+      } catch(e) {
+        setAddr(null);
+      }
+      setLoading(false);
+    });
+  };
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:300,display:"flex",flexDirection:"column",background:"#000"}}>
+      {/* Header */}
+      <div style={{background:"var(--red)",padding:"12px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        <div>
+          <div className="sh" style={{fontSize:17,color:"#fff"}}>📍 ELEGÍ TU DIRECCIÓN</div>
+          <div style={{fontSize:11,color:"rgba(255,255,255,.8)"}}>Tocá el mapa donde querés recibir tu pedido</div>
+        </div>
+        <button className="btn" onClick={onClose} style={{background:"rgba(255,255,255,.2)",borderRadius:10,padding:"7px 14px",color:"#fff",fontSize:13,fontWeight:600}}>✕ Cerrar</button>
+      </div>
+      {/* Map */}
+      <div ref={mapRef} style={{flex:1}}/>
+      {/* Bottom panel */}
+      <div style={{background:"var(--surface)",padding:"14px 16px",flexShrink:0,boxShadow:"0 -4px 20px rgba(0,0,0,.15)"}}>
+        {loading&&<div style={{textAlign:"center",color:"var(--text3)",fontSize:13,padding:"8px 0"}}>🔍 Buscando dirección...</div>}
+        {!loading&&!addr&&<div style={{textAlign:"center",color:"var(--text4)",fontSize:13,padding:"8px 0"}}>Tocá un punto en el mapa para seleccionar tu dirección</div>}
+        {!loading&&addr&&(
+          <>
+            <div style={{background:"var(--bg2)",borderRadius:12,padding:"10px 14px",marginBottom:12,border:"1px solid var(--border)"}}>
+              <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:2}}>
+                {addr.calle}{addr.numero?` ${addr.numero}`:""}
+              </div>
+              <div style={{fontSize:12,color:"var(--text3)"}}>{addr.barrio}</div>
+            </div>
+            <button className="btn" onClick={()=>onSelect(addr)}
+              style={{width:"100%",padding:"14px 0",borderRadius:13,background:"var(--red)",color:"#fff",fontSize:16,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,boxShadow:"0 6px 20px var(--red-glow)"}}>
+              ✓ USAR ESTA DIRECCIÓN
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   // Detect mesa from URL: ?mesa=m5
@@ -453,6 +554,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const tabsRef = useRef(null);
   const sRefs   = useRef({});
   const [modalItem, setModalItem] = useState(null);
+  const [showMap,   setShowMap]   = useState(false);
   const menuFiltered = search.trim()
     ? menuVis.map(c=>({...c,items:c.items.filter(i=>i.nombre.toLowerCase().includes(search.toLowerCase())||i.desc.toLowerCase().includes(search.toLowerCase()))}))
         .filter(c=>c.items.length>0)
@@ -761,6 +863,11 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           {form.tipo==="delivery"&&(
             <div className="fade-in">
               <div style={{height:1,background:"var(--border)",margin:"0 0 16px"}}/>
+              <button className="btn" onClick={()=>setShowMap(true)}
+                style={{width:"100%",padding:"12px 0",borderRadius:12,background:"#EFF6FF",border:"2px solid #BFDBFE",color:"#2563EB",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+                📍 Elegir en el mapa
+              </button>
+              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle,numero:a.numero,barrio:a.barrio}));setShowMap(false);}}/>}
               <div style={{display:"flex",gap:8,marginBottom:12}}>
                 <div style={{flex:2}}>
                   <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Calle *</div>
