@@ -18,6 +18,7 @@ const CONFIG = {
   recargoMP: 0.0868, // 8.68% para cubrir comision MP al instante
   tarjetaHabilitada: false, // cambiar a true para habilitar tarjeta/MP en el checkout
   repartidores: ["Marcos", "Lucas", "Nico", "Santiago"], // nombres de los repartidores
+  promociones: [], // ids de items en promocion: [{itemId, precioPromo, etiqueta}]
 };
 
 // ── Grupos de opciones reutilizables ─────────────────────────────────────
@@ -278,10 +279,17 @@ export default function App() {
     setAppConfig(cfg);
     supabase.from("menu_config").upsert({id:2, data:cfg}).then(()=>{});
   };
+  const [promos, setPromos] = useState([]); // array of item ids
+  const savePromos = async (p) => {
+    setPromos(p);
+    supabase.from("menu_config").upsert({id:3, data:p}).then(()=>{});
+  };
 
   useEffect(() => {
     supabase.from("menu_config").select("data").eq("id",2).maybeSingle()
       .then(({data}) => { if (data?.data) setAppConfig(prev=>({...prev,...data.data})); });
+    supabase.from("menu_config").select("data").eq("id",3).maybeSingle()
+      .then(({data}) => { if (data?.data) setPromos(data.data); });
     supabase.from("menu_config").select("data").eq("id",1).maybeSingle()
       .then(({data}) => { if (data?.data) setMenu(data.data); })
       .catch(() => {});
@@ -311,13 +319,13 @@ export default function App() {
     <>
       <GS/>
       {isAdmin
-        ? <AdminLogin menu={menu} saveMenu={saveMenu} appConfig={appConfig} saveAppConfig={saveAppConfig}/>
-        : <CustomerView menu={menu} cajaStatus={cajaStatus} appConfig={appConfig}/>}
+        ? <AdminLogin menu={menu} saveMenu={saveMenu} appConfig={appConfig} saveAppConfig={saveAppConfig} promos={promos} savePromos={savePromos}/>
+        : <CustomerView menu={menu} cajaStatus={cajaStatus} appConfig={appConfig} promos={promos}/>}
     </>
   );
 }
 
-function AdminLogin({ menu, saveMenu, appConfig, saveAppConfig }) {
+function AdminLogin({ menu, saveMenu, appConfig, saveAppConfig, promos, savePromos }) {
   const [authed,  setAuthed]  = useState(false);
   const [pin,     setPin]     = useState("");
   const [pinErr,  setPinErr]  = useState(false);
@@ -334,7 +342,7 @@ function AdminLogin({ menu, saveMenu, appConfig, saveAppConfig }) {
     }
   };
 
-  if (authed) return <AdminView onExit={()=>{ window.location.href="/"; }} menu={menu} saveMenu={saveMenu} appConfig={appConfig} saveAppConfig={saveAppConfig}/>;
+  if (authed) return <AdminView onExit={()=>{ window.location.href="/"; }} menu={menu} saveMenu={saveMenu} appConfig={appConfig} saveAppConfig={saveAppConfig} promos={promos} savePromos={savePromos}/>;
 
   return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg2)"}}>
@@ -899,6 +907,68 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           })}
         </div>
       </div>
+      {/* Banner de promociones */}
+      {(()=>{
+        const promos = (appConfig.promociones||[]).map(p=>{
+          for(const cat of menuVis){ const item=cat.items.find(i=>i.id===p.itemId); if(item) return {item,p}; }
+          return null;
+        }).filter(Boolean);
+        if(!promos.length) return null;
+        return(
+          <div style={{padding:"10px 14px 4px"}}>
+            <div style={{background:"linear-gradient(135deg,#CC1F1F,#991818)",borderRadius:16,padding:"14px 16px",marginBottom:4}}>
+              <div className="sh" style={{fontSize:14,color:"rgba(255,255,255,.8)",letterSpacing:2,marginBottom:10}}>🔥 PROMOCIONES</div>
+              <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:4}}>
+                {promos.map(({item,p})=>(
+                  <div key={item.id} onClick={()=>handleAddItem(item)}
+                    style={{background:"rgba(255,255,255,.12)",borderRadius:12,padding:"10px 14px",flexShrink:0,cursor:"pointer",minWidth:160,border:"1px solid rgba(255,255,255,.2)"}}>
+                    {item.imagen&&<img src={item.imagen} alt={item.nombre} style={{width:"100%",height:80,objectFit:"cover",borderRadius:8,marginBottom:8}}/>}
+                    <div style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:4,lineHeight:1.3}}>{item.nombre}</div>
+                    {p.etiqueta&&<div style={{fontSize:10,fontWeight:700,color:"#FCD34D",marginBottom:4}}>{p.etiqueta}</div>}
+                    <div style={{display:"flex",alignItems:"center",gap:6}}>
+                      {p.precioPromo&&p.precioPromo<item.precio&&<span style={{fontSize:11,color:"rgba(255,255,255,.5)",textDecoration:"line-through"}}>${Number(item.precio).toLocaleString("es-AR")}</span>}
+                      <span className="sh" style={{fontSize:16,color:"#fff"}}>${Number(p.precioPromo||item.precio).toLocaleString("es-AR")}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+      {promos.length>0&&(()=>{
+          const promoItems = menu.flatMap(c=>c.items).filter(i=>promos.includes(i.id)&&i.disponible!==false);
+          if(!promoItems.length) return null;
+          return(
+            <div style={{padding:"12px 14px 0"}}>
+              <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
+                <span style={{fontSize:16}}>🔥</span>
+                <span className="sh" style={{fontSize:16,color:"var(--text)",letterSpacing:.5}}>PROMOCIONES</span>
+              </div>
+              <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8}}>
+                {promoItems.map(item=>{
+                  const qty=getQty(item);
+                  return(
+                    <div key={item.id} style={{flexShrink:0,width:150,background:"var(--surface)",border:"2px solid #FDE68A",borderRadius:14,overflow:"hidden",boxShadow:"0 2px 8px rgba(245,158,11,.15)"}}>
+                      {item.imagen&&<div style={{height:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
+                      <div style={{padding:"10px 10px 8px"}}>
+                        <div style={{fontSize:12,fontWeight:700,color:"var(--text)",lineHeight:1.3,marginBottom:4}}>{item.nombre}</div>
+                        <div className="sh" style={{fontSize:14,color:"#D97706",marginBottom:8}}>{item.opciones?.length?"desde ":""}{fmt(item.precio)}</div>
+                        {qty===0
+                          ?<button className="btn" onClick={()=>handleAddItem(item)} style={{width:"100%",padding:"7px 0",borderRadius:8,background:"#FEF3C7",border:"1px solid #FDE68A",color:"#D97706",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{item.opciones?.length?"Ver":"+"}</button>
+                          :<div style={{display:"flex",alignItems:"center",gap:6}}>
+                            <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:26,height:26,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                            <span style={{fontSize:14,fontWeight:800,minWidth:16,textAlign:"center",color:"#D97706"}}>{qty}</span>
+                            <button className="btn" onClick={()=>handleAddItem(item)} style={{width:26,height:26,borderRadius:7,background:"#D97706",color:"#fff",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                          </div>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })()}
       {menuFiltered.map(cat=>(
         <div key={cat.id} ref={el=>{if(el)sRefs.current[cat.id]=el;}} data-cat={cat.id}>
           <div style={{padding:"20px 18px 8px"}}>
@@ -1035,7 +1105,62 @@ function ItemModal({ item, onClose, onConfirm }) {
   );
 }
 
-const printTicket = (order) => {
+
+/* ══ TICKET BTN (con descuento) ══════════════════════════════ */
+function TicketBtn({ order }) {
+  const [open,      setOpen]      = useState(false);
+  const [descuento, setDescuento] = useState("");
+  const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
+  const desc = Number(descuento)||0;
+  const total = Math.max(0, Number(order.total) - desc + (Number(order.envio)||0));
+
+  if (!open) return (
+    <button className="btn" onClick={()=>setOpen(true)}
+      style={{padding:"12px 14px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>
+      🖨️ Ticket
+    </button>
+  );
+
+  return (
+    <div className="slide-up" style={{position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+      <div style={{background:"var(--surface)",borderRadius:20,padding:24,width:"100%",maxWidth:340,boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
+        <div className="sh" style={{fontSize:18,color:"var(--text)",marginBottom:4}}>🖨️ IMPRIMIR TICKET</div>
+        <div style={{fontSize:12,color:"var(--text3)",marginBottom:20}}>Aplicá un descuento o adelanto antes de imprimir</div>
+        <div style={{marginBottom:16}}>
+          <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCUENTO / ADELANTO ($)</div>
+          <input type="number" min="0" value={descuento} onChange={e=>setDescuento(e.target.value)} placeholder="0"
+            style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:18,fontWeight:700,color:"#16A34A",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+        </div>
+        <div style={{background:"var(--bg2)",borderRadius:12,padding:"12px 14px",marginBottom:16}}>
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:4}}>
+            <span>Subtotal</span><span>{fmt(order.total)}</span>
+          </div>
+          {desc>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#16A34A",marginBottom:4}}>
+            <span>Desc/Adelanto</span><span>- {fmt(desc)}</span>
+          </div>}
+          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:6}}>
+            <span>Envío</span><span>{fmt(order.envio||0)}</span>
+          </div>
+          <div style={{display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:18,fontFamily:"'Barlow Condensed',sans-serif",borderTop:"1px solid var(--border)",paddingTop:8}}>
+            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(total)}</span>
+          </div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <button className="btn" onClick={()=>setOpen(false)}
+            style={{flex:1,padding:"12px 0",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:14,fontWeight:600}}>
+            Cancelar
+          </button>
+          <button className="btn" onClick={()=>{printTicket(order,desc);setOpen(false);setDescuento("");}}
+            style={{flex:2,padding:"12px 0",borderRadius:12,background:"var(--red)",color:"#fff",fontSize:14,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",boxShadow:"0 4px 14px var(--red-glow)"}}>
+            🖨️ IMPRIMIR
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+const printTicket = (order, descuento=0) => {
   const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
   const fecha = new Date(Number(order.created_at)).toLocaleDateString("es-AR",{day:"numeric",month:"numeric",year:"numeric"});
   const hora  = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
@@ -1082,9 +1207,10 @@ const printTicket = (order) => {
   ${itemsHtml}
   <div class="line"></div>
   <div class="row"><span>Subtotal:</span><span>${fmt(order.total)}</span></div>
+  ${descuento>0?`<div class="row"><span>Desc/Adelanto:</span><span>- ${fmt(descuento)}</span></div>`:""}
   <div class="row"><span>Envio:</span><span>${fmt(order.envio||0)}</span></div>
   <div class="line"></div>
-  <div class="row total"><span>TOTAL:</span><span>${fmt(Number(order.total)+(Number(order.envio)||0))}</span></div>
+  <div class="row total"><span>TOTAL:</span><span>${fmt(Math.max(0,Number(order.total)-descuento+(Number(order.envio)||0)))}</span></div>
   <div class="line"></div>
   <br/><br/><br/>
   </body></html>`;
@@ -1096,7 +1222,7 @@ const printTicket = (order) => {
   setTimeout(()=>{ win.print(); win.close(); }, 400);
 };
 
-function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) {
+function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig, promos=[], savePromos }) {
   const [orders,     setOrders]     = useState([]);
   const [filter,     setFilter]     = useState("activos");
   const [expandedId, setExpandedId] = useState(null);
@@ -1351,7 +1477,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
         </div>
       )}
 
-      {filter==="editor" && <MenuEditor menu={menu} saveMenu={saveMenu}/>}
+      {filter==="editor" && <MenuEditor menu={menu} saveMenu={saveMenu} promos={promos} savePromos={savePromos}/>}
 
       {filter==="facturacion" && (
         <div className="fade-in" style={{padding:14,paddingBottom:40}}>
@@ -1699,7 +1825,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                           </button>
                         );
                       })()}
-                      <button className="btn" onClick={()=>printTicket(order)} style={{padding:"12px 14px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>🖨️ Ticket</button>
+                      <TicketBtn order={order}/>
                       {order.status==="entregado"&&<button className="btn" onClick={()=>deleteOrder(order.id)} style={{padding:"12px 16px",borderRadius:12,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:600}}>Eliminar</button>}
                     </div>
                   </div>
@@ -1713,7 +1839,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   );
 }
 
-function MenuEditor({ menu, saveMenu }) {
+function MenuEditor({ menu, saveMenu, promos=[], savePromos }) {
   const [expandedCat, setExpandedCat] = useState(null);
   const [editId,      setEditId]      = useState(null);
   const editPanelRef = useRef(null);
@@ -1789,6 +1915,11 @@ function MenuEditor({ menu, saveMenu }) {
                       </div>
                       <div className="sh" style={{fontSize:13,color:"var(--red)",marginTop:1}}>{fmt(item.precio)}{item.opciones?.length?<span style={{fontSize:10,color:"var(--text4)",marginLeft:6,fontFamily:"'Barlow',sans-serif",fontWeight:400}}>{item.opciones.length} grupo{item.opciones.length!==1?"s":""} de opciones</span>:null}</div>
                     </div>
+                    <button className="btn" onClick={e=>{e.stopPropagation();const p=promos.includes(item.id)?promos.filter(id=>id!==item.id):[...promos,item.id];savePromos(p);}}
+                      style={{width:28,height:28,borderRadius:8,background:promos.includes(item.id)?"#FEF3C7":"var(--bg2)",border:`1px solid ${promos.includes(item.id)?"#F59E0B":"var(--border)"}`,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginRight:4}}
+                      title={promos.includes(item.id)?"Quitar de promociones":"Destacar en promociones"}>
+                      🔥
+                    </button>
                     <span style={{fontSize:12,color:"#7C3AED",flexShrink:0}}>✏️</span>
                   </div>
                   {editId===`${cat.id}:${item.id}`&&(
@@ -2119,6 +2250,45 @@ function ConfigEditor({ appConfig, saveAppConfig }) {
         <Field label="TITULAR DE LA CUENTA">
           <Input val={cfg.titular} onChange={v=>setCfg(p=>({...p,titular:v}))} placeholder="Nombre Apellido"/>
         </Field>
+      </div>
+
+      {/* Promociones */}
+      <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
+        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:14}}>🔥 PROMOCIONES</div>
+        <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>Los productos en promoción aparecen destacados arriba del menú del cliente.</div>
+        {(cfg.promociones||[]).map((p,i)=>{
+          // Find item name across all menu categories
+          let itemNombre = p.itemId;
+          return(
+            <div key={i} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",marginBottom:8,border:"1px solid var(--border)"}}>
+              <div style={{display:"flex",gap:8,marginBottom:8,alignItems:"center"}}>
+                <input value={p.itemId} onChange={e=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,itemId:e.target.value}:x)}))}
+                  placeholder="ID del producto (ej: r1, n2, c1...)"
+                  style={{flex:2,padding:"8px 10px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,fontSize:12,color:"var(--text)"}}/>
+                <button className="btn" onClick={()=>setCfg(c=>({...c,promociones:c.promociones.filter((_,j)=>j!==i)}))}
+                  style={{width:28,height:28,borderRadius:7,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+              </div>
+              <div style={{display:"flex",gap:8}}>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>PRECIO PROMO ($)</div>
+                  <input type="number" value={p.precioPromo||""} onChange={e=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,precioPromo:Number(e.target.value)||null}:x)}))}
+                    placeholder="Vacío = precio normal"
+                    style={{width:"100%",padding:"7px 9px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:7,fontSize:13,fontWeight:700,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                </div>
+                <div style={{flex:1}}>
+                  <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>ETIQUETA</div>
+                  <input value={p.etiqueta||""} onChange={e=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,etiqueta:e.target.value}:x)}))}
+                    placeholder="Ej: 2x1, -20%, Nuevo"
+                    style={{width:"100%",padding:"7px 9px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:7,fontSize:12,color:"var(--text)"}}/>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+        <button className="btn" onClick={()=>setCfg(c=>({...c,promociones:[...(c.promociones||[]),{itemId:"",precioPromo:null,etiqueta:""}]}))}
+          style={{width:"100%",padding:"9px 0",borderRadius:10,background:"var(--red-light)",border:"1px dashed var(--red-border)",color:"var(--red)",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+          + AGREGAR PROMOCIÓN
+        </button>
       </div>
 
       <button className="btn" onClick={save}
