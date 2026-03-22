@@ -419,6 +419,60 @@ const seleccionesLabel = (item, selecciones) => {
 };
 
 
+// ── Zonas de envío con polígonos exactos del KMZ ─────────────────────────
+const ZONAS_ENVIO = [
+  {nombre:"abril", grupo:1, precio:3000, coords:[[-34.7998116,-58.1614657],[-34.8068593,-58.170907],[-34.823419,-58.1510801],[-34.8155271,-58.1418963]]},
+  {nombre:"hudson park", grupo:1, precio:3000, coords:[[-34.8068593,-58.170907],[-34.8098711,-58.1747966],[-34.8199479,-58.1626945],[-34.8170589,-58.1587463]]},
+  {nombre:"green ville", grupo:1, precio:3000, coords:[[-34.8008054,-58.1596622],[-34.8041884,-58.1554565],[-34.8010521,-58.1512078],[-34.8061969,-58.1442985],[-34.8024264,-58.1387624],[-34.7943211,-58.1509074]]},
+  {nombre:"san juan chico", grupo:1, precio:3000, coords:[[-34.8061501,-58.1530532],[-34.8099204,-58.1485471],[-34.8065729,-58.1443414],[-34.8029434,-58.1488046]]},
+  {nombre:"acacias", grupo:1, precio:3000, coords:[[-34.7910417,-58.1564877],[-34.79587,-58.1599209],[-34.7963634,-58.1593201],[-34.7924162,-58.1541703]]},
+  {nombre:"ombues", grupo:1, precio:3000, coords:[[-34.8003106,-58.1682409],[-34.8016145,-58.1665672],[-34.7954474,-58.1605161],[-34.7946016,-58.1615032]]},
+  {nombre:"altos de hudson 1", grupo:1, precio:3000, coords:[[-34.8024691,-58.1709874],[-34.8042663,-58.1688417],[-34.8023987,-58.1665242],[-34.8006719,-58.16867]]},
+  {nombre:"altos de hudson 2", grupo:1, precio:3000, coords:[[-34.8043281,-58.173917],[-34.8069709,-58.1772644],[-34.8090498,-58.174904],[-34.8062661,-58.1714279]]},
+  {nombre:"hudson chico", grupo:1, precio:3000, coords:[[-34.794787,-58.1483042],[-34.797254,-58.1442701],[-34.7958795,-58.1426822],[-34.7930954,-58.1466305]]},
+  {nombre:"la portenia", grupo:1, precio:3000, coords:[[-34.7987832,-58.1615906],[-34.8005452,-58.1599598],[-34.794378,-58.1513767],[-34.7925101,-58.1538658]]},
+  {nombre:"pueblo nuevo", grupo:1, precio:3000, coords:[[-34.7897788,-58.1558819],[-34.7947165,-58.1486045],[-34.7930249,-58.1469308],[-34.7956996,-58.1424923],[-34.7971835,-58.1445704],[-34.7984837,-58.1427069],[-34.7935146,-58.1375143],[-34.784492,-58.1512041]]},
+  {nombre:"hudson", grupo:1, precio:3000, coords:[[-34.8065668,-58.1774498],[-34.7904618,-58.1574083],[-34.7830955,-58.169725],[-34.7932108,-58.1800247],[-34.7985675,-58.1729008],[-34.8044877,-58.1801964]]},
+  {nombre:"platanos", grupo:1, precio:3000, coords:[[-34.783089,-58.1702389],[-34.7817496,-58.1683077],[-34.7780838,-58.1746163],[-34.7720912,-58.182899],[-34.7779076,-58.1873192],[-34.7853448,-58.1863322],[-34.7913717,-58.1787362]]},
+  {nombre:"carmencito", grupo:2, precio:4000, coords:[[-34.8149144,-58.1801476],[-34.8195651,-58.1740536],[-34.8153372,-58.168818],[-34.810334,-58.1746544]]},
+  {nombre:"barrancas de iraola", grupo:2, precio:4000, coords:[[-34.8224949,-58.1877339],[-34.8159066,-58.1792796],[-34.8149144,-58.1801476],[-34.8209448,-58.1878627]]},
+  {nombre:"fincas de iraola 2", grupo:2, precio:4000, coords:[[-34.8248364,-58.1845153],[-34.8183892,-58.1763184],[-34.8159066,-58.1792796],[-34.8227226,-58.187691]]},
+  {nombre:"fincas de iraola 1", grupo:2, precio:4000, coords:[[-34.8252944,-58.1838715],[-34.827232,-58.1810391],[-34.8212782,-58.1730998],[-34.8189529,-58.1756318]]},
+  {nombre:"fincas de hudson", grupo:2, precio:4000, coords:[[-34.8200803,-58.1634438],[-34.82385,-58.1686366],[-34.8268445,-58.1650746],[-34.8232863,-58.1591523]]},
+  {nombre:"maritimo", grupo:2, precio:4000, coords:[[-34.8092835,-58.1751626],[-34.7988883,-58.1879943],[-34.8125956,-58.2044309],[-34.8210162,-58.1905263]]},
+  {nombre:"la reserva", grupo:2, precio:4000, coords:[[-34.8009838,-58.1398886],[-34.80486,-58.1343526],[-34.8023933,-58.1327647],[-34.7989398,-58.1378716]]},
+  {nombre:"el carmen", grupo:3, precio:5000, coords:[[-34.8275072,-58.1803771],[-34.8294095,-58.1772872],[-34.8197919,-58.163683],[-34.8157754,-58.1683608],[-34.8199328,-58.1739398],[-34.8213068,-58.1723519]]},
+  {nombre:"village del parque", grupo:3, precio:5000, coords:[[-34.833909,-58.16998],[-34.8360225,-58.1666326],[-34.8311614,-58.1608819],[-34.8286603,-58.1640148]]},
+  {nombre:"barrio san juan", grupo:3, precio:5000, coords:[[-34.8371338,-58.1662905],[-34.8385075,-58.1680929],[-34.8429456,-58.15436],[-34.8387189,-58.1481373],[-34.8347738,-58.1532442],[-34.8394938,-58.161956]]},
+  {nombre:"gutierrez", grupo:3, precio:5000, coords:[[-34.8227888,-58.1891603],[-34.8315959,-58.1915206],[-34.8385,-58.1711787],[-34.836457,-58.1670589]]},
+  {nombre:"golondrinas", grupo:3, precio:5000, coords:[[-34.7765249,-58.1613324],[-34.7811073,-58.1663106],[-34.7853722,-58.1601737],[-34.7803671,-58.1555818]]},
+  {nombre:"puerto nizuk", grupo:3, precio:5000, coords:[[-34.7795211,-58.152406],[-34.7509648,-58.1216357],[-34.7496248,-58.1391452],[-34.7720481,-58.1631349]]},
+  {nombre:"magallanes", grupo:3, precio:5000, coords:[[-34.7761815,-58.1467772],[-34.7819975,-58.1391383],[-34.7784374,-58.1349326],[-34.7729031,-58.1430007]]},
+  {nombre:"villalobos", grupo:3, precio:5000, coords:[[-34.774954,-58.138949],[-34.7679388,-58.1307093],[-34.7650832,-58.1344429],[-34.7721692,-58.1427256]]},
+  {nombre:"gaboto", grupo:3, precio:5000, coords:[[-34.7751303,-58.1385199],[-34.7778093,-58.1345288],[-34.7709706,-58.1266752],[-34.7682209,-58.1304947]]},
+  {nombre:"ranelagh", grupo:3, precio:5000, coords:[[-34.8100679,-58.2043894],[-34.7923073,-58.1820734],[-34.7875141,-58.1860216],[-34.7769398,-58.1923731],[-34.7968183,-58.2303102]]},
+];
+
+// Point-in-polygon (ray casting)
+const puntoDentroDeZona = (lat, lng, coords) => {
+  let inside = false;
+  for (let i = 0, j = coords.length - 1; i < coords.length; j = i++) {
+    const [yi, xi] = coords[i];
+    const [yj, xj] = coords[j];
+    if (((yi > lat) !== (yj > lat)) && (lng < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+      inside = !inside;
+    }
+  }
+  return inside;
+};
+
+const detectarZona = (lat, lng) => {
+  for (const zona of ZONAS_ENVIO) {
+    if (puntoDentroDeZona(lat, lng, zona.coords)) return zona;
+  }
+  return null;
+};
+
 /* ══ MAP PICKER ════════════════════════════════════════════════ */
 function MapPicker({ onSelect, onClose }) {
   const mapRef = useRef(null);
@@ -462,8 +516,9 @@ function MapPicker({ onSelect, onClose }) {
     map.on("click", async (e) => {
       const { lat, lng } = e.latlng;
       if (markerRef.current) markerRef.current.remove();
+      const zona = detectarZona(lat, lng);
       const icon = window.L.divIcon({
-        html: `<div style="background:#CC1F1F;width:20px;height:20px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>`,
+        html: `<div style="background:${zona?"#CC1F1F":"#6B7280"};width:20px;height:20px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.3)"></div>`,
         iconSize: [20, 20], iconAnchor: [10, 20]
       });
       markerRef.current = window.L.marker([lat, lng], { icon }).addTo(map);
@@ -475,9 +530,9 @@ function MapPicker({ onSelect, onClose }) {
         const calle = a.road || a.pedestrian || a.footway || "";
         const numero = a.house_number || "";
         const barrio = a.neighbourhood || a.suburb || a.city_district || a.town || a.city || "";
-        setAddr({ calle, numero, barrio, lat, lng });
+        setAddr({ calle, numero, barrio, lat, lng, zona });
       } catch(e) {
-        setAddr(null);
+        setAddr({ calle:"", numero:"", barrio:"", lat, lng, zona });
       }
       setLoading(false);
     });
@@ -501,15 +556,28 @@ function MapPicker({ onSelect, onClose }) {
         {!loading&&!addr&&<div style={{textAlign:"center",color:"var(--text4)",fontSize:13,padding:"8px 0"}}>Tocá un punto en el mapa para seleccionar tu dirección</div>}
         {!loading&&addr&&(
           <>
-            <div style={{background:"var(--bg2)",borderRadius:12,padding:"10px 14px",marginBottom:12,border:"1px solid var(--border)"}}>
+            <div style={{background:"var(--bg2)",borderRadius:12,padding:"10px 14px",marginBottom:10,border:"1px solid var(--border)"}}>
               <div style={{fontSize:13,fontWeight:700,color:"var(--text)",marginBottom:2}}>
                 {addr.calle}{addr.numero?` ${addr.numero}`:""}
               </div>
               <div style={{fontSize:12,color:"var(--text3)"}}>{addr.barrio}</div>
             </div>
-            <button className="btn" onClick={()=>onSelect(addr)}
-              style={{width:"100%",padding:"14px 0",borderRadius:13,background:"var(--red)",color:"#fff",fontSize:16,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,boxShadow:"0 6px 20px var(--red-glow)"}}>
-              ✓ USAR ESTA DIRECCIÓN
+            {addr.zona
+              ? <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"8px 12px",marginBottom:10,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:"#16A34A",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>✓ ZONA CON DELIVERY</div>
+                    <div style={{fontSize:12,color:"#166534",marginTop:2,textTransform:"capitalize"}}>{addr.zona.nombre} — Grupo {addr.zona.grupo}</div>
+                  </div>
+                  <div style={{fontSize:18,fontWeight:800,color:"#16A34A",fontFamily:"'Barlow Condensed',sans-serif"}}>+${Number(addr.zona.precio).toLocaleString("es-AR")}</div>
+                </div>
+              : <div style={{background:"#FFF1F2",border:"1px solid #FECDD3",borderRadius:10,padding:"8px 12px",marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#CC1F1F",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>⚠ FUERA DE ZONA</div>
+                  <div style={{fontSize:12,color:"#991B1B",marginTop:2}}>No hacemos delivery a esta dirección</div>
+                </div>
+            }
+            <button className="btn" onClick={()=>addr.zona&&onSelect(addr)}
+              style={{width:"100%",padding:"14px 0",borderRadius:13,background:addr.zona?"var(--red)":"var(--border)",color:addr.zona?"#fff":"var(--text4)",fontSize:16,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,boxShadow:addr.zona?"0 6px 20px var(--red-glow)":"none",cursor:addr.zona?"pointer":"not-allowed"}}>
+              {addr.zona?"✓ USAR ESTA DIRECCIÓN":"Zona sin cobertura"}
             </button>
           </>
         )}
@@ -545,7 +613,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const [search,     setSearch]     = useState("");
   const [cart,       setCart]       = useState([]);
   const [step,       setStep]       = useState("menu");
-  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",dni:""});
+  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",dni:"",envio:0,zonaEnvio:""});
   const [dniLooking, setDniLooking] = useState(false);
   const [dniFound,   setDniFound]   = useState(false);
   const [loading,    setLoading]    = useState(false);
@@ -637,7 +705,8 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
       const {data:mesaData} = await supabase.from("mesas").select("session_num").eq("id",mesaQR).maybeSingle();
       mesaSession = mesaData?.session_num || 1;
     }
-    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, subtotal:total, total:totalConRecargo, source:"customer", status: (form.pago==="tarjeta"||form.pago==="transferencia") ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
+    const envioFinal = form.tipo==="delivery" ? (form.envio||0) : 0;
+    const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, subtotal:total, total:totalConRecargo+(envioFinal), envio:envioFinal, source:"customer", status: (form.pago==="tarjeta"||form.pago==="transferencia") ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
     // Esperar confirmación de Supabase antes de mostrar éxito
     const {error} = await supabase.from("orders").insert(order);
     if (error) {
@@ -805,8 +874,13 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
               </div>
             </div>
           ))}
-          <div style={{display:"flex",justifyContent:"space-between",padding:"14px 0 0",fontSize:20,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",color:"var(--text)"}}>
-            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(total)}</span>
+          {form.tipo==="delivery"&&form.envio>0&&(
+            <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",fontSize:14,color:"var(--text3)"}}>
+              <span>🛵 Envío {form.zonaEnvio?`(${form.zonaEnvio})`:""}</span><span style={{fontWeight:600}}>{fmt(form.envio)}</span>
+            </div>
+          )}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",fontSize:20,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",color:"var(--text)",borderTop:"1px solid var(--border)",marginTop:4}}>
+            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(total+(form.tipo==="delivery"?form.envio:0))}</span>
           </div>
         </Card>
         {/* Si viene de mesa QR, mostrar banner de mesa en lugar de formulario de datos */}
@@ -867,7 +941,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                 style={{width:"100%",padding:"12px 0",borderRadius:12,background:"#EFF6FF",border:"2px solid #BFDBFE",color:"#2563EB",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
                 📍 Elegir en el mapa
               </button>
-              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle,numero:a.numero,barrio:a.barrio}));setShowMap(false);}}/>}
+              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle,numero:a.numero,barrio:a.barrio,envio:a.zona?.precio||0,zonaEnvio:a.zona?.nombre||""}));setShowMap(false);}}/>}
               <div style={{display:"flex",gap:8,marginBottom:12}}>
                 <div style={{flex:2}}>
                   <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Calle *</div>
