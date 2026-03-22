@@ -920,6 +920,10 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                 {promoItems.map(({item,p})=>{
                   const qty=getQty(item);
                   const precioMostrar = p.precioPromo||item.precio;
+                  const handlePromoAdd = () => {
+                    if(item.opciones?.length) { setModalItem(item); }
+                    else { add(item, null, precioMostrar); }
+                  };
                   return(
                     <div key={item.id} style={{flexShrink:0,width:150,background:"var(--surface)",border:"2px solid #FDE68A",borderRadius:14,overflow:"hidden",boxShadow:"0 2px 8px rgba(245,158,11,.15)"}}>
                       {item.imagen&&<div style={{height:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
@@ -931,11 +935,11 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                           <span className="sh" style={{fontSize:14,color:"#D97706"}}>{fmt(precioMostrar)}</span>
                         </div>
                         {qty===0
-                          ?<button className="btn" onClick={()=>handleAddItem(item)} style={{width:"100%",padding:"7px 0",borderRadius:8,background:"#FEF3C7",border:"1px solid #FDE68A",color:"#D97706",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{item.opciones?.length?"Ver":"+"}</button>
+                          ?<button className="btn" onClick={handlePromoAdd} style={{width:"100%",padding:"7px 0",borderRadius:8,background:"#FEF3C7",border:"1px solid #FDE68A",color:"#D97706",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{item.opciones?.length?"Ver opciones":"+"}</button>
                           :<div style={{display:"flex",alignItems:"center",gap:6}}>
                             <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:26,height:26,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                             <span style={{fontSize:14,fontWeight:800,minWidth:16,textAlign:"center",color:"#D97706"}}>{qty}</span>
-                            <button className="btn" onClick={()=>handleAddItem(item)} style={{width:26,height:26,borderRadius:7,background:"#D97706",color:"#fff",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                            <button className="btn" onClick={handlePromoAdd} style={{width:26,height:26,borderRadius:7,background:"#D97706",color:"#fff",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
                           </div>}
                       </div>
                     </div>
