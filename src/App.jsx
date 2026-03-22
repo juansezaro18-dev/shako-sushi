@@ -907,35 +907,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           })}
         </div>
       </div>
-      {/* Banner de promociones */}
-      {(()=>{
-        const promos = (appConfig.promociones||[]).map(p=>{
-          for(const cat of menuVis){ const item=cat.items.find(i=>i.id===p.itemId); if(item) return {item,p}; }
-          return null;
-        }).filter(Boolean);
-        if(!promos.length) return null;
-        return(
-          <div style={{padding:"10px 14px 4px"}}>
-            <div style={{background:"linear-gradient(135deg,#CC1F1F,#991818)",borderRadius:16,padding:"14px 16px",marginBottom:4}}>
-              <div className="sh" style={{fontSize:14,color:"rgba(255,255,255,.8)",letterSpacing:2,marginBottom:10}}>🔥 PROMOCIONES</div>
-              <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:4}}>
-                {promos.map(({item,p})=>(
-                  <div key={item.id} onClick={()=>handleAddItem(item)}
-                    style={{background:"rgba(255,255,255,.12)",borderRadius:12,padding:"10px 14px",flexShrink:0,cursor:"pointer",minWidth:160,border:"1px solid rgba(255,255,255,.2)"}}>
-                    {item.imagen&&<img src={item.imagen} alt={item.nombre} style={{width:"100%",height:80,objectFit:"cover",borderRadius:8,marginBottom:8}}/>}
-                    <div style={{fontSize:13,fontWeight:700,color:"#fff",marginBottom:4,lineHeight:1.3}}>{item.nombre}</div>
-                    {p.etiqueta&&<div style={{fontSize:10,fontWeight:700,color:"#FCD34D",marginBottom:4}}>{p.etiqueta}</div>}
-                    <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      {p.precioPromo&&p.precioPromo<item.precio&&<span style={{fontSize:11,color:"rgba(255,255,255,.5)",textDecoration:"line-through"}}>${Number(item.precio).toLocaleString("es-AR")}</span>}
-                      <span className="sh" style={{fontSize:16,color:"#fff"}}>${Number(p.precioPromo||item.precio).toLocaleString("es-AR")}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        );
-      })()}
+
       {promos.length>0&&(()=>{
           const promoItems = menu.flatMap(c=>c.items).filter(i=>promos.includes(i.id)&&i.disponible!==false);
           if(!promoItems.length) return null;
@@ -976,7 +948,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
             {cat.desc&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{cat.desc}</div>}
           </div>
           {cat.items.map(item=>{
-            const qty=getQty(item.id);
+            const qty=getQty(item);
             return(
               <div key={item.id} style={{margin:"0 14px 8px",background:"var(--surface)",border:`2px solid ${qty>0?"var(--red)":"var(--border)"}`,borderRadius:14,overflow:"hidden",display:"flex",transition:"border .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
                 {item.imagen&&<div style={{width:90,minWidth:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.parentNode.style.display="none";}}/></div>}
@@ -2399,7 +2371,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
             <div key={cat.id}>
               <div className="sh" style={{fontSize:12,color:"var(--text4)",padding:"6px 4px 4px",letterSpacing:1}}>{cat.nombre}</div>
               {cat.items.map(item=>{
-                const qty=getQty(item.id);
+                const qty=getQty(item);
                 return(
                   <div key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 4px",borderBottom:"1px solid var(--border)"}}>
                     <div style={{flex:1}}>
