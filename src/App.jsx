@@ -279,11 +279,6 @@ export default function App() {
     setAppConfig(cfg);
     supabase.from("menu_config").upsert({id:2, data:cfg}).then(()=>{});
   };
-  const [promos, setPromos] = useState([]); // array of item ids
-  const savePromos = async (p) => {
-    setPromos(p);
-    supabase.from("menu_config").upsert({id:3, data:p}).then(()=>{});
-  };
 
   useEffect(() => {
     supabase.from("menu_config").select("data").eq("id",2).maybeSingle()
@@ -319,13 +314,13 @@ export default function App() {
     <>
       <GS/>
       {isAdmin
-        ? <AdminLogin menu={menu} saveMenu={saveMenu} appConfig={appConfig} saveAppConfig={saveAppConfig} promos={promos} savePromos={savePromos}/>
-        : <CustomerView menu={menu} cajaStatus={cajaStatus} appConfig={appConfig} promos={promos}/>}
+        ? <AdminLogin menu={menu} saveMenu={saveMenu} appConfig={appConfig} saveAppConfig={saveAppConfig} />
+        : <CustomerView menu={menu} cajaStatus={cajaStatus} appConfig={appConfig}/>}
     </>
   );
 }
 
-function AdminLogin({ menu, saveMenu, appConfig, saveAppConfig, promos, savePromos }) {
+function AdminLogin({ menu, saveMenu, appConfig, saveAppConfig }) {
   const [authed,  setAuthed]  = useState(false);
   const [pin,     setPin]     = useState("");
   const [pinErr,  setPinErr]  = useState(false);
@@ -342,7 +337,7 @@ function AdminLogin({ menu, saveMenu, appConfig, saveAppConfig, promos, saveProm
     }
   };
 
-  if (authed) return <AdminView onExit={()=>{ window.location.href="/"; }} menu={menu} saveMenu={saveMenu} appConfig={appConfig} saveAppConfig={saveAppConfig} promos={promos} savePromos={savePromos}/>;
+  if (authed) return <AdminView onExit={()=>{ window.location.href="/"; }} menu={menu} saveMenu={saveMenu} appConfig={appConfig} saveAppConfig={saveAppConfig} />;
 
   return (
     <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"var(--bg2)"}}>
@@ -908,8 +903,13 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         </div>
       </div>
 
-      {promos.length>0&&(()=>{
-          const promoItems = menu.flatMap(c=>c.items).filter(i=>promos.includes(i.id)&&i.disponible!==false);
+      {(()=>{
+          const promoList = (appConfig.promociones||[]);
+          if(!promoList.length) return null;
+          const promoItems = promoList.map(p=>{
+            const item = menu.flatMap(c=>c.items).find(i=>i.id===p.itemId&&i.disponible!==false);
+            return item ? {item, p} : null;
+          }).filter(Boolean);
           if(!promoItems.length) return null;
           return(
             <div style={{padding:"12px 14px 0"}}>
@@ -918,14 +918,19 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                 <span className="sh" style={{fontSize:16,color:"var(--text)",letterSpacing:.5}}>PROMOCIONES</span>
               </div>
               <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8}}>
-                {promoItems.map(item=>{
+                {promoItems.map(({item,p})=>{
                   const qty=getQty(item);
+                  const precioMostrar = p.precioPromo||item.precio;
                   return(
                     <div key={item.id} style={{flexShrink:0,width:150,background:"var(--surface)",border:"2px solid #FDE68A",borderRadius:14,overflow:"hidden",boxShadow:"0 2px 8px rgba(245,158,11,.15)"}}>
                       {item.imagen&&<div style={{height:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
                       <div style={{padding:"10px 10px 8px"}}>
-                        <div style={{fontSize:12,fontWeight:700,color:"var(--text)",lineHeight:1.3,marginBottom:4}}>{item.nombre}</div>
-                        <div className="sh" style={{fontSize:14,color:"#D97706",marginBottom:8}}>{item.opciones?.length?"desde ":""}{fmt(item.precio)}</div>
+                        <div style={{fontSize:12,fontWeight:700,color:"var(--text)",lineHeight:1.3,marginBottom:2}}>{item.nombre}</div>
+                        {p.etiqueta&&<div style={{fontSize:10,fontWeight:700,color:"#D97706",marginBottom:4}}>{p.etiqueta}</div>}
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
+                          {p.precioPromo&&p.precioPromo<item.precio&&<span style={{fontSize:11,color:"var(--text4)",textDecoration:"line-through"}}>{fmt(item.precio)}</span>}
+                          <span className="sh" style={{fontSize:14,color:"#D97706"}}>{fmt(precioMostrar)}</span>
+                        </div>
                         {qty===0
                           ?<button className="btn" onClick={()=>handleAddItem(item)} style={{width:"100%",padding:"7px 0",borderRadius:8,background:"#FEF3C7",border:"1px solid #FDE68A",color:"#D97706",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{item.opciones?.length?"Ver":"+"}</button>
                           :<div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -1194,7 +1199,7 @@ const printTicket = (order, descuento=0) => {
   setTimeout(()=>{ win.print(); win.close(); }, 400);
 };
 
-function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig, promos=[], savePromos }) {
+function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) {
   const [orders,     setOrders]     = useState([]);
   const [filter,     setFilter]     = useState("activos");
   const [expandedId, setExpandedId] = useState(null);
@@ -1449,7 +1454,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig, pr
         </div>
       )}
 
-      {filter==="editor" && <MenuEditor menu={menu} saveMenu={saveMenu} promos={promos} savePromos={savePromos}/>}
+      {filter==="editor" && <MenuEditor menu={menu} saveMenu={saveMenu}/>}
 
       {filter==="facturacion" && (
         <div className="fade-in" style={{padding:14,paddingBottom:40}}>
@@ -1811,7 +1816,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig, pr
   );
 }
 
-function MenuEditor({ menu, saveMenu, promos=[], savePromos }) {
+function MenuEditor({ menu, saveMenu }) {
   const [expandedCat, setExpandedCat] = useState(null);
   const [editId,      setEditId]      = useState(null);
   const editPanelRef = useRef(null);
@@ -1887,11 +1892,6 @@ function MenuEditor({ menu, saveMenu, promos=[], savePromos }) {
                       </div>
                       <div className="sh" style={{fontSize:13,color:"var(--red)",marginTop:1}}>{fmt(item.precio)}{item.opciones?.length?<span style={{fontSize:10,color:"var(--text4)",marginLeft:6,fontFamily:"'Barlow',sans-serif",fontWeight:400}}>{item.opciones.length} grupo{item.opciones.length!==1?"s":""} de opciones</span>:null}</div>
                     </div>
-                    <button className="btn" onClick={e=>{e.stopPropagation();const p=promos.includes(item.id)?promos.filter(id=>id!==item.id):[...promos,item.id];savePromos(p);}}
-                      style={{width:28,height:28,borderRadius:8,background:promos.includes(item.id)?"#FEF3C7":"var(--bg2)",border:`1px solid ${promos.includes(item.id)?"#F59E0B":"var(--border)"}`,fontSize:14,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginRight:4}}
-                      title={promos.includes(item.id)?"Quitar de promociones":"Destacar en promociones"}>
-                      🔥
-                    </button>
                     <span style={{fontSize:12,color:"#7C3AED",flexShrink:0}}>✏️</span>
                   </div>
                   {editId===`${cat.id}:${item.id}`&&(
