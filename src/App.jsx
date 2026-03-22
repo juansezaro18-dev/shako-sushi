@@ -938,7 +938,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           </button>
         </div>
       )}
-      {modalItem&&<ItemModal item={modalItem} onClose={()=>setModalItem(null)} onConfirm={(sel,precio)=>{add(modalItem,sel,precio);setModalItem(null);}}/>}
+      {modalItem&&<ItemModal item={modalItem} onClose={()=>setModalItem(null)} onConfirm={(sel,precio,qty=1)=>{for(let i=0;i<qty;i++)add(modalItem,sel,precio);setModalItem(null);}}/>}
     </div>
   );
 }
@@ -950,6 +950,7 @@ function ItemModal({ item, onClose, onConfirm }) {
   const [selecciones, setSelecciones] = useState(
     (item.opciones||[]).map(g => ({grupoId:g.id, choiceIds:[]}))
   );
+  const [qty, setQty] = useState(1);
 
   const toggle = (grupoId, choiceId, tipo) => {
     setSelecciones(prev => prev.map(s => {
@@ -1015,9 +1016,18 @@ function ItemModal({ item, onClose, onConfirm }) {
         </div>
         {/* Footer */}
         <div style={{padding:"12px 18px",borderTop:"1px solid var(--border)",flexShrink:0}}>
-          <button className="btn" onClick={()=>canAdd&&onConfirm(selecciones,precioActual)}
+          {!(item.opciones||[]).some(g=>g.obligatorio)&&(
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:16,marginBottom:12}}>
+              <button className="btn" onClick={()=>setQty(q=>Math.max(1,q-1))}
+                style={{width:36,height:36,borderRadius:10,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+              <span style={{fontSize:20,fontWeight:800,minWidth:28,textAlign:"center",color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}>{qty}</span>
+              <button className="btn" onClick={()=>setQty(q=>q+1)}
+                style={{width:36,height:36,borderRadius:10,background:"var(--red)",color:"#fff",fontSize:22,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+            </div>
+          )}
+          <button className="btn" onClick={()=>canAdd&&onConfirm(selecciones,precioActual,qty)}
             style={{width:"100%",padding:"14px 0",borderRadius:14,background:canAdd?"var(--red)":"var(--border)",color:canAdd?"#fff":"var(--text4)",fontSize:16,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,transition:"all .2s",cursor:canAdd?"pointer":"not-allowed"}}>
-            {canAdd?`AGREGAR · ${fmt(precioActual)}`:"Completá las opciones obligatorias"}
+            {canAdd?`AGREGAR ${qty>1?`${qty}x `:""} · ${fmt(precioActual*qty)}`:"Completá las opciones obligatorias"}
           </button>
         </div>
       </div>
@@ -2369,7 +2379,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
         style={{width:"100%",padding:"15px 0",borderRadius:14,fontSize:17,fontWeight:800,background:(cart.length&&(mesaId||form.nombre.trim()))?"#16A34A":"var(--border)",color:(cart.length&&(mesaId||form.nombre.trim()))?"#fff":"var(--text4)",boxShadow:(cart.length&&(mesaId||form.nombre.trim()))?"0 6px 20px rgba(22,163,74,.3)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
         {loading?"CREANDO PEDIDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
       </button>
-      {modalAdminItem&&<ItemModal item={modalAdminItem} onClose={()=>setModalAdminItem(null)} onConfirm={(sel,precio)=>{add(modalAdminItem,sel,precio);setModalAdminItem(null);}}/>}
+      {modalAdminItem&&<ItemModal item={modalAdminItem} onClose={()=>setModalAdminItem(null)} onConfirm={(sel,precio,qty=1)=>{for(let i=0;i<qty;i++)add(modalAdminItem,sel,precio);setModalAdminItem(null);}}/>}
     </div>
   );
 }
