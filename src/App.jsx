@@ -283,8 +283,7 @@ export default function App() {
   useEffect(() => {
     supabase.from("menu_config").select("data").eq("id",2).maybeSingle()
       .then(({data}) => { if (data?.data) setAppConfig(prev=>({...prev,...data.data})); });
-    supabase.from("menu_config").select("data").eq("id",3).maybeSingle()
-      .then(({data}) => { if (data?.data) setPromos(data.data); });
+
     supabase.from("menu_config").select("data").eq("id",1).maybeSingle()
       .then(({data}) => { if (data?.data) setMenu(data.data); })
       .catch(() => {});
@@ -1629,7 +1628,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       )}
 
       {filter==="mesas"&&<MesasView onNewOrder={(mesaId)=>{setFilter("nuevo_pedido");setNuevoPedidoMesaId(mesaId);}} />}
-      {filter==="config"&&<ConfigEditor appConfig={appConfig} saveAppConfig={saveAppConfig}/>}
+      {filter==="config"&&<ConfigEditor appConfig={appConfig} saveAppConfig={saveAppConfig} menu={menu}/>}
       {filter==="nuevo_pedido"&&<NuevoPedidoAdmin menu={menu} mesaId={nuevoPedidoMesaId} appConfig={appConfig} onClose={()=>{setFilter(nuevoPedidoMesaId?"mesas":"activos");setNuevoPedidoMesaId(null);}} onOrderPlaced={()=>{loadOrders();}} />}
 
       {!["editor","facturacion","config"].includes(filter)&&(
@@ -2088,7 +2087,7 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
 
 
 /* ══ CONFIG EDITOR ════════════════════════════════════════════ */
-function ConfigEditor({ appConfig, saveAppConfig }) {
+function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
   const [cfg,     setCfg]     = useState({...appConfig});
   const [saved,   setSaved]   = useState(false);
   const [newRep,  setNewRep]  = useState("");
