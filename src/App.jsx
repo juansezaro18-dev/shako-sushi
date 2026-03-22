@@ -914,7 +914,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                     <div className="sh" style={{fontSize:18,color:"var(--red)",marginTop:6}}>{item.opciones?.length?"desde ":""}{fmt(item.precio)}</div>
                   </div>
                   {qty===0
-                    ?<button className="btn" onClick={()=>handleAddItem(item)} style={{width:40,height:40,borderRadius:10,background:"var(--red-light)",border:"2px solid var(--red-border)",color:"var(--red)",fontSize:item.opciones?.length?20:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:700}}>{item.opciones?.length?"Ver opciones":"+"}</button>
+                    ?<button className="btn" onClick={()=>handleAddItem(item)} style={{width:40,height:40,borderRadius:10,background:"var(--red-light)",border:"2px solid var(--red-border)",color:"var(--red)",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:700}}>{item.opciones?.length?"›":"+"}</button>
                     :<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
                       <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:32,height:32,borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                       <span style={{fontSize:17,fontWeight:900,minWidth:22,textAlign:"center",color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}>{qty}</span>
