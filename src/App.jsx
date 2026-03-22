@@ -1758,73 +1758,132 @@ function MenuEditor({ menu, saveMenu }) {
                   style={{width:"100%",padding:"8px 12px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:9,fontSize:12,color:"var(--text2)"}}/>
               </div>
               {cat.items.map(item=>(
-                <div key={item.id} onClick={()=>setEditId(editId===`${cat.id}:${item.id}`?null:`${cat.id}:${item.id}`)}
-                  style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",marginBottom:6,
-                    background:editId===`${cat.id}:${item.id}`?"#FAF5FF":"var(--surface)",
-                    border:`1px solid ${editId===`${cat.id}:${item.id}`?"#E9D5FF":"var(--border)"}`,transition:"all .2s"}}>
-                  <div style={{width:38,height:38,borderRadius:8,overflow:"hidden",flexShrink:0,background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid var(--border)"}}>
-                    {item.imagen?<img src={item.imagen} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>:<span style={{color:"var(--text4)",fontSize:16}}>📷</span>}
-                  </div>
-                  <div style={{flex:1,minWidth:0}}>
-                    <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:item.disponible===false?"var(--text4)":"var(--text)"}}>
-                      {item.disponible===false?"🚫 ":""}{item.nombre}
+                <div key={item.id} style={{marginBottom:6}}>
+                  <div onClick={()=>setEditId(editId===`${cat.id}:${item.id}`?null:`${cat.id}:${item.id}`)}
+                    style={{display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:10,cursor:"pointer",
+                      background:editId===`${cat.id}:${item.id}`?"#FAF5FF":"var(--surface)",
+                      border:`1px solid ${editId===`${cat.id}:${item.id}`?"#E9D5FF":"var(--border)"}`,transition:"all .2s"}}>
+                    <div style={{width:38,height:38,borderRadius:8,overflow:"hidden",flexShrink:0,background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid var(--border)"}}>
+                      {item.imagen?<img src={item.imagen} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>:<span style={{color:"var(--text4)",fontSize:16}}>📷</span>}
                     </div>
-                    <div className="sh" style={{fontSize:13,color:"var(--red)",marginTop:1}}>{fmt(item.precio)}</div>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:item.disponible===false?"var(--text4)":"var(--text)"}}>
+                        {item.disponible===false?"🚫 ":""}{item.nombre}
+                      </div>
+                      <div className="sh" style={{fontSize:13,color:"var(--red)",marginTop:1}}>{fmt(item.precio)}{item.opciones?.length?<span style={{fontSize:10,color:"var(--text4)",marginLeft:6,fontFamily:"'Barlow',sans-serif",fontWeight:400}}>{item.opciones.length} grupo{item.opciones.length!==1?"s":""} de opciones</span>:null}</div>
+                    </div>
+                    <span style={{fontSize:12,color:"#7C3AED",flexShrink:0}}>✏️</span>
                   </div>
-                  <span style={{fontSize:12,color:"#7C3AED",flexShrink:0}}>✏️</span>
+                  {editId===`${cat.id}:${item.id}`&&(
+                    <div className="slide-up" style={{background:"var(--surface)",border:"2px solid #E9D5FF",borderRadius:12,padding:14,marginTop:4}}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                        <span className="sh" style={{fontSize:14,color:"#7C3AED"}}>✏️ {item.nombre}</span>
+                        <button className="btn" onClick={e=>{e.stopPropagation();setEditId(null);}} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text3)",fontSize:12,fontWeight:600}}>✕ Cerrar</button>
+                      </div>
+                      {/* Imagen */}
+                      <div style={{marginBottom:10}}>
+                        <div style={{fontSize:10,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>IMAGEN</div>
+                        <div style={{display:"flex",gap:8,alignItems:"center"}}>
+                          <div style={{width:60,height:60,borderRadius:8,overflow:"hidden",flexShrink:0,background:"var(--bg2)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+                            {item.imagen?<><img src={item.imagen} alt="preview" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
+                              <button className="btn" onClick={e=>{e.stopPropagation();updItem(cat.id,item.id,{imagen:""});}} style={{position:"absolute",top:2,right:2,width:16,height:16,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                            </>:<span style={{color:"var(--text4)",fontSize:20}}>📷</span>}
+                          </div>
+                          <div style={{flex:1,display:"flex",flexDirection:"column",gap:5}}>
+                            <label className="upload-btn" style={{padding:"7px"}} onClick={e=>e.stopPropagation()}><input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(cat.id,item.id,e.target.files[0])}/>📤 Subir foto</label>
+                            <input value={item.imagen||""} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{imagen:e.target.value});}} onClick={e=>e.stopPropagation()} placeholder="o pegá una URL..."
+                              style={{width:"100%",padding:"6px 9px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:7,fontSize:11,color:"var(--text)"}}/>
+                          </div>
+                        </div>
+                      </div>
+                      {/* Nombre */}
+                      <div style={{marginBottom:8}}>
+                        <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOMBRE *</div>
+                        <input value={item.nombre} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{nombre:e.target.value});}} onClick={e=>e.stopPropagation()}
+                          style={{width:"100%",padding:"9px 11px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,fontSize:13,fontWeight:600,color:"var(--text)"}}/>
+                      </div>
+                      {/* Descripcion */}
+                      <div style={{marginBottom:8}}>
+                        <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCRIPCIÓN</div>
+                        <textarea value={item.desc||""} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{desc:e.target.value});}} onClick={e=>e.stopPropagation()} rows={2}
+                          style={{width:"100%",padding:"9px 11px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,fontSize:12,resize:"none",lineHeight:1.5,color:"var(--text)"}}/>
+                      </div>
+                      {/* Precio */}
+                      <div style={{marginBottom:8}}>
+                        <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>PRECIO BASE ($) {item.opciones?.length?"(precio mínimo mostrado)":""}</div>
+                        <input type="number" min="0" step="100" value={item.precio} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{precio:Number(e.target.value)});}} onClick={e=>e.stopPropagation()}
+                          style={{width:"100%",padding:"9px 11px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,fontSize:16,fontWeight:800,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                      </div>
+                      {/* Disponible toggle */}
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 11px",background:"var(--bg2)",borderRadius:8,border:"1px solid var(--border)",marginBottom:10}} onClick={e=>e.stopPropagation()}>
+                        <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>Disponible en el menú</div>
+                        <div onClick={()=>updItem(cat.id,item.id,{disponible:item.disponible===false})}
+                          style={{width:38,height:21,borderRadius:11,background:item.disponible!==false?"var(--red)":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
+                          <div style={{width:15,height:15,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:item.disponible!==false?"20px":"3px",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                        </div>
+                      </div>
+                      {/* Opciones */}
+                      <div style={{marginBottom:10}}>
+                        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
+                          <div style={{fontSize:10,color:"#7C3AED",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>GRUPOS DE OPCIONES</div>
+                          <button className="btn" onClick={e=>{e.stopPropagation();const ng={id:genId(),nombre:"Nuevo grupo",tipo:"radio",obligatorio:false,choices:[]};updItem(cat.id,item.id,{opciones:[...(item.opciones||[]),ng]});}}
+                            style={{padding:"4px 10px",borderRadius:7,background:"#FAF5FF",border:"1px solid #E9D5FF",color:"#7C3AED",fontSize:11,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                            + Agregar grupo
+                          </button>
+                        </div>
+                        {(item.opciones||[]).length===0&&<div style={{fontSize:12,color:"var(--text4)",fontStyle:"italic",padding:"6px 0"}}>Sin opciones — el cliente agrega directo al carrito</div>}
+                        {(item.opciones||[]).map((grupo,gi)=>(
+                          <div key={grupo.id} style={{background:"var(--bg2)",borderRadius:9,padding:"10px 12px",marginBottom:8,border:"1px solid var(--border)"}} onClick={e=>e.stopPropagation()}>
+                            <div style={{display:"flex",gap:6,alignItems:"center",marginBottom:8}}>
+                              <input value={grupo.nombre} onChange={e=>updItem(cat.id,item.id,{opciones:item.opciones.map((g,i)=>i===gi?{...g,nombre:e.target.value}:g)})}
+                                style={{flex:1,padding:"6px 9px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:7,fontSize:12,fontWeight:600,color:"var(--text)"}}
+                                placeholder="Nombre del grupo"/>
+                              <select value={grupo.tipo} onChange={e=>updItem(cat.id,item.id,{opciones:item.opciones.map((g,i)=>i===gi?{...g,tipo:e.target.value}:g)})}
+                                style={{padding:"6px 8px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:7,fontSize:11,color:"var(--text)"}}>
+                                <option value="radio">Una opción</option>
+                                <option value="checkbox">Varias opciones</option>
+                              </select>
+                              <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"var(--text3)"}}>
+                                <span>Oblig.</span>
+                                <div onClick={()=>updItem(cat.id,item.id,{opciones:item.opciones.map((g,i)=>i===gi?{...g,obligatorio:!g.obligatorio}:g)})}
+                                  style={{width:30,height:17,borderRadius:9,background:grupo.obligatorio?"var(--red)":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
+                                  <div style={{width:11,height:11,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:grupo.obligatorio?"16px":"3px",transition:"left .2s"}}/>
+                                </div>
+                              </div>
+                              <button className="btn" onClick={()=>updItem(cat.id,item.id,{opciones:item.opciones.filter((_,i)=>i!==gi)})}
+                                style={{width:22,height:22,borderRadius:6,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+                            </div>
+                            {grupo.choices.map((ch,ci)=>(
+                              <div key={ch.id} style={{display:"flex",gap:5,alignItems:"center",marginBottom:5}}>
+                                <input value={ch.nombre} onChange={e=>updItem(cat.id,item.id,{opciones:item.opciones.map((g,i)=>i===gi?{...g,choices:g.choices.map((c,j)=>j===ci?{...c,nombre:e.target.value}:c)}:g)})}
+                                  style={{flex:2,padding:"5px 8px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:6,fontSize:11,color:"var(--text)"}} placeholder="Nombre"/>
+                                <input type="number" value={ch.precio} onChange={e=>updItem(cat.id,item.id,{opciones:item.opciones.map((g,i)=>i===gi?{...g,choices:g.choices.map((c,j)=>j===ci?{...c,precio:Number(e.target.value)}:c)}:g)})}
+                                  style={{width:72,padding:"5px 7px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:6,fontSize:11,color:"var(--red)",fontWeight:700}} placeholder="Precio"/>
+                                <div onClick={()=>updItem(cat.id,item.id,{opciones:item.opciones.map((g,i)=>i===gi?{...g,choices:g.choices.map((c,j)=>j===ci?{...c,disponible:c.disponible===false?true:false}:c)}:g)})}
+                                  style={{width:28,height:16,borderRadius:8,background:ch.disponible!==false?"#16A34A":"var(--border)",cursor:"pointer",position:"relative",flexShrink:0,transition:"background .2s"}}>
+                                  <div style={{width:10,height:10,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:ch.disponible!==false?"15px":"3px",transition:"left .2s"}}/>
+                                </div>
+                                <button className="btn" onClick={()=>updItem(cat.id,item.id,{opciones:item.opciones.map((g,i)=>i===gi?{...g,choices:g.choices.filter((_,j)=>j!==ci)}:g)})}
+                                  style={{width:18,height:18,borderRadius:5,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>✕</button>
+                              </div>
+                            ))}
+                            <button className="btn" onClick={()=>updItem(cat.id,item.id,{opciones:item.opciones.map((g,i)=>i===gi?{...g,choices:[...g.choices,{id:genId(),nombre:"",precio:0}]}:g)})}
+                              style={{width:"100%",padding:"5px 0",borderRadius:6,background:"transparent",border:"1px dashed var(--border2)",color:"var(--text4)",fontSize:11,marginTop:2}}>
+                              + opción
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                      {/* Eliminar */}
+                      <button className="btn" onClick={e=>{e.stopPropagation();delItem(cat.id,item.id);}}
+                        style={{width:"100%",padding:"8px 0",borderRadius:8,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                        🗑 ELIMINAR ESTE PRODUCTO
+                      </button>
+                    </div>
+                  )}
                 </div>
-                {editId===`${cat.id}:${item.id}`&&(
-                  <div className="slide-up" style={{background:"var(--surface)",border:"2px solid #E9D5FF",borderRadius:12,padding:14,marginTop:6,marginBottom:4}}>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-                      <span className="sh" style={{fontSize:14,color:"#7C3AED"}}>✏️ EDITANDO: {item.nombre}</span>
-                      <button className="btn" onClick={e=>{e.stopPropagation();setEditId(null);}} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text3)",fontSize:12,fontWeight:600}}>✕ Cerrar</button>
-                    </div>
-                    <div style={{marginBottom:12}}>
-                      <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>IMAGEN</div>
-                      <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-                        <div style={{width:72,height:72,borderRadius:10,overflow:"hidden",flexShrink:0,background:"var(--bg2)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-                          {item.imagen
-                            ?<><img src={item.imagen} alt="preview" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
-                              <button className="btn" onClick={e=>{e.stopPropagation();updItem(cat.id,item.id,{imagen:""});}} style={{position:"absolute",top:3,right:3,width:18,height:18,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-                            </>:<span style={{color:"var(--text4)",fontSize:22}}>📷</span>}
-                        </div>
-                        <div style={{flex:1,display:"flex",flexDirection:"column",gap:6}}>
-                          <label className="upload-btn" onClick={e=>e.stopPropagation()}><input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(cat.id,item.id,e.target.files[0])}/>📤 Subir foto</label>
-                          <input value={item.imagen||""} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{imagen:e.target.value});}} onClick={e=>e.stopPropagation()} placeholder="https://foto.com/imagen.jpg"
-                            style={{width:"100%",padding:"8px 10px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,fontSize:11}}/>
-                        </div>
-                      </div>
-                    </div>
-                    <div style={{marginBottom:10}}>
-                      <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOMBRE *</div>
-                      <input value={item.nombre} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{nombre:e.target.value});}} onClick={e=>e.stopPropagation()}
-                        style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:13,fontWeight:600}}/>
-                    </div>
-                    <div style={{marginBottom:10}}>
-                      <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCRIPCIÓN</div>
-                      <textarea value={item.desc||""} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{desc:e.target.value});}} onClick={e=>e.stopPropagation()} rows={2}
-                        style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:12,resize:"none",lineHeight:1.5}}/>
-                    </div>
-                    <div style={{marginBottom:12}}>
-                      <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>PRECIO ($)</div>
-                      <input type="number" min="0" step="100" value={item.precio} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{precio:Number(e.target.value)});}} onClick={e=>e.stopPropagation()}
-                        style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:18,fontWeight:800,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
-                    </div>
-                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",background:"var(--bg2)",borderRadius:9,border:"1px solid var(--border)",marginBottom:10}} onClick={e=>e.stopPropagation()}>
-                      <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>Disponible en el menú</div>
-                      <div onClick={()=>updItem(cat.id,item.id,{disponible:item.disponible===false})}
-                        style={{width:40,height:22,borderRadius:11,background:item.disponible!==false?"var(--red)":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
-                        <div style={{width:16,height:16,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:item.disponible!==false?"21px":"3px",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
-                      </div>
-                    </div>
-                    <button className="btn" onClick={e=>{e.stopPropagation();delItem(cat.id,item.id);}}
-                      style={{width:"100%",padding:"9px 0",borderRadius:9,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                      🗑 ELIMINAR ESTE PRODUCTO
-                    </button>
-                  </div>
-                )}
               ))}
-              <div style={{display:"flex",gap:8,marginTop:8}}>
+              <div style={{display:"flex",gap:8,marginTop:8}}>              <div style={{display:"flex",gap:8,marginTop:8}}>
                 <button className="btn" onClick={()=>addItem(cat.id)}
                   style={{flex:1,padding:"10px 0",borderRadius:10,background:"var(--red-light)",border:"1px dashed var(--red-border)",color:"var(--red)",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
                   + AGREGAR PRODUCTO
