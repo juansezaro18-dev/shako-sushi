@@ -942,7 +942,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           {form.tipo==="delivery"&&(
             <div className="fade-in">
               <div style={{height:1,background:"var(--border)",margin:"0 0 16px"}}/>
-              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle,numero:a.numero||p.numero,barrio:a.barrio,envio:a.zona?.precio||0,zonaEnvio:a.zona?`Grupo ${a.zona.grupo}`:""}));setShowMap(false);}}/>}
+              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle||(a.zona?.nombre||"Sin calle"),numero:a.numero||p.numero,barrio:a.barrio||a.zona?.nombre||"",envio:a.zona?.precio||0,zonaEnvio:a.zona?`Grupo ${a.zona.grupo}`:""}));setShowMap(false);}}/>}
               {/* Si no eligió dirección aún, mostrar solo el botón del mapa */}
               {!form.calle?(
                 <div style={{textAlign:"center",padding:"8px 0 16px"}}>
@@ -985,8 +985,8 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                     style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${form.calle.trim()?"var(--red-border)":"var(--border)"}`,borderRadius:10,fontSize:14}}/>
                 </div>
                 <div style={{flex:1}}>
-                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Número *</div>
-                  <input value={form.numero} onChange={e=>setForm(p=>({...p,numero:e.target.value}))} placeholder="1234"
+                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Número / Lote *</div>
+                  <input value={form.numero} onChange={e=>setForm(p=>({...p,numero:e.target.value}))} placeholder="Nro / Lote"
                     style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${form.numero.trim()?"var(--red-border)":"var(--border)"}`,borderRadius:10,fontSize:14}}/>
                 </div>
               </div>
