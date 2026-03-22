@@ -1115,11 +1115,12 @@ function ItemModal({ item, onClose, onConfirm }) {
 function TicketBtn({ order }) {
   const [open,      setOpen]      = useState(false);
   const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
-  // Auto-calculate discount: sum of (original price - promo price) for each item
+  // Auto-calculate discount: compare each item's precioUnitario vs its base price
   const autoDescuento = (order.items||[]).reduce((s,c) => {
-    if (!c.precioUnitario || !c.item) return s;
-    const precioOriginal = c.selecciones?.length ? calcOpcionesPrice(c.item, c.selecciones) : c.item.precio;
-    const diff = precioOriginal - c.precioUnitario;
+    if (!c.item) return s;
+    const precioUnitario = c.precioUnitario ?? (c.selecciones?.length ? calcOpcionesPrice(c.item, c.selecciones) : c.item.precio);
+    const precioBase = c.selecciones?.length ? calcOpcionesPrice(c.item, c.selecciones) : c.item.precio;
+    const diff = precioBase - precioUnitario;
     return diff > 0 ? s + diff * c.qty : s;
   }, 0);
   const [descuento, setDescuento] = useState("");
@@ -1175,6 +1176,14 @@ function TicketBtn({ order }) {
     </div>
   );
 }
+
+const calcAutoDescuento = (order) => (order.items||[]).reduce((s,c) => {
+  if (!c.item) return s;
+  const precioUnitario = c.precioUnitario ?? (c.selecciones?.length ? calcOpcionesPrice(c.item, c.selecciones) : c.item.precio);
+  const precioBase = c.selecciones?.length ? calcOpcionesPrice(c.item, c.selecciones) : c.item.precio;
+  const diff = precioBase - precioUnitario;
+  return diff > 0 ? s + diff * c.qty : s;
+}, 0);
 
 const printTicket = (order, descuento=0, autoDescuento=0) => {
   const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
