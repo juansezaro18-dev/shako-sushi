@@ -1883,7 +1883,7 @@ function MenuEditor({ menu, saveMenu }) {
                   )}
                 </div>
               ))}
-              <div style={{display:"flex",gap:8,marginTop:8}}>              <div style={{display:"flex",gap:8,marginTop:8}}>
+              <div style={{display:"flex",gap:8,marginTop:8}}>
                 <button className="btn" onClick={()=>addItem(cat.id)}
                   style={{flex:1,padding:"10px 0",borderRadius:10,background:"var(--red-light)",border:"1px dashed var(--red-border)",color:"var(--red)",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
                   + AGREGAR PRODUCTO
