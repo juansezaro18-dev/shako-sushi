@@ -652,7 +652,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const total      = cart.reduce((s,c) => s+(c.precioUnitario??c.item.precio)*c.qty, 0);
   const totalConRecargo = form.pago==="tarjeta" ? Math.round(total*(1+appConfig.recargoMP)) : total;
   const count      = cart.reduce((s,c) => s+c.qty, 0);
-  const canConfirm = mesaQR ? true : (form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim()))));
+  const canConfirm = mesaQR ? true : (form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim())&&form.envio>0&&form.zonaEnvio)));
 
   const lookupDni = async (val, isPhone=false) => {
     setForm(p=>({...p,[isPhone?"telefono":"dni"]:val}));
@@ -937,11 +937,35 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           {form.tipo==="delivery"&&(
             <div className="fade-in">
               <div style={{height:1,background:"var(--border)",margin:"0 0 16px"}}/>
-              <button className="btn" onClick={()=>setShowMap(true)}
-                style={{width:"100%",padding:"12px 0",borderRadius:12,background:"#EFF6FF",border:"2px solid #BFDBFE",color:"#2563EB",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:12,display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
-                📍 Elegir en el mapa
-              </button>
-              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle,numero:a.numero,barrio:a.barrio,envio:a.zona?.precio||0,zonaEnvio:a.zona?.nombre||""}));setShowMap(false);}}/>}
+              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle,numero:a.numero||p.numero,barrio:a.barrio,envio:a.zona?.precio||0,zonaEnvio:a.zona?`Grupo ${a.zona.grupo}`:""}));setShowMap(false);}}/>}
+              {/* Si no eligió dirección aún, mostrar solo el botón del mapa */}
+              {!form.calle?(
+                <div style={{textAlign:"center",padding:"8px 0 16px"}}>
+                  <div style={{fontSize:13,color:"var(--text3)",marginBottom:14}}>Para hacer un pedido con delivery tenés que indicar tu dirección en el mapa</div>
+                  <button className="btn" onClick={()=>setShowMap(true)}
+                    style={{width:"100%",padding:"16px 0",borderRadius:13,background:"var(--red)",color:"#fff",fontSize:16,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,boxShadow:"0 6px 20px var(--red-glow)",display:"flex",alignItems:"center",justifyContent:"center",gap:10}}>
+                    📍 ELEGIR MI DIRECCIÓN EN EL MAPA
+                  </button>
+                </div>
+              ):(
+                <>
+                  {/* Zona detectada */}
+                  {form.envio>0
+                    ?<div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"9px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:11,fontWeight:700,color:"#16A34A",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>✓ ZONA CON COBERTURA</div>
+                        <div style={{fontSize:12,color:"#166534",marginTop:1}}>{form.zonaEnvio} · Envío: {fmt(form.envio)}</div>
+                      </div>
+                      <button className="btn" onClick={()=>setShowMap(true)} style={{fontSize:11,color:"#16A34A",background:"transparent",textDecoration:"underline",fontWeight:600}}>Cambiar</button>
+                    </div>
+                    :<div style={{background:"#FFF1F2",border:"1px solid #FECDD3",borderRadius:10,padding:"9px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+                      <div>
+                        <div style={{fontSize:11,fontWeight:700,color:"#CC1F1F",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>⚠ FUERA DE ZONA</div>
+                        <div style={{fontSize:12,color:"#991B1B",marginTop:1}}>No hacemos delivery a esta dirección</div>
+                      </div>
+                      <button className="btn" onClick={()=>setShowMap(true)} style={{fontSize:11,color:"#CC1F1F",background:"transparent",textDecoration:"underline",fontWeight:600}}>Cambiar</button>
+                    </div>
+                  }
               <div style={{display:"flex",gap:8,marginBottom:12}}>
                 <div style={{flex:2}}>
                   <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Calle *</div>
@@ -959,6 +983,20 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                 <input value={form.entreCalle} onChange={e=>setForm(p=>({...p,entreCalle:e.target.value}))} placeholder="Ej: 150 y 151"
                   style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
               </div>
+              {/* Selector de zona — obligatorio */}
+              <div style={{marginBottom:12}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>ZONA DE ENVÍO *</div>
+                <div style={{display:"flex",flexDirection:"column",gap:6}}>
+                  {[{g:1,precio:3000,label:"Grupo 1 — Hudson, Plátanos, Greenville, Acacias y más"},{g:2,precio:4000,label:"Grupo 2 — Fincas, Carmencito, Marítimo, La Reserva"},{g:3,precio:5000,label:"Grupo 3 — El Carmen, Ranelagh, Gutierrez, Golondrinas y más"}].map(z=>(
+                    <button key={z.g} className="btn" onClick={()=>setForm(p=>({...p,envio:z.precio,zonaEnvio:`Grupo ${z.g}`}))}
+                      style={{padding:"11px 14px",borderRadius:11,background:form.envio===z.precio?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.envio===z.precio?"var(--red)":"var(--border)"}`,display:"flex",justifyContent:"space-between",alignItems:"center",transition:"all .2s"}}>
+                      <span style={{fontSize:13,fontWeight:600,color:form.envio===z.precio?"var(--red)":"var(--text2)",textAlign:"left"}}>{z.label}</span>
+                      <span style={{fontSize:14,fontWeight:800,color:form.envio===z.precio?"var(--red)":"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0,marginLeft:8}}>{fmt(z.precio)}</span>
+                    </button>
+                  ))}
+                </div>
+                {!form.envio&&<div style={{fontSize:12,color:"var(--red)",marginTop:6}}>⚠ Elegí tu zona para continuar</div>}
+              </div>
               <div style={{display:"flex",gap:8,marginBottom:8}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Piso / Depto</div>
@@ -972,6 +1010,8 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                 </div>
               </div>
               {(!form.calle.trim()||!form.numero.trim())&&<div style={{fontSize:12,color:"var(--red)",marginTop:6}}>⚠ Completá calle y número para continuar</div>}
+              </>
+              )}
             </div>
           )}
           {form.tipo==="retiro"&&<div style={{marginTop:8,background:"var(--bg2)",borderRadius:10,padding:"10px 14px",border:"1px solid var(--border)",fontSize:12,color:"var(--text3)"}}>📍 Retirás en <strong style={{color:"var(--text2)"}}>Hudson Plaza Comercial, Berazategui</strong></div>}
