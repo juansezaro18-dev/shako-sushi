@@ -20,6 +20,26 @@ const CONFIG = {
   repartidores: ["Marcos", "Lucas", "Nico", "Santiago"], // nombres de los repartidores
 };
 
+// ── Grupos de opciones reutilizables ─────────────────────────────────────
+const SALSAS_COMUNES = [
+  {id:"sc1",nombre:"Buenos Aires",precio:2000},
+  {id:"sc2",nombre:"Teriyaki",precio:2000},
+  {id:"sc3",nombre:"Tonkatzu",precio:2000},
+  {id:"sc4",nombre:"Maracuyá",precio:2000},
+  {id:"sc5",nombre:"Agridulce Spring Roll",precio:2000},
+  {id:"sc6",nombre:"Soja extra",precio:2000},
+];
+const INGREDIENTES_WOK = [
+  {id:"iw1",nombre:"Pollo",precio:3000},
+  {id:"iw2",nombre:"Lomo",precio:4000},
+  {id:"iw3",nombre:"Cerdo",precio:0,disponible:false},
+  {id:"iw4",nombre:"Camarones",precio:6000},
+  {id:"iw5",nombre:"Salmón",precio:7800},
+  {id:"iw6",nombre:"Almendras",precio:2000},
+  {id:"iw7",nombre:"Hongos",precio:6000},
+  {id:"iw8",nombre:"Huevo",precio:1800},
+];
+
 const MENU_DEFAULT = [
   { id:"rolls", nombre:"Rolls", emoji:"🍣", desc:"Clásicos, Especiales y Calientes", items:[
     {id:"r1", nombre:"Namazake (10u.)",              desc:"Makis de Salmón.",                                                                precio:16000},
@@ -52,23 +72,31 @@ const MENU_DEFAULT = [
     {id:"r28",nombre:"Roll Lenguado Acevichado (8u.)", desc:"Langostino, Philadelphia de albaca y Ají Amarillo. Lenguado curado y Ceviche.",precio:19000},
   ]},
   { id:"nigiri", nombre:"Nigiri, Geisha & Sashimi", emoji:"🐟", desc:"Bocados premium", items:[
-    {id:"n1",nombre:"Nigiri (6u.)",   desc:"Diferentes sabores sobre bocadito de arroz.",                precio:14000},
-    {id:"n2",nombre:"Geishas (6u.)",  desc:"Rolls sin arroz, varios sabores.",                           precio:17000},
-    {id:"n3",nombre:"Sashimi (15u.)", desc:"Cortes de Salmón crudo, Pulpo, Atún Rojo y/o Langostinos.", precio:57000},
+    {id:"n1",nombre:"Nigiri (6u.)",   desc:"Diferentes sabores sobre bocadito de arroz.",                precio:14000,
+    opciones:[{id:"og1",nombre:"Elegí la variedad",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"Sake (Salmón)",precio:14000},{id:"c2",nombre:"Ebi (Langostinos)",precio:14000},{id:"c3",nombre:"Tako (Pulpo)",precio:23000},{id:"c4",nombre:"Salmón Ahumado",precio:19000},{id:"c5",nombre:"Atún Rojo",precio:22000},{id:"c6",nombre:"Mixto (Salmón, Langostinos y Atún Rojo)",precio:19000}]}]},
+    {id:"n2",nombre:"Geishas (6u.)",  desc:"Rolls sin arroz, varios sabores.",                           precio:16000,
+    opciones:[{id:"og2",nombre:"Elegí la variante",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"Sake (Salmón)",precio:17000},{id:"c2",nombre:"Ebi (Langostinos envueltos en salmón crudo)",precio:17000},{id:"c3",nombre:"Atún Rojo",precio:22000},{id:"c4",nombre:"Vegetariana",precio:16000},{id:"c5",nombre:"Mixta (Salmón, Langostinos y Atún Rojo)",precio:20000}]}]},
+    {id:"n3",nombre:"Sashimi (15u.)", desc:"Cortes de Salmón crudo, Pulpo, Atún Rojo y/o Langostinos.", precio:50000,
+    opciones:[{id:"og3",nombre:"Elegí la variedad",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"Sake (Salmón)",precio:57000},{id:"c2",nombre:"Tako (Pulpo)",precio:72000},{id:"c3",nombre:"Ebi (Langostinos)",precio:50000},{id:"c4",nombre:"Atún Rojo",precio:67000},{id:"c5",nombre:"Mixto (Sake y Tako)",precio:65000},{id:"c6",nombre:"Mixto (Sake y Atún Rojo)",precio:61000}]}]},
   ]},
   { id:"combinados", nombre:"Combinados", emoji:"🎁", desc:"Combinados de Sushi", items:[
-    {id:"c1",nombre:"Premium",      desc:"Nigiris de Salmón y Atún. Sashimi. Ceviche Roll. Pinku Ahumado. Supremo Roll.", precio:46000},
-    {id:"c2",nombre:"Cocido+Crudo", desc:"Nigiris de Salmón y Langostinos, Philadelphia Roll, Ebi Philadelphia + 1 a elección.", precio:37000},
-    {id:"c3",nombre:"Todo Salmón",  desc:"Sashimi, Nigiris, Geishas, Philadelphia Roll, New York.", precio:41000},
+    {id:"c1",nombre:"Premium",      desc:"Nigiris de Salmón y Atún. Sashimi. Ceviche Roll. Pinku Ahumado. Supremo Roll.", precio:46000,
+    opciones:[{id:"og4",nombre:"Elegí el tamaño",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"20 Unidades",precio:46000},{id:"c2",nombre:"30 Unidades",precio:73000},{id:"c3",nombre:"40 Unidades",precio:79000}]},{id:"og5",nombre:"Salsas",tipo:"checkbox",obligatorio:false,choices:SALSAS_COMUNES}]},
+    {id:"c2",nombre:"Cocido+Crudo", desc:"Nigiris de Salmón y Langostinos, Philadelphia Roll, Ebi Philadelphia + 1 a elección.", precio:37000,
+    opciones:[{id:"og6",nombre:"Elegí el tamaño",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"16 Unidades",precio:37000},{id:"c2",nombre:"30 Unidades",precio:64000},{id:"c3",nombre:"40 Unidades",precio:70000}]},{id:"og7",nombre:"Salsas",tipo:"checkbox",obligatorio:false,choices:SALSAS_COMUNES},{id:"og8",nombre:"Sabor de las piezas a elección",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"Ginger",precio:0},{id:"c2",nombre:"Tuna",precio:0},{id:"c3",nombre:"Kanikama",precio:0}]}]},
+    {id:"c3",nombre:"Todo Salmón",  desc:"Sashimi, Nigiris, Geishas, Philadelphia Roll, New York.", precio:41000,
+    opciones:[{id:"og9",nombre:"Elegí el tamaño",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"15 Unidades",precio:41000},{id:"c2",nombre:"20 Unidades",precio:46000},{id:"c3",nombre:"30 Unidades",precio:68000},{id:"c4",nombre:"40 Unidades",precio:74000}]},{id:"og10",nombre:"Salsas",tipo:"checkbox",obligatorio:false,choices:SALSAS_COMUNES}]},
   ]},
   { id:"temaki", nombre:"Temaki y Chirashi", emoji:"🌮", desc:"Cono o ensalada", items:[
-    {id:"tm1",nombre:"Temaki (2u.)",  desc:"Sake: Salmón crudo, Philadelphia, Palta. / Ebi: Langostinos, Pepino, Palta.", precio:20000},
+    {id:"tm1",nombre:"Temaki (2u.)",  desc:"Sake: Salmón crudo, Philadelphia, Palta. / Ebi: Langostinos, Pepino, Palta.", precio:19000,
+    opciones:[{id:"og11",nombre:"Elegí la variante",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"Sake (Salmón, 2u.)",precio:20000},{id:"c2",nombre:"Ebi (Langostinos, 2u.)",precio:19000}]}]},
     {id:"tm2",nombre:"Poke Bowl",     desc:"Arroz, Atún rojo, Palta, Cebolla morada, Tomate, Pepino.", precio:48000},
     {id:"tm3",nombre:"Chirashi",      desc:"Arroz, Salmón ahumado, Salmón crudo, Kanikama, Langostinos, Tamagoyaki...", precio:44000},
     {id:"tm4",nombre:"Ensalada Sake", desc:"Arroz, Salmón, Palta y Queso Philadelphia.", precio:38000},
   ]},
   { id:"teppan", nombre:"Teppan", emoji:"🍳", desc:"Cocina a la plancha", items:[
-    {id:"tp1",nombre:"Yakimeshi",       desc:"Arroz a la plancha con vegetales e ingredientes a elección.", precio:23000},
+    {id:"tp1",nombre:"Yakimeshi",       desc:"Arroz a la plancha con vegetales e ingredientes a elección.", precio:23000,
+    opciones:[{id:"og12",nombre:"Elegí la variante",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"Yakimeshi de Pollo",precio:25000},{id:"c2",nombre:"Yakimeshi de Pollo y Almendras",precio:27000},{id:"c3",nombre:"Yakimeshi de Cerdo",precio:25000},{id:"c4",nombre:"Yakimeshi de Lomo",precio:27000},{id:"c5",nombre:"Yakimeshi de Camarones",precio:30000},{id:"c6",nombre:"Yakimeshi de Salmón y Pesca Blanca",precio:32000},{id:"c7",nombre:"Yakimeshi Umi",precio:30000},{id:"c8",nombre:"Yakimeshi de Vegetales",precio:23000}]},{id:"og13",nombre:"Agregá ingredientes",tipo:"checkbox",obligatorio:false,choices:INGREDIENTES_WOK}]},
     {id:"tp2",nombre:"Salmón Teriyaki", desc:"Salmón a la plancha laqueado con teriyaki, arroz y vegetales.", precio:52000},
     {id:"tp3",nombre:"Oishi",           desc:"Langostinos rebozados en panko. Arroz yamani, verduras y hongos.", precio:38000},
     {id:"tp4",nombre:"Cerdo Tonkatsu",  desc:"Cerdo rebozado en panko, salsa tonkatsu y sésamo. Repollo y nabo.", precio:44000},
@@ -77,16 +105,23 @@ const MENU_DEFAULT = [
     {id:"cv1",nombre:"Ceviche", desc:"Pescado o marisco crudo marinado en jugo de lima, rocoto, cebolla morada y cilantro.", precio:42000},
   ]},
   { id:"wok", nombre:"Wok", emoji:"🥢", desc:"Platos al Wok", items:[
-    {id:"w1",nombre:"Yakisoba",   desc:"Fideos soba salteados con vegetales e ingredientes a elección.", precio:23000},
-    {id:"w2",nombre:"Chop Suey", desc:"Vegetales salteados al wok con salsa de soja e ingredientes a elección.", precio:23000},
-    {id:"w3",nombre:"Chap Chae", desc:"Fideos de arroz, lomo, pollo, vegetales, huevo y hongos salteados al wok.", precio:25000},
+    {id:"w1",nombre:"Yakisoba",   desc:"Fideos soba salteados con vegetales e ingredientes a elección.", precio:23000,
+    opciones:[{id:"og14",nombre:"Elegí la variante",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"Yakisoba de Pollo",precio:25000},{id:"c2",nombre:"Yakisoba de Pollo y Almendras",precio:27000},{id:"c3",nombre:"Yakisoba de Cerdo",precio:0,disponible:false},{id:"c4",nombre:"Yakisoba de Lomo",precio:27000},{id:"c5",nombre:"Yakisoba de Camarones",precio:30000},{id:"c6",nombre:"Yakisoba de Pescado",precio:32000},{id:"c7",nombre:"Yakisoba Mizu",precio:30000},{id:"c8",nombre:"Yakisoba de Vegetales",precio:23000}]},{id:"og15",nombre:"Agregá ingredientes",tipo:"checkbox",obligatorio:false,choices:INGREDIENTES_WOK}]},
+    {id:"w2",nombre:"Chop Suey", desc:"Vegetales salteados al wok con salsa de soja e ingredientes a elección.", precio:23000,
+    opciones:[{id:"og16",nombre:"Elegí la variante",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"Chop Suey de Vegetales y Hongos",precio:25000},{id:"c2",nombre:"Chop Suey de Pollo",precio:25000},{id:"c3",nombre:"Chop Suey de Vegetales",precio:23000}]},{id:"og17",nombre:"Agregá ingredientes",tipo:"checkbox",obligatorio:false,choices:INGREDIENTES_WOK}]},
+    {id:"w3",nombre:"Chap Chae", desc:"Fideos de arroz, lomo, pollo, vegetales, huevo y hongos salteados al wok.", precio:25000,
+    opciones:[{id:"og18",nombre:"Agregá ingredientes",tipo:"checkbox",obligatorio:false,choices:INGREDIENTES_WOK}]},
   ]},
   { id:"aperitivos", nombre:"Aperitivos Calientes", emoji:"🔥", desc:"", items:[
     {id:"a1",nombre:"Ika Rabas",                        desc:"Aros fritos de Calamar.", precio:21000},
-    {id:"a2",nombre:"Gyozas (5u.)",                     desc:"5 Empanadas de cerdo y vegetales a la plancha.", precio:8000},
-    {id:"a3",nombre:"Spring Rolls de Carne (2u.)",      desc:"2 Arrolladitos primavera de carne con Salsa agridulce.", precio:6000},
-    {id:"a4",nombre:"Spring Rolls Vegetarianos (2u.)",  desc:"2 Arrolladitos primavera vegetarianos con Salsa agridulce.", precio:6000},
-    {id:"a5",nombre:"Ebi Furai (9u.)",                  desc:"9 Langostinos apanados en Panko y Fritos.", precio:24000},
+    {id:"a2",nombre:"Gyozas (5u.)",                     desc:"5 Empanadas de cerdo y vegetales a la plancha.", precio:8000,
+    opciones:[{id:"og19",nombre:"Salsas",tipo:"checkbox",obligatorio:false,choices:SALSAS_COMUNES}]},
+    {id:"a3",nombre:"Spring Rolls de Carne (2u.)",      desc:"2 Arrolladitos primavera de carne con Salsa agridulce.", precio:6000,
+    opciones:[{id:"og20",nombre:"Salsas",tipo:"checkbox",obligatorio:false,choices:SALSAS_COMUNES}]},
+    {id:"a4",nombre:"Spring Rolls Vegetarianos (2u.)",  desc:"2 Arrolladitos primavera vegetarianos con Salsa agridulce.", precio:6000,
+    opciones:[{id:"og21",nombre:"Salsas",tipo:"checkbox",obligatorio:false,choices:SALSAS_COMUNES}]},
+    {id:"a5",nombre:"Ebi Furai (9u.)",                  desc:"9 Langostinos apanados en Panko y Fritos.", precio:24000,
+    opciones:[{id:"og22",nombre:"Salsas",tipo:"checkbox",obligatorio:false,choices:SALSAS_COMUNES}]},
     {id:"a6",nombre:"Ostras Frescas Flambée (5u.)",     desc:"5 Ostras frescas, estilo Acevichadas y Flambeadas.", precio:15000},
     {id:"a7",nombre:"Ostras Empanadas (5u.)",            desc:"5 Ostras empanadas en Panko, con Salsa de miel y Mostaza.", precio:15000},
   ]},
@@ -340,6 +375,43 @@ function AdminLogin({ menu, saveMenu, appConfig, saveAppConfig }) {
   );
 }
 
+// ── Helpers para opciones ─────────────────────────────────────────────────
+const calcOpcionesPrice = (item, selecciones) => {
+  if (!item.opciones?.length || !selecciones?.length) return item.precio;
+  let total = 0;
+  item.opciones.forEach(grupo => {
+    const sel = selecciones.find(s => s.grupoId === grupo.id);
+    if (!sel) return;
+    if (grupo.tipo === "radio") {
+      const choice = grupo.choices.find(c => c.id === sel.choiceIds[0]);
+      if (choice) total += choice.precio;
+    } else {
+      sel.choiceIds.forEach(cid => {
+        const choice = grupo.choices.find(c => c.id === cid);
+        if (choice) total += choice.precio;
+      });
+    }
+  });
+  return total;
+};
+
+const getCartKey = (item, selecciones) => {
+  if (!item.opciones?.length) return item.id;
+  return item.id + "|" + (selecciones||[]).map(s=>s.grupoId+":"+s.choiceIds.join(",")).join("|");
+};
+
+const seleccionesLabel = (item, selecciones) => {
+  if (!selecciones?.length) return "";
+  const parts = [];
+  item.opciones?.forEach(grupo => {
+    const sel = selecciones.find(s=>s.grupoId===grupo.id);
+    if (!sel || !sel.choiceIds.length) return;
+    const names = sel.choiceIds.map(cid => grupo.choices.find(c=>c.id===cid)?.nombre).filter(Boolean);
+    if (names.length) parts.push(names.join(", "));
+  });
+  return parts.join(" · ");
+};
+
 function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   // Detect mesa from URL: ?mesa=m5
@@ -375,6 +447,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const [orderTotal, setOrderTotal] = useState(0);
   const tabsRef = useRef(null);
   const sRefs   = useRef({});
+  const [modalItem, setModalItem] = useState(null);
   const menuFiltered = search.trim()
     ? menuVis.map(c=>({...c,items:c.items.filter(i=>i.nombre.toLowerCase().includes(search.toLowerCase())||i.desc.toLowerCase().includes(search.toLowerCase()))}))
         .filter(c=>c.items.length>0)
@@ -393,10 +466,15 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
     sRefs.current[id]?.scrollIntoView({behavior:"smooth",block:"start"});
     tabsRef.current?.querySelector(`[data-tid="${id}"]`)?.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"});
   };
-  const add    = (item) => setCart(p => { const ex=p.find(c=>c.item.id===item.id); return ex?p.map(c=>c.item.id===item.id?{...c,qty:c.qty+1}:c):[...p,{item,qty:1}]; });
-  const setQty = (id,q) => setCart(p => q<=0?p.filter(c=>c.item.id!==id):p.map(c=>c.item.id===id?{...c,qty:q}:c));
-  const getQty = (id)   => cart.find(c=>c.item.id===id)?.qty||0;
-  const total      = cart.reduce((s,c) => s+c.item.precio*c.qty, 0);
+  const add = (item, selecciones=null, precioUnitario=null) => {
+    const key = getCartKey(item, selecciones);
+    const precio = precioUnitario ?? item.precio;
+    setCart(p => { const ex=p.find(c=>c.cartKey===key); return ex?p.map(c=>c.cartKey===key?{...c,qty:c.qty+1}:c):[...p,{item,qty:1,selecciones,precioUnitario:precio,cartKey:key}]; });
+  };
+  const setQty = (key,q) => setCart(p => q<=0?p.filter(c=>c.cartKey!==key):p.map(c=>c.cartKey===key?{...c,qty:q}:c));
+  const getQty = (item) => { if(!item.opciones?.length) return cart.find(c=>c.item.id===item.id&&!c.selecciones?.length)?.qty||0; return 0; };
+  const handleAddItem = (item) => { if(item.opciones?.length) { setModalItem(item); } else { add(item); } };
+  const total      = cart.reduce((s,c) => s+(c.precioUnitario??c.item.precio)*c.qty, 0);
   const totalConRecargo = form.pago==="tarjeta" ? Math.round(total*(1+appConfig.recargoMP)) : total;
   const count      = cart.reduce((s,c) => s+c.qty, 0);
   const canConfirm = mesaQR ? true : (form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim()))));
@@ -606,16 +684,17 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         <Card>
           <Label>TU PEDIDO</Label>
           {cart.map(c=>(
-            <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid var(--border)"}}>
+            <div key={c.cartKey} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"10px 0",borderBottom:"1px solid var(--border)"}}>
               <div style={{flex:1,paddingRight:12}}>
                 <div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{c.item.nombre}</div>
-                <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{fmt(c.item.precio)} c/u</div>
+                {c.selecciones&&<div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{seleccionesLabel(c.item,c.selecciones)}</div>}
+                <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{fmt(c.precioUnitario??c.item.precio)} c/u</div>
               </div>
               <div style={{display:"flex",alignItems:"center",gap:8}}>
-                <button className="btn" onClick={()=>setQty(c.item.id,c.qty-1)} style={{width:30,height:30,borderRadius:8,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                <button className="btn" onClick={()=>setQty(c.cartKey,c.qty-1)} style={{width:30,height:30,borderRadius:8,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                 <span style={{fontSize:15,fontWeight:800,minWidth:22,textAlign:"center",color:"var(--red)"}}>{c.qty}</span>
-                <button className="btn" onClick={()=>add(c.item)} style={{width:30,height:30,borderRadius:8,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-                <span style={{fontSize:14,fontWeight:700,color:"var(--red)",minWidth:72,textAlign:"right"}}>{fmt(c.item.precio*c.qty)}</span>
+                <button className="btn" onClick={()=>add(c.item,c.selecciones,c.precioUnitario)} style={{width:30,height:30,borderRadius:8,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                <span style={{fontSize:14,fontWeight:700,color:"var(--red)",minWidth:72,textAlign:"right"}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
               </div>
             </div>
           ))}
@@ -832,14 +911,14 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:15,fontWeight:600,lineHeight:1.35,color:"var(--text)"}}>{item.nombre}</div>
                     {item.desc&&<div style={{fontSize:12,color:"var(--text3)",lineHeight:1.5,marginTop:3}}>{item.desc}</div>}
-                    <div className="sh" style={{fontSize:18,color:"var(--red)",marginTop:6}}>{fmt(item.precio)}</div>
+                    <div className="sh" style={{fontSize:18,color:"var(--red)",marginTop:6}}>{item.opciones?.length?"desde ":""}{fmt(item.precio)}</div>
                   </div>
                   {qty===0
-                    ?<button className="btn" onClick={()=>add(item)} style={{width:40,height:40,borderRadius:10,background:"var(--red-light)",border:"2px solid var(--red-border)",color:"var(--red)",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:700}}>+</button>
+                    ?<button className="btn" onClick={()=>handleAddItem(item)} style={{width:40,height:40,borderRadius:10,background:"var(--red-light)",border:"2px solid var(--red-border)",color:"var(--red)",fontSize:item.opciones?.length?20:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:700}}>{item.opciones?.length?"Ver opciones":"+"}</button>
                     :<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
                       <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:32,height:32,borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                       <span style={{fontSize:17,fontWeight:900,minWidth:22,textAlign:"center",color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}>{qty}</span>
-                      <button className="btn" onClick={()=>add(item)} style={{width:32,height:32,borderRadius:9,background:"var(--red)",color:"#fff",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                      <button className="btn" onClick={()=>handleAddItem(item)} style={{width:32,height:32,borderRadius:9,background:"var(--red)",color:"#fff",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
                     </div>}
                 </div>
               </div>
@@ -856,6 +935,89 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           </button>
         </div>
       )}
+      {modalItem&&<ItemModal item={modalItem} onClose={()=>setModalItem(null)} onConfirm={(sel,precio)=>{add(modalItem,sel,precio);setModalItem(null);}}/>}
+    </div>
+  );
+}
+
+
+/* ══ ITEM MODAL ════════════════════════════════════════════════ */
+function ItemModal({ item, onClose, onConfirm }) {
+  const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
+  const [selecciones, setSelecciones] = useState(
+    (item.opciones||[]).map(g => ({grupoId:g.id, choiceIds:[]}))
+  );
+
+  const toggle = (grupoId, choiceId, tipo) => {
+    setSelecciones(prev => prev.map(s => {
+      if (s.grupoId !== grupoId) return s;
+      if (tipo === "radio") return {...s, choiceIds:[choiceId]};
+      const has = s.choiceIds.includes(choiceId);
+      return {...s, choiceIds: has ? s.choiceIds.filter(c=>c!==choiceId) : [...s.choiceIds, choiceId]};
+    }));
+  };
+
+  const precioActual = calcOpcionesPrice(item, selecciones);
+  const canAdd = (item.opciones||[]).every(g => {
+    if (!g.obligatorio) return true;
+    const sel = selecciones.find(s=>s.grupoId===g.id);
+    return sel && sel.choiceIds.length > 0;
+  });
+
+  return (
+    <div style={{position:"fixed",inset:0,zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center",background:"rgba(0,0,0,.55)"}} onClick={onClose}>
+      <div className="slide-up" style={{background:"var(--surface)",borderRadius:"20px 20px 0 0",width:"100%",maxWidth:480,maxHeight:"90vh",overflow:"hidden",display:"flex",flexDirection:"column"}} onClick={e=>e.stopPropagation()}>
+        {/* Header */}
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"16px 18px 12px",borderBottom:"1px solid var(--border)",flexShrink:0}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{fontSize:17,fontWeight:700,color:"var(--text)",marginBottom:2}}>{item.nombre}</div>
+            {item.desc&&<div style={{fontSize:12,color:"var(--text3)",lineHeight:1.4}}>{item.desc}</div>}
+          </div>
+          <button className="btn" onClick={onClose} style={{width:32,height:32,borderRadius:"50%",background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:12}}>×</button>
+        </div>
+        {/* Imagen si tiene */}
+        {item.imagen&&<div style={{width:"100%",height:180,overflow:"hidden",flexShrink:0}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
+        {/* Opciones */}
+        <div style={{overflowY:"auto",flex:1,padding:"0 0 8px"}}>
+          {(item.opciones||[]).map(grupo => (
+            <div key={grupo.id} style={{borderBottom:"1px solid var(--border)"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 18px 10px"}}>
+                <div style={{fontSize:14,fontWeight:700,color:"var(--text)"}}>{grupo.nombre}</div>
+                {grupo.obligatorio&&<span style={{fontSize:10,fontWeight:700,color:"#fff",background:"var(--red)",padding:"2px 8px",borderRadius:20}}>Obligatorio</span>}
+              </div>
+              {grupo.choices.map(choice => {
+                const sel = selecciones.find(s=>s.grupoId===grupo.id);
+                const isSelected = sel?.choiceIds.includes(choice.id);
+                const noDisp = choice.disponible === false;
+                return (
+                  <div key={choice.id} onClick={()=>!noDisp&&toggle(grupo.id,choice.id,grupo.tipo)}
+                    style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 18px",borderTop:"1px solid var(--border)",cursor:noDisp?"not-allowed":"pointer",opacity:noDisp?.4:1,background:isSelected?"var(--red-light)":"transparent",transition:"background .15s"}}>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{width:20,height:20,borderRadius:grupo.tipo==="radio"?"50%":"5px",border:`2px solid ${isSelected?"var(--red)":"var(--border2)"}`,background:isSelected?"var(--red)":"transparent",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all .15s"}}>
+                        {isSelected&&<div style={{width:8,height:8,borderRadius:grupo.tipo==="radio"?"50%":"2px",background:"#fff"}}/>}
+                      </div>
+                      <div>
+                        <div style={{fontSize:13,fontWeight:isSelected?600:400,color:noDisp?"var(--text4)":"var(--text)"}}>{choice.nombre}</div>
+                        {noDisp&&<div style={{fontSize:11,color:"var(--text4)"}}>No disponible</div>}
+                      </div>
+                    </div>
+                    <div style={{fontSize:13,fontWeight:600,color:isSelected?"var(--red)":"var(--text3)",flexShrink:0,marginLeft:8}}>
+                      {choice.precio>0?(grupo.tipo==="checkbox"?`+ ${fmt(choice.precio)}`:fmt(choice.precio)):"Incluido"}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+        {/* Footer */}
+        <div style={{padding:"12px 18px",borderTop:"1px solid var(--border)",flexShrink:0}}>
+          <button className="btn" onClick={()=>canAdd&&onConfirm(selecciones,precioActual)}
+            style={{width:"100%",padding:"14px 0",borderRadius:14,background:canAdd?"var(--red)":"var(--border)",color:canAdd?"#fff":"var(--text4)",fontSize:16,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,transition:"all .2s",cursor:canAdd?"pointer":"not-allowed"}}>
+            {canAdd?`AGREGAR · ${fmt(precioActual)}`:"Completá las opciones obligatorias"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
@@ -867,12 +1029,14 @@ const printTicket = (order) => {
   const linea = "-".repeat(32);
   const dir = [order.calle, order.numero, order.entrecalle?"e/"+order.entrecalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
 
-  const itemsHtml = (order.items||[]).map(c =>
-    `<div style="display:flex;justify-content:space-between;margin:2px 0">
-      <span>${c.qty},00 ${c.item.nombre.toUpperCase().substring(0,22)}</span>
-      <span>${fmt(c.item.precio*c.qty)}</span>
-    </div>`
-  ).join("");
+  const itemsHtml = (order.items||[]).map(c => {
+    const precio = c.precioUnitario ?? c.item.precio;
+    const label = c.selecciones?.length ? seleccionesLabel(c.item,c.selecciones) : "";
+    return `<div style="display:flex;justify-content:space-between;margin:2px 0">
+      <span>${c.qty},00 ${c.item.nombre.toUpperCase().substring(0,20)}</span>
+      <span>${fmt(precio*c.qty)}</span>
+    </div>${label?`<div style="font-size:9px;color:#555;padding-left:8px;margin-bottom:2px">${label.substring(0,40)}</div>`:""}`;
+  }).join("");
 
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>
@@ -1430,9 +1594,12 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                   <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
                     <div style={{paddingTop:12,marginBottom:10}}>
                       {order.items?.map(c=>(
-                        <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
-                          <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
-                          <span style={{color:"var(--text3)"}}>{fmt(c.item.precio*c.qty)}</span>
+                        <div key={c.cartKey||c.item.id} style={{borderBottom:"1px solid var(--border)",padding:"4px 0"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}>
+                            <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
+                            <span style={{color:"var(--text3)"}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
+                          </div>
+                          {c.selecciones&&<div style={{fontSize:11,color:"var(--text4)",paddingLeft:14}}>{seleccionesLabel(c.item,c.selecciones)}</div>}
                         </div>
                       ))}
                     </div>
@@ -1893,10 +2060,16 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
   const [search,   setSearch]   = useState("");
   const [lastOrders, setLastOrders] = useState([]);
 
-  const add    = (item) => setCart(p => { const ex=p.find(c=>c.item.id===item.id); return ex?p.map(c=>c.item.id===item.id?{...c,qty:c.qty+1}:c):[...p,{item,qty:1}]; });
-  const setQty = (id,q) => setCart(p => q<=0?p.filter(c=>c.item.id!==id):p.map(c=>c.item.id===id?{...c,qty:q}:c));
-  const getQty = (id)   => cart.find(c=>c.item.id===id)?.qty||0;
-  const total  = cart.reduce((s,c)=>s+c.item.precio*c.qty,0);
+  const [modalAdminItem, setModalAdminItem] = useState(null);
+  const add = (item, selecciones=null, precioUnitario=null) => {
+    const key = getCartKey(item, selecciones);
+    const precio = precioUnitario ?? item.precio;
+    setCart(p => { const ex=p.find(c=>c.cartKey===key); return ex?p.map(c=>c.cartKey===key?{...c,qty:c.qty+1}:c):[...p,{item,qty:1,selecciones,precioUnitario:precio,cartKey:key}]; });
+  };
+  const setQty = (key,q) => setCart(p => q<=0?p.filter(c=>c.cartKey!==key):p.map(c=>c.cartKey===key?{...c,qty:q}:c));
+  const getQty = (item) => { if(!item.opciones?.length) return cart.find(c=>c.item.id===item.id&&!c.selecciones?.length)?.qty||0; return 0; };
+  const handleAddAdminItem = (item) => { if(item.opciones?.length) { setModalAdminItem(item); } else { add(item); } };
+  const total  = cart.reduce((s,c)=>s+(c.precioUnitario??c.item.precio)*c.qty,0);
   const fmt    = (n) => `$${Number(n).toLocaleString("es-AR")}`;
 
   const menuFiltered = search.trim()
@@ -1985,11 +2158,12 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
                       <div style={{fontSize:12,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{fmt(item.precio)}</div>
                     </div>
                     {qty===0
-                      ?<button className="btn" onClick={()=>add(item)} style={{width:32,height:32,borderRadius:8,background:"var(--red-light)",border:"1px solid var(--red-border)",color:"var(--red)",fontSize:20,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                      ?<button className="btn" onClick={()=>handleAddAdminItem(item)} style={{width:32,height:32,borderRadius:8,background:"var(--red-light)",border:"1px solid var(--red-border)",color:"var(--red)",fontSize:item.opciones?.length?14:20,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{item.opciones?.length?"Ver":"+"}
+                      </button>
                       :<div style={{display:"flex",alignItems:"center",gap:6}}>
                         <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:28,height:28,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                         <span style={{fontSize:14,fontWeight:800,minWidth:18,textAlign:"center",color:"var(--red)"}}>{qty}</span>
-                        <button className="btn" onClick={()=>add(item)} style={{width:28,height:28,borderRadius:7,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                        <button className="btn" onClick={()=>handleAddAdminItem(item)} style={{width:28,height:28,borderRadius:7,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
                       </div>}
                   </div>
                 );
@@ -2004,9 +2178,12 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
         <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:14,padding:14,marginBottom:14}}>
           <div className="sh" style={{fontSize:13,color:"#16A34A",marginBottom:8}}>PRODUCTOS SELECCIONADOS</div>
           {cart.map(c=>(
-            <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:13,padding:"4px 0",borderBottom:"1px solid #BBF7D0"}}>
-              <span>{c.qty}× {c.item.nombre}</span>
-              <span style={{fontWeight:700}}>{fmt(c.item.precio*c.qty)}</span>
+            <div key={c.cartKey} style={{borderBottom:"1px solid #BBF7D0",padding:"3px 0"}}>
+              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}>
+                <span>{c.qty}× {c.item.nombre}</span>
+                <span style={{fontWeight:700}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
+              </div>
+              {c.selecciones&&<div style={{fontSize:11,color:"#166534",paddingLeft:12}}>{seleccionesLabel(c.item,c.selecciones)}</div>}
             </div>
           ))}
           <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0 0",fontWeight:800,fontSize:16,fontFamily:"'Barlow Condensed',sans-serif"}}>
@@ -2127,6 +2304,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
         style={{width:"100%",padding:"15px 0",borderRadius:14,fontSize:17,fontWeight:800,background:(cart.length&&(mesaId||form.nombre.trim()))?"#16A34A":"var(--border)",color:(cart.length&&(mesaId||form.nombre.trim()))?"#fff":"var(--text4)",boxShadow:(cart.length&&(mesaId||form.nombre.trim()))?"0 6px 20px rgba(22,163,74,.3)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
         {loading?"CREANDO PEDIDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
       </button>
+      {modalAdminItem&&<ItemModal item={modalAdminItem} onClose={()=>setModalAdminItem(null)} onConfirm={(sel,precio)=>{add(modalAdminItem,sel,precio);setModalAdminItem(null);}}/>}
     </div>
   );
 }
