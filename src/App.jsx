@@ -570,9 +570,14 @@ function MapPicker({ onSelect, onClose }) {
                   </div>
                   <div style={{fontSize:18,fontWeight:800,color:"#16A34A",fontFamily:"'Barlow Condensed',sans-serif"}}>+${Number(addr.zona.precio).toLocaleString("es-AR")}</div>
                 </div>
-              : <div style={{background:"#FFF1F2",border:"1px solid #FECDD3",borderRadius:10,padding:"8px 12px",marginBottom:10}}>
-                  <div style={{fontSize:11,fontWeight:700,color:"#CC1F1F",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>⚠ FUERA DE ZONA</div>
-                  <div style={{fontSize:12,color:"#991B1B",marginTop:2}}>No hacemos delivery a esta dirección</div>
+              : <div style={{background:"#FFF1F2",border:"1px solid #FECDD3",borderRadius:10,padding:"10px 12px",marginBottom:10}}>
+                  <div style={{fontSize:11,fontWeight:700,color:"#CC1F1F",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>⚠ FUERA DE ZONA DE COBERTURA</div>
+                  <div style={{fontSize:12,color:"#991B1B",marginTop:2,marginBottom:10}}>Tu dirección no está dentro de nuestras zonas de delivery.</div>
+                  <a href={`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent("Hola! Quiero hacer un pedido pero mi zona no está dentro de la cobertura de envío. Mi dirección es: "+addr.calle+(addr.numero?" "+addr.numero:"")+", "+addr.barrio+". ¿Pueden ayudarme?")}`}
+                    target="_blank" rel="noreferrer"
+                    style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"10px 0",borderRadius:10,background:"#16A34A",color:"#fff",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",textDecoration:"none"}}>
+                    💬 Consultar por WhatsApp
+                  </a>
                 </div>
             }
             <button className="btn" onClick={()=>addr.zona&&onSelect(addr)}
@@ -958,12 +963,19 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                       </div>
                       <button className="btn" onClick={()=>setShowMap(true)} style={{fontSize:11,color:"#16A34A",background:"transparent",textDecoration:"underline",fontWeight:600}}>Cambiar</button>
                     </div>
-                    :<div style={{background:"#FFF1F2",border:"1px solid #FECDD3",borderRadius:10,padding:"9px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
-                      <div>
-                        <div style={{fontSize:11,fontWeight:700,color:"#CC1F1F",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>⚠ FUERA DE ZONA</div>
-                        <div style={{fontSize:12,color:"#991B1B",marginTop:1}}>No hacemos delivery a esta dirección</div>
+                    :<div style={{background:"#FFF1F2",border:"1px solid #FECDD3",borderRadius:10,padding:"10px 14px",marginBottom:12}}>
+                      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:8}}>
+                        <div>
+                          <div style={{fontSize:11,fontWeight:700,color:"#CC1F1F",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>⚠ FUERA DE ZONA</div>
+                          <div style={{fontSize:12,color:"#991B1B",marginTop:1}}>Tu dirección no tiene cobertura</div>
+                        </div>
+                        <button className="btn" onClick={()=>setShowMap(true)} style={{fontSize:11,color:"#CC1F1F",background:"transparent",textDecoration:"underline",fontWeight:600}}>Cambiar</button>
                       </div>
-                      <button className="btn" onClick={()=>setShowMap(true)} style={{fontSize:11,color:"#CC1F1F",background:"transparent",textDecoration:"underline",fontWeight:600}}>Cambiar</button>
+                      <a href={`https://wa.me/${appConfig.whatsapp}?text=${encodeURIComponent("Hola! Quiero hacer un pedido pero mi zona no está dentro de la cobertura de envío. Mi dirección es: "+form.calle+(form.numero?" "+form.numero:"")+", "+form.barrio+". ¿Pueden ayudarme?")}`}
+                        target="_blank" rel="noreferrer"
+                        style={{display:"flex",alignItems:"center",justifyContent:"center",gap:8,width:"100%",padding:"9px 0",borderRadius:9,background:"#16A34A",color:"#fff",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",textDecoration:"none"}}>
+                        💬 Consultar por WhatsApp
+                      </a>
                     </div>
                   }
               <div style={{display:"flex",gap:8,marginBottom:12}}>
