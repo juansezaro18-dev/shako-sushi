@@ -377,22 +377,25 @@ function AdminLogin({ menu, saveMenu, appConfig, saveAppConfig }) {
 
 // ── Helpers para opciones ─────────────────────────────────────────────────
 const calcOpcionesPrice = (item, selecciones) => {
-  if (!item.opciones?.length || !selecciones?.length) return item.precio;
-  let total = 0;
-  item.opciones.forEach(grupo => {
-    const sel = selecciones.find(s => s.grupoId === grupo.id);
-    if (!sel) return;
-    if (grupo.tipo === "radio") {
+  if (!item.opciones?.length) return item.precio;
+  // Check if there's any radio (obligatorio) group — that sets the base price
+  const hasRadioBase = item.opciones.some(g => g.tipo === "radio" && g.obligatorio);
+  let base = hasRadioBase ? 0 : item.precio; // if no obligatorio radio, use item.precio as base
+  let extras = 0;
+  (item.opciones||[]).forEach(grupo => {
+    const sel = selecciones?.find(s => s.grupoId === grupo.id);
+    if (!sel || !sel.choiceIds.length) return;
+    if (grupo.tipo === "radio" && grupo.obligatorio) {
       const choice = grupo.choices.find(c => c.id === sel.choiceIds[0]);
-      if (choice) total += choice.precio;
+      if (choice) base = choice.precio; // obligatorio radio sets the base
     } else {
       sel.choiceIds.forEach(cid => {
         const choice = grupo.choices.find(c => c.id === cid);
-        if (choice) total += choice.precio;
+        if (choice) extras += choice.precio;
       });
     }
   });
-  return total;
+  return base + extras;
 };
 
 const getCartKey = (item, selecciones) => {
