@@ -907,7 +907,21 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           if(!promoList.length) return null;
           const promoItems = promoList.map(p=>{
             const item = menu.flatMap(c=>c.items).find(i=>i.id===p.itemId&&i.disponible!==false);
-            return item ? {item, p} : null;
+            if (!item) return null;
+            // Build selecciones if a variant was chosen
+            let selecciones = null;
+            let precioVariante = null;
+            if (p.varianteId) {
+              const grupoOblig = item.opciones?.find(g=>g.tipo==="radio"&&g.obligatorio);
+              if (grupoOblig) {
+                const choice = grupoOblig.choices.find(ch=>ch.id===p.varianteId);
+                if (choice) {
+                  selecciones = item.opciones.map(g=>({grupoId:g.id,choiceIds:g.id===grupoOblig.id?[choice.id]:[]}));
+                  precioVariante = choice.precio;
+                }
+              }
+            }
+            return {item, p, selecciones, precioVariante};
           }).filter(Boolean);
           if(!promoItems.length) return null;
           return(
@@ -917,25 +931,35 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                 <span className="sh" style={{fontSize:16,color:"var(--text)",letterSpacing:.5}}>PROMOCIONES</span>
               </div>
               <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8}}>
-                {promoItems.map(({item,p})=>{
+                {promoItems.map(({item,p,selecciones,precioVariante})=>{
                   const qty=getQty(item);
-                  const precioMostrar = p.precioPromo||item.precio;
+                  const precioBase = precioVariante || item.precio;
+                  const precioMostrar = p.precioPromo || precioBase;
                   const handlePromoAdd = () => {
-                    if(item.opciones?.length) { setModalItem(item); }
-                    else { add(item, null, precioMostrar); }
+                    if(selecciones) {
+                      // Variant already chosen — add directly
+                      add(item, selecciones, precioMostrar);
+                    } else if(item.opciones?.length) {
+                      setModalItem(item);
+                    } else {
+                      add(item, null, precioMostrar);
+                    }
                   };
                   return(
                     <div key={item.id} style={{flexShrink:0,width:150,background:"var(--surface)",border:"2px solid #FDE68A",borderRadius:14,overflow:"hidden",boxShadow:"0 2px 8px rgba(245,158,11,.15)"}}>
                       {item.imagen&&<div style={{height:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
                       <div style={{padding:"10px 10px 8px"}}>
-                        <div style={{fontSize:12,fontWeight:700,color:"var(--text)",lineHeight:1.3,marginBottom:2}}>{item.nombre}</div>
+                        <div style={{fontSize:12,fontWeight:700,color:"var(--text)",lineHeight:1.3,marginBottom:2}}>
+                          {item.nombre}
+                          {selecciones&&p.varianteId&&(()=>{const g=item.opciones?.find(gr=>gr.tipo==="radio"&&gr.obligatorio);const ch=g?.choices?.find(c=>c.id===p.varianteId);return ch?<div style={{fontSize:10,color:"var(--text3)",fontWeight:400}}>{ch.nombre}</div>:null;})()}
+                        </div>
                         {p.etiqueta&&<div style={{fontSize:10,fontWeight:700,color:"#D97706",marginBottom:4}}>{p.etiqueta}</div>}
                         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
                           {p.precioPromo&&p.precioPromo<item.precio&&<span style={{fontSize:11,color:"var(--text4)",textDecoration:"line-through"}}>{fmt(item.precio)}</span>}
                           <span className="sh" style={{fontSize:14,color:"#D97706"}}>{fmt(precioMostrar)}</span>
                         </div>
                         {qty===0
-                          ?<button className="btn" onClick={handlePromoAdd} style={{width:"100%",padding:"7px 0",borderRadius:8,background:"#FEF3C7",border:"1px solid #FDE68A",color:"#D97706",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{item.opciones?.length?"Ver opciones":"+"}</button>
+                          ?<button className="btn" onClick={handlePromoAdd} style={{width:"100%",padding:"7px 0",borderRadius:8,background:"#FEF3C7",border:"1px solid #FDE68A",color:"#D97706",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{(!selecciones&&item.opciones?.some(g=>g.obligatorio))?"Ver opciones":"+"}</button>
                           :<div style={{display:"flex",alignItems:"center",gap:6}}>
                             <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:26,height:26,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                             <span style={{fontSize:14,fontWeight:800,minWidth:16,textAlign:"center",color:"#D97706"}}>{qty}</span>
@@ -2234,6 +2258,9 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
         {(cfg.promociones||[]).map((p,i)=>{
           const allItems = menu.flatMap(c=>c.items);
           const itemEncontrado = allItems.find(it=>it.id===p.itemId);
+          // Get obligatorio radio group for variant selection
+          const grupoOblig = itemEncontrado?.opciones?.find(g=>g.tipo==="radio"&&g.obligatorio);
+          const varianteSelec = grupoOblig?.choices?.find(ch=>ch.id===p.varianteId);
           return(
             <div key={i} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",marginBottom:8,border:"1px solid var(--border)"}}>
               {/* Buscador por nombre */}
@@ -2242,20 +2269,17 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
                 <div style={{position:"relative"}}>
                   <input
                     value={p._busqueda!==undefined?p._busqueda:(itemEncontrado?itemEncontrado.nombre:"")}
-                    onChange={e=>{
-                      setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,_busqueda:e.target.value,itemId:""}:x)}));
-                    }}
+                    onChange={e=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,_busqueda:e.target.value,itemId:"",varianteId:""}:x)}))}
                     placeholder="Escribí el nombre del producto..."
                     style={{width:"100%",padding:"9px 11px",background:"var(--surface)",border:`1px solid ${itemEncontrado?"#16A34A":"var(--border)"}`,borderRadius:8,fontSize:13,color:"var(--text)"}}/>
                   {itemEncontrado&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",color:"#16A34A",fontSize:14}}>✓</span>}
-                  {/* Resultados */}
                   {p._busqueda&&!itemEncontrado&&(()=>{
                     const resultados = allItems.filter(it=>it.nombre.toLowerCase().includes(p._busqueda.toLowerCase())).slice(0,5);
                     if(!resultados.length) return <div style={{fontSize:12,color:"var(--text4)",padding:"6px 0"}}>Sin resultados</div>;
                     return(
                       <div style={{position:"absolute",top:"100%",left:0,right:0,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,zIndex:10,boxShadow:"0 4px 12px rgba(0,0,0,.1)",marginTop:2}}>
                         {resultados.map(it=>(
-                          <div key={it.id} onClick={()=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,itemId:it.id,_busqueda:undefined}:x)}))}
+                          <div key={it.id} onClick={()=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,itemId:it.id,varianteId:"",_busqueda:undefined}:x)}))}
                             style={{padding:"8px 12px",cursor:"pointer",borderBottom:"1px solid var(--border)",fontSize:13,color:"var(--text)"}}>
                             {it.nombre} <span style={{fontSize:11,color:"var(--text4)"}}>· {fmt(it.precio)}</span>
                           </div>
@@ -2265,11 +2289,28 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
                   })()}
                 </div>
               </div>
+              {/* Selector de variante — solo si el producto tiene grupo obligatorio */}
+              {grupoOblig&&(
+                <div style={{marginBottom:8}}>
+                  <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>VARIANTE ({grupoOblig.nombre})</div>
+                  <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                    {grupoOblig.choices.filter(ch=>ch.disponible!==false).map(ch=>(
+                      <button key={ch.id} className="btn" onClick={()=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,varianteId:ch.id}:x)}))}
+                        style={{padding:"5px 10px",borderRadius:7,fontSize:11,fontWeight:600,
+                          background:p.varianteId===ch.id?"var(--red-light)":"var(--surface)",
+                          border:`1px solid ${p.varianteId===ch.id?"var(--red)":"var(--border)"}`,
+                          color:p.varianteId===ch.id?"var(--red)":"var(--text3)"}}>
+                        {ch.nombre} · {fmt(ch.precio)}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div style={{display:"flex",gap:8,alignItems:"flex-end"}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>PRECIO PROMO ($)</div>
                   <input type="number" value={p.precioPromo||""} onChange={e=>setCfg(c=>({...c,promociones:c.promociones.map((x,j)=>j===i?{...x,precioPromo:Number(e.target.value)||null}:x)}))}
-                    placeholder="Vacío = precio normal"
+                    placeholder={varianteSelec?fmt(varianteSelec.precio):"Vacío = precio normal"}
                     style={{width:"100%",padding:"7px 9px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:7,fontSize:13,fontWeight:700,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
                 </div>
                 <div style={{flex:1}}>
@@ -2284,7 +2325,7 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
             </div>
           );
         })}
-        <button className="btn" onClick={()=>setCfg(c=>({...c,promociones:[...(c.promociones||[]),{itemId:"",precioPromo:null,etiqueta:""}]}))}
+        <button className="btn" onClick={()=>setCfg(c=>({...c,promociones:[...(c.promociones||[]),{itemId:"",varianteId:"",precioPromo:null,etiqueta:""}]}))}
           style={{width:"100%",padding:"9px 0",borderRadius:10,background:"var(--red-light)",border:"1px dashed var(--red-border)",color:"var(--red)",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
           + AGREGAR PROMOCIÓN
         </button>
