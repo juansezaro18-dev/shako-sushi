@@ -1074,13 +1074,17 @@ const printTicket = (order) => {
   ${dir ? `<div>Direccion: ${dir.toUpperCase()}</div>` : ""}
   ${order.telefono ? `<div>TE: ${order.telefono}</div>` : ""}
   ${order.pago ? `<div>Pago: ${order.pago.toUpperCase()}</div>` : ""}
+  ${order.repartidor ? `<div>Rep.: ${order.repartidor}</div>` : ""}
   ${order.notas ? `<div>Nota: ${order.notas}</div>` : ""}
   <div class="line"></div>
   <div class="row"><span>Cant. Descripcion</span><span>Importe</span></div>
   <div class="line"></div>
   ${itemsHtml}
   <div class="line"></div>
-  <div class="row total"><span>TOTAL:</span><span>${fmt(order.total)}</span></div>
+  <div class="row"><span>Subtotal:</span><span>${fmt(order.total)}</span></div>
+  <div class="row"><span>Envio:</span><span>${fmt(order.envio||0)}</span></div>
+  <div class="line"></div>
+  <div class="row total"><span>TOTAL:</span><span>${fmt(Number(order.total)+(Number(order.envio)||0))}</span></div>
   <div class="line"></div>
   <br/><br/><br/>
   </body></html>`;
