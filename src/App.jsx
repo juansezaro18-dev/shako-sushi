@@ -1740,60 +1740,6 @@ function MenuEditor({ menu, saveMenu }) {
           <button className="btn" onClick={flash} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"8px 16px",color:"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>GUARDAR</button>
         </div>
       </div>
-      {editItem&&(
-        <div ref={editPanelRef} className="slide-up" style={{background:"var(--surface)",border:"2px solid #E9D5FF",borderRadius:16,padding:16,marginBottom:16}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-            <span className="sh" style={{fontSize:16,color:"#7C3AED"}}>✏️ EDITANDO PRODUCTO</span>
-            <button className="btn" onClick={()=>setEditId(null)} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 12px",color:"var(--text3)",fontSize:13,fontWeight:600}}>✕ Cerrar</button>
-          </div>
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:8,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>IMAGEN</div>
-            <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
-              <div style={{width:88,height:88,borderRadius:10,overflow:"hidden",flexShrink:0,background:"var(--bg2)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
-                {editItem.imagen
-                  ?<><img src={editItem.imagen} alt="preview" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
-                    <button className="btn" onClick={()=>updItem(editCatId,editItemId,{imagen:""})} style={{position:"absolute",top:4,right:4,width:22,height:22,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:11,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-                  </>:<span style={{color:"var(--text4)",fontSize:28}}>📷</span>}
-              </div>
-              <div style={{flex:1,display:"flex",flexDirection:"column",gap:8}}>
-                <label className="upload-btn"><input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(editCatId,editItemId,e.target.files[0])}/>📤 Subir foto</label>
-                <div style={{textAlign:"center",fontSize:11,color:"var(--text4)"}}>— o pegá una URL —</div>
-                <input value={editItem.imagen||""} onChange={e=>updItem(editCatId,editItemId,{imagen:e.target.value})} placeholder="https://foto.com/imagen.jpg"
-                  style={{width:"100%",padding:"9px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:12}}/>
-              </div>
-            </div>
-          </div>
-          <div style={{marginBottom:12}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOMBRE *</div>
-            <input value={editItem.nombre} onChange={e=>updItem(editCatId,editItemId,{nombre:e.target.value})}
-              style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,fontWeight:600}}/>
-          </div>
-          <div style={{marginBottom:12}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCRIPCIÓN</div>
-            <textarea value={editItem.desc||""} onChange={e=>updItem(editCatId,editItemId,{desc:e.target.value})} rows={2}
-              style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,resize:"none",lineHeight:1.5}}/>
-          </div>
-          <div style={{marginBottom:14}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>PRECIO ($)</div>
-            <input type="number" min="0" step="100" value={editItem.precio} onChange={e=>updItem(editCatId,editItemId,{precio:Number(e.target.value)})}
-              style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:20,fontWeight:800,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
-          </div>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:"var(--bg2)",borderRadius:10,border:"1px solid var(--border)",marginBottom:12}}>
-            <div>
-              <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>Disponible en el menú</div>
-              <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>Si está desactivado no aparece a los clientes</div>
-            </div>
-            <div onClick={()=>updItem(editCatId,editItemId,{disponible:editItem.disponible===false})}
-              style={{width:44,height:24,borderRadius:12,background:editItem.disponible!==false?"var(--red)":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
-              <div style={{width:18,height:18,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:editItem.disponible!==false?"23px":"3px",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
-            </div>
-          </div>
-          <button className="btn" onClick={()=>delItem(editCatId,editItemId)}
-            style={{width:"100%",padding:"10px 0",borderRadius:10,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-            🗑 ELIMINAR ESTE PRODUCTO
-          </button>
-        </div>
-      )}
       {menu.map(cat=>(
         <div key={cat.id} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,marginBottom:10,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer",borderBottom:expandedCat===cat.id?"1px solid var(--border)":"none"}}
@@ -1827,6 +1773,56 @@ function MenuEditor({ menu, saveMenu }) {
                   </div>
                   <span style={{fontSize:12,color:"#7C3AED",flexShrink:0}}>✏️</span>
                 </div>
+                {editId===`${cat.id}:${item.id}`&&(
+                  <div className="slide-up" style={{background:"var(--surface)",border:"2px solid #E9D5FF",borderRadius:12,padding:14,marginTop:6,marginBottom:4}}>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                      <span className="sh" style={{fontSize:14,color:"#7C3AED"}}>✏️ EDITANDO: {item.nombre}</span>
+                      <button className="btn" onClick={e=>{e.stopPropagation();setEditId(null);}} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text3)",fontSize:12,fontWeight:600}}>✕ Cerrar</button>
+                    </div>
+                    <div style={{marginBottom:12}}>
+                      <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>IMAGEN</div>
+                      <div style={{display:"flex",gap:10,alignItems:"flex-start"}}>
+                        <div style={{width:72,height:72,borderRadius:10,overflow:"hidden",flexShrink:0,background:"var(--bg2)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
+                          {item.imagen
+                            ?<><img src={item.imagen} alt="preview" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
+                              <button className="btn" onClick={e=>{e.stopPropagation();updItem(cat.id,item.id,{imagen:""});}} style={{position:"absolute",top:3,right:3,width:18,height:18,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:10,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
+                            </>:<span style={{color:"var(--text4)",fontSize:22}}>📷</span>}
+                        </div>
+                        <div style={{flex:1,display:"flex",flexDirection:"column",gap:6}}>
+                          <label className="upload-btn" onClick={e=>e.stopPropagation()}><input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(cat.id,item.id,e.target.files[0])}/>📤 Subir foto</label>
+                          <input value={item.imagen||""} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{imagen:e.target.value});}} onClick={e=>e.stopPropagation()} placeholder="https://foto.com/imagen.jpg"
+                            style={{width:"100%",padding:"8px 10px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,fontSize:11}}/>
+                        </div>
+                      </div>
+                    </div>
+                    <div style={{marginBottom:10}}>
+                      <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOMBRE *</div>
+                      <input value={item.nombre} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{nombre:e.target.value});}} onClick={e=>e.stopPropagation()}
+                        style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:13,fontWeight:600}}/>
+                    </div>
+                    <div style={{marginBottom:10}}>
+                      <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCRIPCIÓN</div>
+                      <textarea value={item.desc||""} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{desc:e.target.value});}} onClick={e=>e.stopPropagation()} rows={2}
+                        style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:12,resize:"none",lineHeight:1.5}}/>
+                    </div>
+                    <div style={{marginBottom:12}}>
+                      <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>PRECIO ($)</div>
+                      <input type="number" min="0" step="100" value={item.precio} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{precio:Number(e.target.value)});}} onClick={e=>e.stopPropagation()}
+                        style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:18,fontWeight:800,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                    </div>
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",background:"var(--bg2)",borderRadius:9,border:"1px solid var(--border)",marginBottom:10}} onClick={e=>e.stopPropagation()}>
+                      <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>Disponible en el menú</div>
+                      <div onClick={()=>updItem(cat.id,item.id,{disponible:item.disponible===false})}
+                        style={{width:40,height:22,borderRadius:11,background:item.disponible!==false?"var(--red)":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
+                        <div style={{width:16,height:16,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:item.disponible!==false?"21px":"3px",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                      </div>
+                    </div>
+                    <button className="btn" onClick={e=>{e.stopPropagation();delItem(cat.id,item.id);}}
+                      style={{width:"100%",padding:"9px 0",borderRadius:9,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                      🗑 ELIMINAR ESTE PRODUCTO
+                    </button>
+                  </div>
+                )}
               ))}
               <div style={{display:"flex",gap:8,marginTop:8}}>
                 <button className="btn" onClick={()=>addItem(cat.id)}
