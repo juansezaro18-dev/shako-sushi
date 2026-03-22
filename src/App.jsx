@@ -1699,6 +1699,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
 function MenuEditor({ menu, saveMenu }) {
   const [expandedCat, setExpandedCat] = useState(null);
   const [editId,      setEditId]      = useState(null);
+  const editPanelRef = useRef(null);
   const [saved,       setSaved]       = useState(false);
   const editCatId  = editId?.split(":")[0];
   const editItemId = editId?.split(":")[1];
@@ -1706,6 +1707,12 @@ function MenuEditor({ menu, saveMenu }) {
   const editItem   = editCat    ? editCat.items.find(i=>i.id===editItemId) : null;
   const updCat  = (catId,ch)        => saveMenu(menu.map(c=>c.id===catId?{...c,...ch}:c));
   const updItem = (catId,itemId,ch) => saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.map(i=>i.id===itemId?{...i,...ch}:i)}:c));
+  useEffect(() => {
+    if (editId && editPanelRef.current) {
+      setTimeout(() => editPanelRef.current.scrollIntoView({behavior:"smooth", block:"start"}), 50);
+    }
+  }, [editId]);
+
   const delItem = (catId,itemId)    => { saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.filter(i=>i.id!==itemId)}:c)); if(editItemId===itemId)setEditId(null); };
   const addItem = (catId)           => { const ni={id:genId(),nombre:"Nuevo producto",desc:"",precio:0}; saveMenu(menu.map(c=>c.id===catId?{...c,items:[...c.items,ni]}:c)); setEditId(`${catId}:${ni.id}`); setExpandedCat(catId); };
   const addCat  = ()                => { const nc={id:genId(),nombre:"Nueva categoría",emoji:"🍴",desc:"",items:[]}; saveMenu([...menu,nc]); setExpandedCat(nc.id); };
@@ -1734,7 +1741,7 @@ function MenuEditor({ menu, saveMenu }) {
         </div>
       </div>
       {editItem&&(
-        <div className="slide-up" style={{background:"var(--surface)",border:"2px solid #E9D5FF",borderRadius:16,padding:16,marginBottom:16}}>
+        <div ref={editPanelRef} className="slide-up" style={{background:"var(--surface)",border:"2px solid #E9D5FF",borderRadius:16,padding:16,marginBottom:16}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
             <span className="sh" style={{fontSize:16,color:"#7C3AED"}}>✏️ EDITANDO PRODUCTO</span>
             <button className="btn" onClick={()=>setEditId(null)} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 12px",color:"var(--text3)",fontSize:13,fontWeight:600}}>✕ Cerrar</button>
