@@ -932,12 +932,13 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
               </div>
               <div style={{display:"flex",gap:10,overflowX:"auto",paddingBottom:8}}>
                 {promoItems.map(({item,p,selecciones,precioVariante})=>{
-                  const qty=getQty(item);
                   const precioBase = precioVariante || item.precio;
                   const precioMostrar = p.precioPromo || precioBase;
+                  const promoCartKey = getCartKey(item, selecciones);
+                  const promoEntry = cart.find(c=>c.cartKey===promoCartKey);
+                  const qty = promoEntry?.qty || 0;
                   const handlePromoAdd = () => {
                     if(selecciones) {
-                      // Variant already chosen — add directly
                       add(item, selecciones, precioMostrar);
                     } else if(item.opciones?.length) {
                       setModalItem(item);
@@ -961,7 +962,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                         {qty===0
                           ?<button className="btn" onClick={handlePromoAdd} style={{width:"100%",padding:"7px 0",borderRadius:8,background:"#FEF3C7",border:"1px solid #FDE68A",color:"#D97706",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{(!selecciones&&item.opciones?.some(g=>g.obligatorio))?"Ver opciones":"+"}</button>
                           :<div style={{display:"flex",alignItems:"center",gap:6}}>
-                            <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:26,height:26,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                            <button className="btn" onClick={()=>setQty(promoCartKey,qty-1)} style={{width:26,height:26,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                             <span style={{fontSize:14,fontWeight:800,minWidth:16,textAlign:"center",color:"#D97706"}}>{qty}</span>
                             <button className="btn" onClick={handlePromoAdd} style={{width:26,height:26,borderRadius:7,background:"#D97706",color:"#fff",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
                           </div>}
@@ -1113,9 +1114,17 @@ function ItemModal({ item, onClose, onConfirm }) {
 /* ══ TICKET BTN (con descuento) ══════════════════════════════ */
 function TicketBtn({ order }) {
   const [open,      setOpen]      = useState(false);
-  const [descuento, setDescuento] = useState("");
   const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
+  // Auto-calculate discount: sum of (original price - promo price) for each item
+  const autoDescuento = (order.items||[]).reduce((s,c) => {
+    if (!c.precioUnitario || !c.item) return s;
+    const precioOriginal = c.selecciones?.length ? calcOpcionesPrice(c.item, c.selecciones) : c.item.precio;
+    const diff = precioOriginal - c.precioUnitario;
+    return diff > 0 ? s + diff * c.qty : s;
+  }, 0);
+  const [descuento, setDescuento] = useState("");
   const desc = Number(descuento)||0;
+  const totalDesc = autoDescuento + desc;
   const total = Math.max(0, Number(order.total) - desc + (Number(order.envio)||0));
 
   if (!open) return (
@@ -1139,6 +1148,9 @@ function TicketBtn({ order }) {
           <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:4}}>
             <span>Subtotal</span><span>{fmt(order.total)}</span>
           </div>
+          {autoDescuento>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#D97706",marginBottom:4}}>
+            <span>Descuento promo</span><span>- {fmt(autoDescuento)}</span>
+          </div>}
           {desc>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#16A34A",marginBottom:4}}>
             <span>Desc/Adelanto</span><span>- {fmt(desc)}</span>
           </div>}
@@ -1146,7 +1158,7 @@ function TicketBtn({ order }) {
             <span>Envío</span><span>{fmt(order.envio||0)}</span>
           </div>
           <div style={{display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:18,fontFamily:"'Barlow Condensed',sans-serif",borderTop:"1px solid var(--border)",paddingTop:8}}>
-            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(total)}</span>
+            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(Math.max(0,Number(order.total)-totalDesc+(Number(order.envio)||0)))}</span>
           </div>
         </div>
         <div style={{display:"flex",gap:8}}>
@@ -1154,7 +1166,7 @@ function TicketBtn({ order }) {
             style={{flex:1,padding:"12px 0",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:14,fontWeight:600}}>
             Cancelar
           </button>
-          <button className="btn" onClick={()=>{printTicket(order,desc);setOpen(false);setDescuento("");}}
+          <button className="btn" onClick={()=>{printTicket(order,desc,autoDescuento);setOpen(false);setDescuento("");}}
             style={{flex:2,padding:"12px 0",borderRadius:12,background:"var(--red)",color:"#fff",fontSize:14,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",boxShadow:"0 4px 14px var(--red-glow)"}}>
             🖨️ IMPRIMIR
           </button>
@@ -1164,7 +1176,7 @@ function TicketBtn({ order }) {
   );
 }
 
-const printTicket = (order, descuento=0) => {
+const printTicket = (order, descuento=0, autoDescuento=0) => {
   const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
   const fecha = new Date(Number(order.created_at)).toLocaleDateString("es-AR",{day:"numeric",month:"numeric",year:"numeric"});
   const hora  = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
@@ -1211,10 +1223,11 @@ const printTicket = (order, descuento=0) => {
   ${itemsHtml}
   <div class="line"></div>
   <div class="row"><span>Subtotal:</span><span>${fmt(order.total)}</span></div>
+  ${autoDescuento>0?`<div class="row"><span>Desc. promo:</span><span>- ${fmt(autoDescuento)}</span></div>`:""}
   ${descuento>0?`<div class="row"><span>Desc/Adelanto:</span><span>- ${fmt(descuento)}</span></div>`:""}
   <div class="row"><span>Envio:</span><span>${fmt(order.envio||0)}</span></div>
   <div class="line"></div>
-  <div class="row total"><span>TOTAL:</span><span>${fmt(Math.max(0,Number(order.total)-descuento+(Number(order.envio)||0)))}</span></div>
+  <div class="row total"><span>TOTAL:</span><span>${fmt(Math.max(0,Number(order.total)-descuento-autoDescuento+(Number(order.envio)||0)))}</span></div>
   <div class="line"></div>
   <br/><br/><br/>
   </body></html>`;
