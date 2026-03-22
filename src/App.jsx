@@ -995,20 +995,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                 <input value={form.entreCalle} onChange={e=>setForm(p=>({...p,entreCalle:e.target.value}))} placeholder="Ej: 150 y 151"
                   style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14}}/>
               </div>
-              {/* Selector de zona — obligatorio */}
-              <div style={{marginBottom:12}}>
-                <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>ZONA DE ENVÍO *</div>
-                <div style={{display:"flex",flexDirection:"column",gap:6}}>
-                  {[{g:1,precio:3000,label:"Grupo 1 — Hudson, Plátanos, Greenville, Acacias y más"},{g:2,precio:4000,label:"Grupo 2 — Fincas, Carmencito, Marítimo, La Reserva"},{g:3,precio:5000,label:"Grupo 3 — El Carmen, Ranelagh, Gutierrez, Golondrinas y más"}].map(z=>(
-                    <button key={z.g} className="btn" onClick={()=>setForm(p=>({...p,envio:z.precio,zonaEnvio:`Grupo ${z.g}`}))}
-                      style={{padding:"11px 14px",borderRadius:11,background:form.envio===z.precio?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.envio===z.precio?"var(--red)":"var(--border)"}`,display:"flex",justifyContent:"space-between",alignItems:"center",transition:"all .2s"}}>
-                      <span style={{fontSize:13,fontWeight:600,color:form.envio===z.precio?"var(--red)":"var(--text2)",textAlign:"left"}}>{z.label}</span>
-                      <span style={{fontSize:14,fontWeight:800,color:form.envio===z.precio?"var(--red)":"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0,marginLeft:8}}>{fmt(z.precio)}</span>
-                    </button>
-                  ))}
-                </div>
-                {!form.envio&&<div style={{fontSize:12,color:"var(--red)",marginTop:6}}>⚠ Elegí tu zona para continuar</div>}
-              </div>
+
               <div style={{display:"flex",gap:8,marginBottom:8}}>
                 <div style={{flex:1}}>
                   <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Piso / Depto</div>
