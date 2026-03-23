@@ -714,6 +714,11 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
 
   const placeOrder = async () => {
     if (!canConfirm) return;
+    // Re-check if web is still open/enabled at confirm time
+    if (!appConfig.webHabilitada || !isOpen(appConfig)) {
+      alert("Lo sentimos, el local ya no está tomando pedidos en este momento.");
+      return;
+    }
     setLoading(true);
     const {entreCalle, ...formRest} = form;
     // Get current mesa session number if ordering from a mesa
