@@ -618,7 +618,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const [search,     setSearch]     = useState("");
   const [cart,       setCart]       = useState([]);
   const [step,       setStep]       = useState("menu");
-  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",dni:"",envio:0,zonaEnvio:""});
+  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",dni:"",envio:0,zona_envio:""});
   const [dniLooking, setDniLooking] = useState(false);
   const [dniFound,   setDniFound]   = useState(false);
   const [loading,    setLoading]    = useState(false);
@@ -657,7 +657,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const total      = cart.reduce((s,c) => s+(c.precioUnitario??c.item.precio)*c.qty, 0);
   const totalConRecargo = form.pago==="tarjeta" ? Math.round(total*(1+appConfig.recargoMP)) : total;
   const count      = cart.reduce((s,c) => s+c.qty, 0);
-  const canConfirm = mesaQR ? true : (form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim())&&form.envio>0&&form.zonaEnvio)));
+  const canConfirm = mesaQR ? true : (form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim())&&form.envio>0&&form.zona_envio)));
 
   const lookupDni = async (val, isPhone=false) => {
     setForm(p=>({...p,[isPhone?"telefono":"dni"]:val}));
@@ -682,7 +682,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         barrio:      p.barrio      || pb  || "",
         tipo:        pc ? "delivery" : p.tipo,
         envio:       p.envio || (zonaDetectada?.precio||0),
-        zonaEnvio:   p.zonaEnvio || (zonaDetectada?`Grupo ${zonaDetectada.grupo}`:""),
+        zona_envio:   p.zona_envio || (zonaDetectada?`Grupo ${zonaDetectada.grupo}`:""),
       }));
     } else {
       setDniFound(false);
@@ -886,7 +886,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           ))}
           {form.tipo==="delivery"&&form.envio>0&&(
             <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",fontSize:14,color:"var(--text3)"}}>
-              <span>🛵 Envío {form.zonaEnvio?`(${form.zonaEnvio})`:""}</span><span style={{fontWeight:600}}>{fmt(form.envio)}</span>
+              <span>🛵 Envío {form.zona_envio?`(${form.zona_envio})`:""}</span><span style={{fontWeight:600}}>{fmt(form.envio)}</span>
             </div>
           )}
           <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",fontSize:20,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",color:"var(--text)",borderTop:"1px solid var(--border)",marginTop:4}}>
@@ -947,7 +947,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           {form.tipo==="delivery"&&(
             <div className="fade-in">
               <div style={{height:1,background:"var(--border)",margin:"0 0 16px"}}/>
-              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle||(a.zona?.nombre||"Sin calle"),numero:a.numero||p.numero,barrio:a.barrio||a.zona?.nombre||"",envio:a.zona?.precio||0,zonaEnvio:a.zona?`Grupo ${a.zona.grupo}`:""}));setShowMap(false);}}/>}
+              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle||(a.zona?.nombre||"Sin calle"),numero:a.numero||p.numero,barrio:a.barrio||a.zona?.nombre||"",envio:a.zona?.precio||0,zona_envio:a.zona?`Grupo ${a.zona.grupo}`:""}));setShowMap(false);}}/>}
               {/* Si no eligió dirección aún, mostrar solo el botón del mapa */}
               {!form.calle?(
                 <div style={{textAlign:"center",padding:"8px 0 16px"}}>
@@ -964,7 +964,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                     ?<div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"9px 14px",marginBottom:12,display:"flex",justifyContent:"space-between",alignItems:"center"}}>
                       <div>
                         <div style={{fontSize:11,fontWeight:700,color:"#16A34A",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>✓ ZONA CON COBERTURA</div>
-                        <div style={{fontSize:12,color:"#166534",marginTop:1}}>{form.zonaEnvio} · Envío: {fmt(form.envio)}</div>
+                        <div style={{fontSize:12,color:"#166534",marginTop:1}}>{form.zona_envio} · Envío: {fmt(form.envio)}</div>
                       </div>
                       <button className="btn" onClick={()=>setShowMap(true)} style={{fontSize:11,color:"#16A34A",background:"transparent",textDecoration:"underline",fontWeight:600}}>Cambiar</button>
                     </div>
