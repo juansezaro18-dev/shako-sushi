@@ -1478,18 +1478,22 @@ const printKitchenTickets = (order) => {
     return;
   }
 
-  [
+  const ticketsToPrint = [
     {titulo:"COCINA FRÍA",  emoji:"🍣", items:itemsFria},
     {titulo:"COCINA CALIENTE", emoji:"🔥", items:itemsCaliente},
-  ].forEach(({titulo, emoji, items}) => {
-    if (!items.length) return;
+  ].filter(t => t.items.length > 0);
+
+  ticketsToPrint.forEach(({titulo, emoji, items}, idx) => {
     const html = buildKitchenHtml(titulo, emoji, items);
     if (!html) return;
-    const w = window.open("","_blank","width=400,height=500");
-    w.document.write(html);
-    w.document.close();
-    w.focus();
-    setTimeout(()=>{ w.print(); w.close(); }, 400);
+    setTimeout(() => {
+      const w = window.open("","_blank","width=400,height=500");
+      if (!w) { alert("Habilitá los popups para imprimir los tickets de cocina"); return; }
+      w.document.write(html);
+      w.document.close();
+      w.focus();
+      setTimeout(()=>{ w.print(); w.close(); }, 400);
+    }, idx * 800);
   });
 };
 
