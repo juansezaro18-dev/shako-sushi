@@ -1582,7 +1582,14 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
 
   const loadCaja = useCallback(async () => {
     const hoy = new Date().toISOString().split("T")[0];
-    // Prefer open caja, fallback to most recent of today
+    // Auto-close any open cajas from previous days
+    const {data: cajasViejas} = await supabase.from("caja").select("id,fecha").eq("estado","abierta").neq("fecha",hoy);
+    if (cajasViejas && cajasViejas.length > 0) {
+      await Promise.all(cajasViejas.map(c =>
+        supabase.from("caja").update({estado:"cerrada", notas_cierre:"Cerrada automáticamente por cambio de día"}).eq("id", c.id)
+      ));
+    }
+    // Prefer open caja of today, fallback to most recent of today
     const {data: abierta} = await supabase.from("caja").select("*").eq("fecha", hoy).eq("estado","abierta").limit(1);
     if (abierta && abierta.length > 0) { setCaja(abierta[0]); return; }
     const {data: reciente} = await supabase.from("caja").select("*").eq("fecha", hoy).order("created_at",{ascending:false}).limit(1);
