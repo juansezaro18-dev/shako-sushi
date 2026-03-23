@@ -1206,7 +1206,8 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
             {cat.desc&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{cat.desc}</div>}
           </div>
           {cat.items.map(item=>{
-            const qty=getQty(item);
+            const itemConCat = {...item, catId:cat.id};
+            const qty=getQty(itemConCat);
             return(
               <div key={item.id} style={{margin:"0 14px 8px",background:"var(--surface)",border:`2px solid ${qty>0?"var(--red)":"var(--border)"}`,borderRadius:14,overflow:"hidden",display:"flex",transition:"border .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
                 {item.imagen&&<div style={{width:90,minWidth:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.parentNode.style.display="none";}}/></div>}
@@ -1217,11 +1218,11 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                     <div className="sh" style={{fontSize:18,color:"var(--red)",marginTop:6}}>{item.opciones?.length?"desde ":""}{fmt(item.precio)}</div>
                   </div>
                   {qty===0
-                    ?<button className="btn" onClick={()=>handleAddItem(item)} style={{width:40,height:40,borderRadius:10,background:"var(--red-light)",border:"2px solid var(--red-border)",color:"var(--red)",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:700}}>{item.opciones?.length?"›":"+"}</button>
+                    ?<button className="btn" onClick={()=>handleAddItem(itemConCat)} style={{width:40,height:40,borderRadius:10,background:"var(--red-light)",border:"2px solid var(--red-border)",color:"var(--red)",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:700}}>{item.opciones?.length?"›":"+"}</button>
                     :<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
                       <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:32,height:32,borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                       <span style={{fontSize:17,fontWeight:900,minWidth:22,textAlign:"center",color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}>{qty}</span>
-                      <button className="btn" onClick={()=>handleAddItem(item)} style={{width:32,height:32,borderRadius:9,background:"var(--red)",color:"#fff",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                      <button className="btn" onClick={()=>handleAddItem(itemConCat)} style={{width:32,height:32,borderRadius:9,background:"var(--red)",color:"#fff",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
                     </div>}
                 </div>
               </div>
@@ -1409,6 +1410,80 @@ const calcAutoDescuento = (order) => (order.items||[]).reduce((s,c) => {
   const diff = precioBase - precioUnitario;
   return diff > 0 ? s + diff * c.qty : s;
 }, 0);
+
+
+// ── Categorías por área ──────────────────────────────────────────────────
+const CAT_FRIA     = ["rolls","nigiri","combinados","temaki","ceviche","vegetarianos"];
+const CAT_CALIENTE = ["teppan","wok","aperitivos"];
+
+const printKitchenTickets = (order) => {
+  const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
+  const hora = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+  const pedidoNro = order.id.slice(-5).toUpperCase();
+
+  const buildKitchenHtml = (titulo, emoji, items) => {
+    if (!items.length) return null;
+    const itemsHtml = items.map(c => {
+      const label = c.selecciones?.length ? seleccionesLabel(c.item,c.selecciones) : "";
+      return `<div style="margin:6px 0;padding:4px 0;border-bottom:1px dashed #ccc">
+        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:bold">
+          <span>${c.qty}x ${c.item.nombre.toUpperCase()}</span>
+        </div>
+        ${label?`<div style="font-size:11px;color:#555;padding-left:8px">${label}</div>`:""}
+      </div>`;
+    }).join("");
+
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>
+      * { margin:0; padding:0; box-sizing:border-box; }
+      body { font-family:'Courier New',monospace; font-size:12px; width:72mm; color:#000; padding:4mm 2mm; }
+      .center { text-align:center; }
+      .bold { font-weight:bold; }
+      .line { border-top:2px solid #000; margin:6px 0; }
+      @page { margin:2mm; size:80mm auto; }
+    </style></head><body>
+    <div class="center bold" style="font-size:16px">${emoji} ${titulo}</div>
+    <div class="center" style="font-size:11px">SHAKO SUSHI</div>
+    <div class="line"></div>
+    <div class="bold">Pedido: #${pedidoNro} — ${hora}</div>
+    ${order.nombre?`<div>Cliente: ${order.nombre.toUpperCase()}</div>`:""}
+    ${order.mesa_id?`<div>Mesa: ${order.mesa_id.replace("mv","V").replace("m","")}</div>`:""}
+    ${order.notas?`<div style="margin-top:4px;padding:4px;border:1px solid #000">Nota: ${order.notas}</div>`:""}
+    <div class="line"></div>
+    ${itemsHtml}
+    <div class="line"></div>
+    <br/><br/>
+    </body></html>`;
+  };
+
+  // Get items by category
+  const allItems = order.items || [];
+  
+  const itemsFria     = allItems.filter(c => CAT_FRIA.includes(c.item?.catId));
+  const itemsCaliente = allItems.filter(c => CAT_CALIENTE.includes(c.item?.catId));
+
+  // If no catId (old orders), fall back to printing all items in one kitchen ticket
+  const hasCatId = allItems.some(c => c.item?.catId);
+  if (!hasCatId) {
+    const html = buildKitchenHtml("COCINA", "👨‍🍳", allItems);
+    if (html) { const w=window.open("","_blank","width=400,height=500"); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>{w.print();w.close();},400); }
+    return;
+  }
+
+  [
+    {titulo:"COCINA FRÍA",  emoji:"🍣", items:itemsFria},
+    {titulo:"COCINA CALIENTE", emoji:"🔥", items:itemsCaliente},
+  ].forEach(({titulo, emoji, items}) => {
+    if (!items.length) return;
+    const html = buildKitchenHtml(titulo, emoji, items);
+    if (!html) return;
+    const w = window.open("","_blank","width=400,height=500");
+    w.document.write(html);
+    w.document.close();
+    w.focus();
+    setTimeout(()=>{ w.print(); w.close(); }, 400);
+  });
+};
 
 const printTicket = (order, descuento=0, autoDescuento=0) => {
   const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
@@ -2064,7 +2139,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                         const needsRep = est.next==="entregado" && order.tipo==="delivery" && !order.repartidor;
                         return(
                           <button className="btn"
-                            onClick={()=>{ if(needsRep) return; updateStatus(order,est.next); if(est.next==="entregado") printTicket(order); }}
+                            onClick={()=>{ if(needsRep) return; updateStatus(order,est.next); if(est.next==="entregado") printTicket(order); if(est.next==="preparando") printKitchenTickets(order); }}
                             title={needsRep?"Asigná un repartidor antes de despachar":""}
                             style={{flex:1,padding:"12px 0",borderRadius:12,
                               background:needsRep?"var(--border)":est.bg,
