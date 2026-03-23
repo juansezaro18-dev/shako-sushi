@@ -955,7 +955,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
               <div style={{height:1,background:"var(--border)",margin:"0 0 16px"}}/>
               {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle||p.calle,numero:a.numero||p.numero,barrio:a.barrio||p.barrio,envio:a.zona?.precio||0,zona_envio:a.zona?`Grupo ${a.zona.grupo}`:""}));setShowMap(false);}}/>}
               {/* Si no eligió dirección aún, mostrar solo el botón del mapa */}
-              {!form.calle?(
+              {!form.zona_envio?(
                 <div style={{textAlign:"center",padding:"8px 0 16px"}}>
                   <div style={{fontSize:13,color:"var(--text3)",marginBottom:14}}>Para hacer un pedido con delivery tenés que indicar tu dirección en el mapa</div>
                   <button className="btn" onClick={()=>setShowMap(true)}
