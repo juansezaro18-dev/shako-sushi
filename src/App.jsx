@@ -772,7 +772,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const PAGOS = PAGOS_BASE;
 
   // Caja cerrada — mostrar pantalla de local cerrado
-  if (cajaStatus === "cerrada") return (
+  if (!isOpen(appConfig)) return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
       <img src={LOGO_SRC} alt="Shako Sushi" style={{width:90,height:90,borderRadius:"50%",objectFit:"cover",marginBottom:20,opacity:.7}}/>
       <div className="sh" style={{fontSize:30,color:"var(--text)",marginBottom:8}}>Estamos cerrados</div>
