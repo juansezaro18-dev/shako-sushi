@@ -18,6 +18,7 @@ const CONFIG = {
   recargoMP: 0.0868, // 8.68% para cubrir comision MP al instante
   tarjetaHabilitada: false, // cambiar a true para habilitar tarjeta/MP en el checkout
   repartidores: ["Marcos", "Lucas", "Nico", "Santiago"], // nombres de los repartidores
+  webHabilitada: true, // false = web cerrada manualmente
   promociones: [], // ids de items en promocion: [{itemId, precioPromo, etiqueta}]
 };
 
@@ -772,7 +773,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const PAGOS = PAGOS_BASE;
 
   // Caja cerrada — mostrar pantalla de local cerrado
-  if (!isOpen(appConfig)) return (
+  if (!appConfig.webHabilitada || !isOpen(appConfig)) return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
       <img src={LOGO_SRC} alt="Shako Sushi" style={{width:90,height:90,borderRadius:"50%",objectFit:"cover",marginBottom:20,opacity:.7}}/>
       <div className="sh" style={{fontSize:30,color:"var(--text)",marginBottom:8}}>Estamos cerrados</div>
@@ -2538,6 +2539,21 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>TEXTO HORARIO</div>
             <input value={cfg.horario} onChange={e=>setCfg(p=>({...p,horario:e.target.value}))} placeholder="Ej: 16:30 a 23:30"
               style={{width:"100%",padding:"10px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,color:"var(--text)"}}/>
+          </div>
+        </div>
+      </div>
+
+      {/* Web habilitada */}
+      <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
+        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:14}}>🌐 ESTADO DE LA WEB</div>
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:cfg.webHabilitada?"#F0FDF4":"#FFF1F2",border:`1px solid ${cfg.webHabilitada?"#BBF7D0":"#FECDD3"}`,borderRadius:12,cursor:"pointer"}}
+          onClick={()=>setCfg(p=>({...p,webHabilitada:!p.webHabilitada}))}>
+          <div>
+            <div style={{fontSize:14,fontWeight:700,color:cfg.webHabilitada?"#16A34A":"#CC1F1F"}}>{cfg.webHabilitada?"🟢 Web habilitada":"🔴 Web deshabilitada"}</div>
+            <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{cfg.webHabilitada?"Los clientes pueden ver el menú y hacer pedidos":"La web muestra pantalla de cerrado aunque sea horario de apertura"}</div>
+          </div>
+          <div style={{width:44,height:24,borderRadius:12,background:cfg.webHabilitada?"#16A34A":"#DC2626",position:"relative",transition:"background .2s",flexShrink:0}}>
+            <div style={{position:"absolute",top:3,left:cfg.webHabilitada?22:3,width:18,height:18,borderRadius:9,background:"#fff",transition:"left .2s",boxShadow:"0 1px 4px rgba(0,0,0,.2)"}}/>
           </div>
         </div>
       </div>
