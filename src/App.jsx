@@ -172,6 +172,11 @@ const timeAgo = (ts) => { const d=Math.floor((Date.now()-Number(ts))/1000); retu
 // Parse Argentine address into parts (handles La Plata/GBA formats)
 const parseDireccion = (dir) => {
   if (!dir) return {calle:"", nro:"", entreCalle:"", barrio:""};
+  // New structured format: calle|numero|barrio|entreCalle|piso
+  if (dir.includes("|")) {
+    const [calle, nro, barrio, entreCalle, piso] = dir.split("|");
+    return {calle:calle||"", nro:nro||"", entreCalle:entreCalle||"", barrio:barrio||""};
+  }
   dir = dir.trim().replace(/^[!%#@$,./]+/, "").trim();
   // CASE 1: Barrio privado / fincas / lotes — put everything in calle
   if (/\b(FINCA|ALTOS|LOTE|MZN|MZAN|MANZANA|MNA|UF|TORRE\d|RESERVA|CARMENCITO|VILLALOBOS|GREEN)\b/i.test(dir)) {
@@ -693,7 +698,8 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
     if (!order.dni && !order.telefono) return;
     const key = `dni.eq.${order.dni||"NADA"},telefono.eq.${order.telefono||"NADA"}`;
     const {data} = await supabase.from("customers").select("id,direccion").or(key).limit(1);
-    const direccion = [order.calle, order.numero, order.entrecalle?"E/"+order.entrecalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
+    // Save structured: calle|numero|barrio so it can be parsed reliably
+    const direccion = `${order.calle||""}|${order.numero||""}|${order.barrio||""}|${order.entrecalle||""}|${order.piso||""}`;
     if (!data || data.length === 0) {
       // New customer
       supabase.from("customers").insert({
@@ -947,7 +953,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           {form.tipo==="delivery"&&(
             <div className="fade-in">
               <div style={{height:1,background:"var(--border)",margin:"0 0 16px"}}/>
-              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle||(a.zona?.nombre||"Sin calle"),numero:a.numero||p.numero,barrio:a.barrio||a.zona?.nombre||"",envio:a.zona?.precio||0,zona_envio:a.zona?`Grupo ${a.zona.grupo}`:""}));setShowMap(false);}}/>}
+              {showMap&&<MapPicker onClose={()=>setShowMap(false)} onSelect={a=>{setForm(p=>({...p,calle:a.calle||p.calle,numero:a.numero||p.numero,barrio:a.barrio||p.barrio,envio:a.zona?.precio||0,zona_envio:a.zona?`Grupo ${a.zona.grupo}`:""}));setShowMap(false);}}/>}
               {/* Si no eligió dirección aún, mostrar solo el botón del mapa */}
               {!form.calle?(
                 <div style={{textAlign:"center",padding:"8px 0 16px"}}>
