@@ -530,15 +530,19 @@ function MapPicker({ onSelect, onClose }) {
       markerRef.current = window.L.marker([lat, lng], { icon }).addTo(map);
       setLoading(true);
       try {
-        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=es`);
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 5000); // 5s timeout
+        const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=es`, {signal: controller.signal});
+        clearTimeout(timeout);
         const data = await res.json();
         const a = data.address || {};
         const calle = a.road || a.pedestrian || a.footway || "";
         const numero = a.house_number || "";
         const barrio = a.neighbourhood || a.suburb || a.city_district || a.town || a.city || "";
-        setAddr({ calle, numero, barrio, lat, lng, zona });
+        setAddr({ calle, numero, barrio, lat, lng, zona, nominatimOk: true });
       } catch(e) {
-        setAddr({ calle:"", numero:"", barrio:"", lat, lng, zona });
+        // Nominatim failed or timed out — let user fill manually
+        setAddr({ calle:"", numero:"", barrio:"", lat, lng, zona, nominatimOk: false });
       }
       setLoading(false);
     });
@@ -560,6 +564,7 @@ function MapPicker({ onSelect, onClose }) {
       <div style={{background:"var(--surface)",padding:"14px 16px",flexShrink:0,boxShadow:"0 -4px 20px rgba(0,0,0,.15)"}}>
         {loading&&<div style={{textAlign:"center",color:"var(--text3)",fontSize:13,padding:"8px 0"}}>🔍 Buscando dirección...</div>}
         {!loading&&!addr&&<div style={{textAlign:"center",color:"var(--text4)",fontSize:13,padding:"8px 0"}}>Tocá un punto en el mapa para seleccionar tu dirección</div>}
+        {!loading&&addr&&!addr.nominatimOk&&<div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:8,padding:"8px 12px",marginBottom:8,fontSize:12,color:"#92400E"}}>⚠ No pudimos detectar la dirección automáticamente. Completá los campos manualmente después de confirmar.</div>}
         {!loading&&addr&&(
           <>
             <div style={{background:"var(--bg2)",borderRadius:12,padding:"10px 14px",marginBottom:10,border:"1px solid var(--border)"}}>
@@ -730,11 +735,18 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
     const envioFinal = form.tipo==="delivery" ? (form.envio||0) : 0;
     const order = { id:genId(), ...formRest, entrecalle:entreCalle||"", items:cart, subtotal:total, total:totalConRecargo+(envioFinal), envio:envioFinal, source:"customer", status: (form.pago==="tarjeta"||form.pago==="transferencia") ? "pendiente_pago" : "nuevo", created_at:Date.now(), mesa_id: mesaQR, mesa_session: mesaSession };
     // Esperar confirmación de Supabase antes de mostrar éxito
-    const {error} = await supabase.from("orders").insert(order);
+    let error, retries = 0;
+    while (retries < 3) {
+      const result = await supabase.from("orders").insert(order);
+      error = result.error;
+      if (!error) break;
+      retries++;
+      if (retries < 3) await new Promise(r => setTimeout(r, 1000 * retries));
+    }
     if (error) {
       console.error("Error guardando pedido:", error);
       setLoading(false);
-      alert("Hubo un error al enviar tu pedido. Por favor intentá de nuevo.");
+      alert("No pudimos enviar tu pedido. Verificá tu conexión a internet e intentá de nuevo. Si el problema persiste, contactanos por WhatsApp.");
       return;
     }
     setOrderId(order.id);
