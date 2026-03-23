@@ -654,7 +654,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const add = (item, selecciones=null, precioUnitario=null) => {
     const key = getCartKey(item, selecciones);
     const precio = precioUnitario ?? item.precio;
-    setCart(p => { const ex=p.find(c=>c.cartKey===key); return ex?p.map(c=>c.cartKey===key?{...c,qty:c.qty+1}:c):[...p,{item,qty:1,selecciones,precioUnitario:precio,cartKey:key}]; });
+    setCart(p => { const ex=p.find(c=>c.cartKey===key); return ex?p.map(c=>c.cartKey===key?{...c,qty:c.qty+1}:c):[...p,{item,qty:1,selecciones,precioUnitario:precio,cartKey:key,catId:item.catId||""}]; });
   };
   const setQty = (key,q) => setCart(p => q<=0?p.filter(c=>c.cartKey!==key):p.map(c=>c.cartKey===key?{...c,qty:q}:c));
   const getQty = (item) => { if(!item.opciones?.length) return cart.find(c=>c.item.id===item.id&&!c.selecciones?.length)?.qty||0; return 0; };
@@ -1465,11 +1465,13 @@ const printKitchenTickets = (order) => {
   // Get items by category
   const allItems = order.items || [];
   
-  const itemsFria     = allItems.filter(c => CAT_FRIA.includes(c.item?.catId));
-  const itemsCaliente = allItems.filter(c => CAT_CALIENTE.includes(c.item?.catId));
+  // catId can be on c.item.catId or c.catId depending on how it was saved
+  const getCatId = (c) => c.item?.catId || c.catId || "";
+  const itemsFria     = allItems.filter(c => CAT_FRIA.includes(getCatId(c)));
+  const itemsCaliente = allItems.filter(c => CAT_CALIENTE.includes(getCatId(c)));
 
   // If no catId (old orders), fall back to printing all items in one kitchen ticket
-  const hasCatId = allItems.some(c => c.item?.catId);
+  const hasCatId = allItems.some(c => getCatId(c));
   if (!hasCatId) {
     const html = buildKitchenHtml("COCINA", "👨‍🍳", allItems);
     if (html) { const w=window.open("","_blank","width=400,height=500"); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>{w.print();w.close();},400); }
@@ -2681,7 +2683,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
   const add = (item, selecciones=null, precioUnitario=null) => {
     const key = getCartKey(item, selecciones);
     const precio = precioUnitario ?? item.precio;
-    setCart(p => { const ex=p.find(c=>c.cartKey===key); return ex?p.map(c=>c.cartKey===key?{...c,qty:c.qty+1}:c):[...p,{item,qty:1,selecciones,precioUnitario:precio,cartKey:key}]; });
+    setCart(p => { const ex=p.find(c=>c.cartKey===key); return ex?p.map(c=>c.cartKey===key?{...c,qty:c.qty+1}:c):[...p,{item,qty:1,selecciones,precioUnitario:precio,cartKey:key,catId:item.catId||""}]; });
   };
   const setQty = (key,q) => setCart(p => q<=0?p.filter(c=>c.cartKey!==key):p.map(c=>c.cartKey===key?{...c,qty:q}:c));
   const getQty = (item) => { if(!item.opciones?.length) return cart.find(c=>c.item.id===item.id&&!c.selecciones?.length)?.qty||0; return 0; };
