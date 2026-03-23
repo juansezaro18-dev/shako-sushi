@@ -1051,7 +1051,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         </Card>
         <button className="btn" onClick={placeOrder} disabled={!canConfirm||loading}
           style={{width:"100%",padding:"16px 0",borderRadius:14,fontSize:18,fontWeight:800,background:canConfirm?"var(--red)":"var(--border)",color:canConfirm?"#fff":"var(--text4)",boxShadow:canConfirm?"0 8px 24px var(--red-glow)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>
-          {loading?"ENVIANDO...":`CONFIRMAR PEDIDO · ${fmt(totalConRecargo)}`}
+          {loading?"ENVIANDO...":`CONFIRMAR PEDIDO · ${fmt(totalConRecargo+(form.tipo==="delivery"?(form.envio||0):0))}`}
         </button>
       </div>
     </div>
