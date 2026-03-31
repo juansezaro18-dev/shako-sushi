@@ -276,6 +276,14 @@ const Label = ({children}) => (
   <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:12,fontFamily:"'Barlow Condensed',sans-serif"}}>{children}</div>
 );
 
+// Load QZ Tray script
+if (typeof window !== "undefined" && !window._qzLoaded) {
+  window._qzLoaded = true;
+  const s = document.createElement("script");
+  s.src = "https://cdn.jsdelivr.net/npm/qz-tray@2.2.4/qz-tray.js";
+  document.head.appendChild(s);
+}
+
 export default function App() {
   const isAdmin = window.location.pathname === "/admin";
   const [menu,       setMenu]       = useState(MENU_DEFAULT);
@@ -1505,14 +1513,50 @@ const printKitchenTickets = (order) => {
     const html = buildKitchenHtml(titulo, emoji, items);
     if (!html) return;
     setTimeout(() => {
-      const w = window.open("","_blank","width=400,height=500");
-      if (!w) { alert("Habilitá los popups para imprimir los tickets de cocina"); return; }
-      w.document.write(html);
-      w.document.close();
-      w.focus();
-      setTimeout(()=>{ w.print(); w.close(); }, 400);
+      printWithFallback(html);
     }, idx * 800);
   });
+};
+
+
+// ── QZ Tray helper ────────────────────────────────────────────────────────
+const PRINTER_NAME = "CAJA ";
+
+const qzPrint = async (html) => {
+  try {
+    if (!window.qz || !window.qz.websocket.isActive()) {
+      await window.qz.websocket.connect();
+    }
+    const config = window.qz.configs.create(PRINTER_NAME);
+    const data = [{
+      type: "pixel",
+      format: "html",
+      flavor: "plain",
+      data: html,
+      options: { pageWidth: 72, pageHeight: 0 }
+    }];
+    await window.qz.print(config, data);
+    // Send cut command
+    const cutConfig = window.qz.configs.create(PRINTER_NAME);
+    await window.qz.print(cutConfig, [{type:"raw", format:"command", data:"i"}]);
+    return true;
+  } catch(e) {
+    console.warn("QZ Tray no disponible, usando window.print:", e);
+    return false;
+  }
+};
+
+const printWithFallback = async (html) => {
+  const qzOk = await qzPrint(html);
+  if (!qzOk) {
+    // Fallback: window.print
+    const win = window.open("","_blank","width=400,height=600");
+    if (!win) { alert("Habilitá los popups para imprimir"); return; }
+    win.document.write(html);
+    win.document.close();
+    win.focus();
+    setTimeout(()=>{ win.print(); win.close(); }, 400);
+  }
 };
 
 const printTicket = (order, descuento=0, autoDescuento=0) => {
@@ -1568,14 +1612,10 @@ const printTicket = (order, descuento=0, autoDescuento=0) => {
   <div class="line"></div>
   <div class="row total"><span>TOTAL:</span><span>${fmt(Math.max(0,Number(order.total)-descuento-autoDescuento+(Number(order.envio)||0)))}</span></div>
   <div class="line"></div>
-  <br/><br/><br/>
+  <br/>
   </body></html>`;
 
-  const win = window.open("","_blank","width=400,height=600");
-  win.document.write(html);
-  win.document.close();
-  win.focus();
-  setTimeout(()=>{ win.print(); win.close(); }, 400);
+  printWithFallback(html);
 };
 
 function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) {
