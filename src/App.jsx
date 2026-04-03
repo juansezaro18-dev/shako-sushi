@@ -1501,7 +1501,7 @@ const CAT_FRIA     = ["rolls","nigiri","combinados","temaki","ceviche","vegetari
 const CAT_CALIENTE = ["teppan","wok","aperitivos"];
 
 // ── ESC/POS ────────────────────────────────────────────────────────────────
-const PRINTER_NAME = "CAJA ";
+const PRINTER_NAME = "CAJA";
 const _E = '\x1B', _G = '\x1D';
 const EP = {
   INIT:   _E+'@',
