@@ -735,7 +735,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   };
 
   const placeOrder = async () => {
-    if (!canConfirm) return;
+    if (!canConfirm || cart.length === 0) return;
     // Re-check if web is still open/enabled at confirm time
     if (!appConfig.webHabilitada || !isOpen(appConfig)) {
       alert("Lo sentimos, el local ya no está tomando pedidos en este momento.");
@@ -1436,7 +1436,7 @@ function TicketBtn({ order }) {
   const [descuento, setDescuento] = useState("");
   const desc = Number(descuento)||0;
   const totalDesc = autoDescuento + desc;
-  const total = Math.max(0, Number(order.total) - desc + (Number(order.envio)||0));
+  const total = Math.max(0, Number(order.total) - desc - autoDescuento);
 
   if (!open) return (
     <button className="btn" onClick={()=>setOpen(true)}
@@ -1559,13 +1559,13 @@ const buildTicketEscPos = (order, descuento=0, autoDescuento=0) => {
     }
   });
   t += epLine();
-  t += epCols('Subtotal:', fmt(order.total));
+  t += epCols('Subtotal:', fmt(order.subtotal||order.total));
   if (autoDescuento>0) t += epCols('Desc. promo:', '- '+fmt(autoDescuento));
   if (descuento>0)     t += epCols('Desc/Adelanto:', '- '+fmt(descuento));
   t += epCols('Envio:', fmt(order.envio||0));
   t += epLine();
   t += EP.BOLD1+EP.TALL;
-  t += epCols('TOTAL:', fmt(Math.max(0,Number(order.total)-descuento-autoDescuento+(Number(order.envio)||0))));
+  t += epCols('TOTAL:', fmt(Math.max(0,Number(order.total)-descuento-autoDescuento)));
   t += EP.NORM+EP.BOLD0+EP.FEED(4)+EP.CUT;
   return t;
 };
@@ -1708,12 +1708,12 @@ const printTicket = (order, descuento=0, autoDescuento=0) => {
   <div class="line"></div>
   ${itemsHtml}
   <div class="line"></div>
-  <div class="row"><span>Subtotal:</span><span>${fmt(order.total)}</span></div>
+  <div class="row"><span>Subtotal:</span><span>${fmt(order.subtotal||order.total)}</span></div>
   ${autoDescuento>0?`<div class="row"><span>Desc. promo:</span><span>- ${fmt(autoDescuento)}</span></div>`:""}
   ${descuento>0?`<div class="row"><span>Desc/Adelanto:</span><span>- ${fmt(descuento)}</span></div>`:""}
   <div class="row"><span>Envio:</span><span>${fmt(order.envio||0)}</span></div>
   <div class="line"></div>
-  <div class="row total"><span>TOTAL:</span><span>${fmt(Math.max(0,Number(order.total)-descuento-autoDescuento+(Number(order.envio)||0)))}</span></div>
+  <div class="row total"><span>TOTAL:</span><span>${fmt(Math.max(0,Number(order.total)-descuento-autoDescuento))}</span></div>
   <div class="line"></div><br/></body></html>`;
   printWithFallback(html, buildTicketEscPos(order, descuento, autoDescuento));
 };
@@ -2198,10 +2198,10 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                       {order.orders.map(o=>(
                         <div key={o.id} style={{marginBottom:8,padding:"8px 12px",background:"var(--bg2)",borderRadius:10,border:"1px solid var(--border)"}}>
                           <div style={{fontSize:11,color:"var(--text4)",marginBottom:4}}>#{o.id.slice(-5).toUpperCase()} · {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}</div>
-                          {o.items?.map(c=>(
+                          {o.items?.filter(c=>c.item).map(c=>(
                             <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0"}}>
                               <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
-                              <span style={{color:"var(--text3)"}}>{fmt2(c.item.precio*c.qty)}</span>
+                              <span style={{color:"var(--text3)"}}>{fmt2((c.precioUnitario??c.item.precio)*c.qty)}</span>
                             </div>
                           ))}
                         </div>
@@ -3387,10 +3387,10 @@ function HistorialCajaTabla({ historial, onReload }) {
                         </div>
                         {isExpO&&(
                           <div className="fade-in" style={{background:"var(--bg2)",borderRadius:9,padding:"9px 11px",marginBottom:7,border:"1px solid var(--border)"}}>
-                            {o.items?.map(c=>(
+                            {o.items?.filter(c=>c.item).map(c=>(
                               <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
                                 <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
-                                <span style={{color:"var(--text3)",fontWeight:600}}>{fmt(c.item.precio*c.qty)}</span>
+                                <span style={{color:"var(--text3)",fontWeight:600}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
                               </div>
                             ))}
                             {o.notas&&<div style={{marginTop:5,fontSize:11,color:"var(--text3)",fontStyle:"italic"}}>💬 {o.notas}</div>}
@@ -3692,10 +3692,10 @@ function MesasView({ onNewOrder }) {
                         </div>
                         <span className="sh" style={{fontSize:15,color:"var(--red)"}}>{fmt(o.total)}</span>
                       </div>
-                      {o.items?.map(c=>(
+                      {o.items?.filter(c=>c.item).map(c=>(
                         <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0",borderBottom:"1px solid var(--border)"}}>
                           <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
-                          <span style={{color:"var(--text3)"}}>{fmt(c.item.precio*c.qty)}</span>
+                          <span style={{color:"var(--text3)"}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
                         </div>
                       ))}
                     </div>
