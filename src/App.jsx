@@ -1588,9 +1588,13 @@ const qzPrint = async (html) => {
       options: { pageWidth: 72, pageHeight: 0 }
     }];
     await window.qz.print(config, data);
-    // Send cut command
-    const cutConfig = window.qz.configs.create(PRINTER_NAME);
-    await window.qz.print(cutConfig, [{type:"raw", format:"command", flavor:"plain", data:"VB "}]);
+    // Corte separado — si falla, el ticket ya imprimio OK
+    try {
+      const cutConfig = window.qz.configs.create(PRINTER_NAME);
+      await window.qz.print(cutConfig, [{type:"raw", format:"command", flavor:"plain", data:"VB "}]);
+    } catch(cutErr) {
+      console.warn("Corte automatico no disponible:", cutErr);
+    }
     return true;
   } catch(e) {
     console.warn("QZ Tray no disponible, usando window.print:", e);
