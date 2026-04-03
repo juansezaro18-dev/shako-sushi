@@ -1500,101 +1500,107 @@ const calcAutoDescuento = (order) => (order.items||[]).reduce((s,c) => {
 const CAT_FRIA     = ["rolls","nigiri","combinados","temaki","ceviche","vegetarianos"];
 const CAT_CALIENTE = ["teppan","wok","aperitivos"];
 
-const printKitchenTickets = (order) => {
-  const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
-  const hora = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
-  const pedidoNro = order.id.slice(-5).toUpperCase();
+// ── ESC/POS ────────────────────────────────────────────────────────────────
+const PRINTER_NAME = "CAJA ";
+const _E = '\x1B', _G = '\x1D';
+const EP = {
+  INIT:   _E+'@',
+  CUT:    _G+'V\x42\x00',
+  FEED:   n => _E+'d'+String.fromCharCode(n),
+  LEFT:   _E+'a\x00',
+  CENTER: _E+'a\x01',
+  BOLD1:  _E+'E\x01',
+  BOLD0:  _E+'E\x00',
+  NORM:   _E+'!\x00',
+  TALL:   _E+'!\x10',
+  BIG:    _E+'!\x30',
+  LF:     '\x0A',
+};
+const PW = 32;
+const noAcc = s => String(s)
+  .replace(/[áàäâ]/gi,'a').replace(/[éèëê]/gi,'e')
+  .replace(/[íìïî]/gi,'i').replace(/[óòöô]/gi,'o')
+  .replace(/[úùüû]/gi,'u').replace(/[ñ]/gi,'n');
+const epLine = (ch='-') => ch.repeat(PW)+EP.LF;
+const epCols = (l,r,w=PW) => { const rs=String(r); const ls=noAcc(l).substring(0,w-rs.length); return ls.padEnd(w-rs.length)+rs+EP.LF; };
+const epCtr  = t => { const s=noAcc(t).substring(0,PW); return ' '.repeat(Math.max(0,Math.floor((PW-s.length)/2)))+s+EP.LF; };
 
-  const buildKitchenHtml = (titulo, emoji, items) => {
-    if (!items.length) return null;
-    const itemsHtml = items.map(c => {
-      const label = c.selecciones?.length ? seleccionesLabel(c.item,c.selecciones) : "";
-      return `<div style="margin:6px 0;padding:4px 0;border-bottom:1px dashed #ccc">
-        <div style="display:flex;justify-content:space-between;font-size:14px;font-weight:bold">
-          <span>${c.qty}x ${c.item.nombre.toUpperCase()}</span>
-        </div>
-        ${label?`<div style="font-size:11px;color:#555;padding-left:8px">${label}</div>`:""}
-      </div>`;
-    }).join("");
-
-    return `<!DOCTYPE html><html><head><meta charset="UTF-8">
-    <style>
-      * { margin:0; padding:0; box-sizing:border-box; }
-      body { font-family:'Courier New',monospace; font-size:12px; width:72mm; color:#000; padding:4mm 2mm; }
-      .center { text-align:center; }
-      .bold { font-weight:bold; }
-      .line { border-top:2px solid #000; margin:6px 0; }
-      @page { margin:2mm; size:80mm auto; }
-    </style></head><body>
-    <div class="center bold" style="font-size:16px">${emoji} ${titulo}</div>
-    <div class="center" style="font-size:11px">SHAKO SUSHI</div>
-    <div class="line"></div>
-    <div class="bold">Pedido: #${pedidoNro} — ${hora}</div>
-    ${order.nombre?`<div>Cliente: ${order.nombre.toUpperCase()}</div>`:""}
-    ${order.mesa_id?`<div>Mesa: ${order.mesa_id.replace("mv","V").replace("m","")}</div>`:""}
-    ${order.notas?`<div style="margin-top:4px;padding:4px;border:1px solid #000">Nota: ${order.notas}</div>`:""}
-    <div class="line"></div>
-    ${itemsHtml}
-    <div class="line"></div>
-    <br/><br/>
-    </body></html>`;
-  };
-
-  // Get items by category
-  const allItems = order.items || [];
-  
-  // catId can be on c.item.catId or c.catId depending on how it was saved
-  const getCatId = (c) => c.item?.catId || c.catId || "";
-  const itemsFria     = allItems.filter(c => CAT_FRIA.includes(getCatId(c)));
-  const itemsCaliente = allItems.filter(c => CAT_CALIENTE.includes(getCatId(c)));
-
-  // If no catId (old orders), fall back to printing all items in one kitchen ticket
-  const hasCatId = allItems.some(c => getCatId(c));
-  if (!hasCatId) {
-    const html = buildKitchenHtml("COCINA", "👨‍🍳", allItems);
-    if (html) { const w=window.open("","_blank","width=400,height=500"); w.document.write(html); w.document.close(); w.focus(); setTimeout(()=>{w.print();w.close();},400); }
-    return;
-  }
-
-  const ticketsToPrint = [
-    {titulo:"COCINA FRÍA",  emoji:"🍣", items:itemsFria},
-    {titulo:"COCINA CALIENTE", emoji:"🔥", items:itemsCaliente},
-  ].filter(t => t.items.length > 0);
-
-  ticketsToPrint.forEach(({titulo, emoji, items}, idx) => {
-    const html = buildKitchenHtml(titulo, emoji, items);
-    if (!html) return;
-    setTimeout(() => {
-      printWithFallback(html);
-    }, idx * 800);
+const buildTicketEscPos = (order, descuento=0, autoDescuento=0) => {
+  const fmt = n => '$'+Number(n).toLocaleString('es-AR');
+  const fecha = new Date(Number(order.created_at)).toLocaleDateString('es-AR',{day:'numeric',month:'numeric',year:'numeric'});
+  const hora  = new Date(Number(order.created_at)).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  const dir = [order.calle,order.numero,order.entrecalle?'e/'+order.entrecalle:'',order.piso,order.barrio].filter(Boolean).join(' ');
+  let t = EP.INIT+EP.CENTER+EP.BOLD1+EP.TALL;
+  t += 'SHAKO SUSHI'+EP.LF;
+  t += EP.NORM+EP.BOLD0;
+  t += epCtr('Hudson Plaza Comercial, Berazategui');
+  t += epCtr('<< Aceptacion de Consumo >>');
+  t += epCtr('<<< No valido como comp. fiscal >>>');
+  t += EP.LEFT+epLine();
+  t += noAcc('Fecha: '+fecha+' - '+hora)+EP.LF;
+  t += 'Pedido: '+order.id.slice(-5).toUpperCase()+EP.LF;
+  t += epLine();
+  t += noAcc('Cliente: '+(order.nombre||'').toUpperCase())+EP.LF;
+  if (dir) t += noAcc('Dir: '+dir.toUpperCase()).substring(0,PW)+EP.LF;
+  if (order.telefono) t += 'TE: '+order.telefono+EP.LF;
+  if (order.pago)     t += 'Pago: '+order.pago.toUpperCase()+EP.LF;
+  if (order.repartidor) t += noAcc('Rep.: '+order.repartidor)+EP.LF;
+  if (order.notas)    t += noAcc('Nota: '+order.notas).substring(0,PW)+EP.LF;
+  t += epLine();
+  t += epCols('DESCRIPCION','IMPORTE');
+  t += epLine();
+  (order.items||[]).forEach(c => {
+    const precio = c.precioUnitario ?? c.item.precio;
+    const nombre = noAcc(c.item.nombre||'').toUpperCase().substring(0,18);
+    t += epCols(c.qty+'x '+nombre, fmt(precio*c.qty));
+    if (c.selecciones?.length) {
+      const label = seleccionesLabel(c.item,c.selecciones);
+      if (label) t += '  '+noAcc(label).substring(0,28)+EP.LF;
+    }
   });
+  t += epLine();
+  t += epCols('Subtotal:', fmt(order.total));
+  if (autoDescuento>0) t += epCols('Desc. promo:', '- '+fmt(autoDescuento));
+  if (descuento>0)     t += epCols('Desc/Adelanto:', '- '+fmt(descuento));
+  t += epCols('Envio:', fmt(order.envio||0));
+  t += epLine();
+  t += EP.BOLD1+EP.TALL;
+  t += epCols('TOTAL:', fmt(Math.max(0,Number(order.total)-descuento-autoDescuento+(Number(order.envio)||0))));
+  t += EP.NORM+EP.BOLD0+EP.FEED(4)+EP.CUT;
+  return t;
 };
 
+const buildKitchenEscPos = (titulo, items, order) => {
+  const hora = new Date(Number(order.created_at)).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  const nro  = order.id.slice(-5).toUpperCase();
+  let t = EP.INIT+EP.CENTER+EP.BOLD1+EP.BIG;
+  t += noAcc(titulo)+EP.LF;
+  t += EP.NORM+EP.BOLD0+'SHAKO SUSHI'+EP.LF;
+  t += EP.LEFT+epLine('=');
+  t += EP.BOLD1+'Pedido: #'+nro+' - '+hora+EP.LF+EP.BOLD0;
+  if (order.nombre)  t += noAcc('Cliente: '+order.nombre.toUpperCase())+EP.LF;
+  if (order.mesa_id) t += 'Mesa: '+order.mesa_id.replace('mv','V').replace('m','')+EP.LF;
+  if (order.notas)   t += noAcc('NOTA: '+order.notas).substring(0,PW)+EP.LF;
+  t += epLine('=');
+  items.forEach(c => {
+    t += EP.BOLD1+EP.TALL+c.qty+'x '+noAcc(c.item.nombre||'').toUpperCase().substring(0,22)+EP.LF+EP.NORM+EP.BOLD0;
+    if (c.selecciones?.length) {
+      const label = seleccionesLabel(c.item,c.selecciones);
+      if (label) t += '   '+noAcc(label).substring(0,26)+EP.LF;
+    }
+    t += epLine();
+  });
+  t += EP.FEED(4)+EP.CUT;
+  return t;
+};
 
-// ── QZ Tray helper ────────────────────────────────────────────────────────
-const PRINTER_NAME = "CAJA ";
-
-const qzPrint = async (html) => {
+const qzPrint = async (escpos) => {
   try {
     if (!window.qz || !window.qz.websocket.isActive()) {
       await window.qz.websocket.connect();
     }
     const config = window.qz.configs.create(PRINTER_NAME);
-    const data = [{
-      type: "pixel",
-      format: "html",
-      flavor: "plain",
-      data: html,
-      options: { pageWidth: 72, pageHeight: 0 }
-    }];
-    await window.qz.print(config, data);
-    // Corte separado — si falla, el ticket ya imprimio OK
-    try {
-      const cutConfig = window.qz.configs.create(PRINTER_NAME);
-      await window.qz.print(cutConfig, [{type:"raw", format:"command", flavor:"plain", data:"VB "}]);
-    } catch(cutErr) {
-      console.warn("Corte automatico no disponible:", cutErr);
-    }
+    await window.qz.print(config, [{type:"raw", format:"command", flavor:"plain", data:escpos}]);
     return true;
   } catch(e) {
     console.warn("QZ Tray no disponible, usando window.print:", e);
@@ -1602,10 +1608,9 @@ const qzPrint = async (html) => {
   }
 };
 
-const printWithFallback = async (html) => {
-  const qzOk = await qzPrint(html);
+const printWithFallback = async (html, escpos) => {
+  const qzOk = await qzPrint(escpos);
   if (!qzOk) {
-    // Fallback: window.print
     const win = window.open("","_blank","width=400,height=600");
     if (!win) { alert("Habilitá los popups para imprimir"); return; }
     win.document.write(html);
@@ -1615,47 +1620,89 @@ const printWithFallback = async (html) => {
   }
 };
 
+const printKitchenTickets = (order) => {
+  const hora = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+  const pedidoNro = order.id.slice(-5).toUpperCase();
+
+  const buildKitchenHtml = (titulo, emoji, items) => {
+    if (!items.length) return null;
+    const itemsHtml = items.map(c => {
+      const label = c.selecciones?.length ? seleccionesLabel(c.item,c.selecciones) : "";
+      return `<div style="margin:6px 0;padding:4px 0;border-bottom:1px dashed #ccc">
+        <div style="font-size:14px;font-weight:bold">${c.qty}x ${c.item.nombre.toUpperCase()}</div>
+        ${label?`<div style="font-size:11px;color:#555;padding-left:8px">${label}</div>`:""}
+      </div>`;
+    }).join("");
+    return `<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <style>* { margin:0; padding:0; box-sizing:border-box; }
+    body { font-family:'Courier New',monospace; font-size:12px; width:72mm; color:#000; padding:4mm 2mm; }
+    .center{text-align:center} .bold{font-weight:bold} .line{border-top:2px solid #000;margin:6px 0}
+    @page{margin:2mm;size:80mm auto}</style></head><body>
+    <div class="center bold" style="font-size:16px">${emoji} ${titulo}</div>
+    <div class="center">SHAKO SUSHI</div>
+    <div class="line"></div>
+    <div class="bold">Pedido: #${pedidoNro} — ${hora}</div>
+    ${order.nombre?`<div>Cliente: ${order.nombre.toUpperCase()}</div>`:""}
+    ${order.mesa_id?`<div>Mesa: ${order.mesa_id.replace("mv","V").replace("m","")}</div>`:""}
+    ${order.notas?`<div style="border:1px solid #000;padding:4px;margin-top:4px">Nota: ${order.notas}</div>`:""}
+    <div class="line"></div>${itemsHtml}<div class="line"></div>
+    <br/><br/></body></html>`;
+  };
+
+  const allItems = order.items || [];
+  const getCatId = c => c.item?.catId || c.catId || "";
+  const itemsFria     = allItems.filter(c => CAT_FRIA.includes(getCatId(c)));
+  const itemsCaliente = allItems.filter(c => CAT_CALIENTE.includes(getCatId(c)));
+  const hasCatId = allItems.some(c => getCatId(c));
+
+  if (!hasCatId) {
+    const html = buildKitchenHtml("COCINA", "👨‍🍳", allItems);
+    if (html) printWithFallback(html, buildKitchenEscPos("COCINA", allItems, order));
+    return;
+  }
+
+  [{titulo:"COCINA FRIA", emoji:"🍣", items:itemsFria},{titulo:"COCINA CALIENTE", emoji:"🔥", items:itemsCaliente}]
+    .filter(t => t.items.length > 0)
+    .forEach(({titulo, emoji, items}, idx) => {
+      setTimeout(() => {
+        printWithFallback(buildKitchenHtml(titulo, emoji, items), buildKitchenEscPos(titulo, items, order));
+      }, idx * 800);
+    });
+};
+
 const printTicket = (order, descuento=0, autoDescuento=0) => {
   const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
   const fecha = new Date(Number(order.created_at)).toLocaleDateString("es-AR",{day:"numeric",month:"numeric",year:"numeric"});
   const hora  = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
-  const linea = "-".repeat(32);
   const dir = [order.calle, order.numero, order.entrecalle?"e/"+order.entrecalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
-
   const itemsHtml = (order.items||[]).map(c => {
     const precio = c.precioUnitario ?? c.item.precio;
     const label = c.selecciones?.length ? seleccionesLabel(c.item,c.selecciones) : "";
     return `<div style="display:flex;justify-content:space-between;margin:2px 0">
-      <span>${c.qty},00 ${c.item.nombre.toUpperCase().substring(0,20)}</span>
+      <span>${c.qty}x ${c.item.nombre.toUpperCase().substring(0,20)}</span>
       <span>${fmt(precio*c.qty)}</span>
-    </div>${label?`<div style="font-size:9px;color:#555;padding-left:8px;margin-bottom:2px">${label.substring(0,40)}</div>`:""}`;
+    </div>${label?`<div style="font-size:9px;color:#555;padding-left:8px">${label.substring(0,40)}</div>`:""}`;
   }).join("");
-
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family:'Courier New',monospace; font-size:11px; width:72mm; color:#000; padding:4mm 2mm; }
-    .center { text-align:center; }
-    .bold { font-weight:bold; }
-    .line { border-top:1px dashed #000; margin:4px 0; }
-    .row { display:flex; justify-content:space-between; }
-    .total { font-size:14px; font-weight:bold; }
-    @page { margin:2mm; size:80mm auto; }
-  </style></head><body>
+  <style>* { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family:'Courier New',monospace; font-size:11px; width:72mm; color:#000; padding:4mm 2mm; }
+  .center{text-align:center} .bold{font-weight:bold} .line{border-top:1px dashed #000;margin:4px 0}
+  .row{display:flex;justify-content:space-between} .total{font-size:14px;font-weight:bold}
+  @page{margin:2mm;size:80mm auto}</style></head><body>
   <div class="center bold" style="font-size:13px">SHAKO SUSHI</div>
   <div class="center" style="font-size:9px">Hudson Plaza Comercial, Berazategui</div>
   <div class="center" style="font-size:9px">&lt;&lt; Aceptacion de Consumo &gt;&gt;</div>
   <div class="center" style="font-size:9px">&lt;&lt;&lt; No valido como comp. fiscal &gt;&gt;&gt;</div>
   <div class="line"></div>
   <div>Fecha: ${fecha} - ${hora}</div>
-  <div>Pedido Nro: ${order.id.slice(-5).toUpperCase()}</div>
+  <div>Pedido: ${order.id.slice(-5).toUpperCase()}</div>
   <div class="line"></div>
   <div>Cliente: ${(order.nombre||"").toUpperCase()}</div>
-  ${dir ? `<div>Direccion: ${dir.toUpperCase()}</div>` : ""}
-  ${order.telefono ? `<div>TE: ${order.telefono}</div>` : ""}
-  ${order.pago ? `<div>Pago: ${order.pago.toUpperCase()}</div>` : ""}
-  ${order.repartidor ? `<div>Rep.: ${order.repartidor}</div>` : ""}
-  ${order.notas ? `<div>Nota: ${order.notas}</div>` : ""}
+  ${dir?`<div>Direccion: ${dir.toUpperCase()}</div>`:""}
+  ${order.telefono?`<div>TE: ${order.telefono}</div>`:""}
+  ${order.pago?`<div>Pago: ${order.pago.toUpperCase()}</div>`:""}
+  ${order.repartidor?`<div>Rep.: ${order.repartidor}</div>`:""}
+  ${order.notas?`<div>Nota: ${order.notas}</div>`:""}
   <div class="line"></div>
   <div class="row"><span>Cant. Descripcion</span><span>Importe</span></div>
   <div class="line"></div>
@@ -1667,11 +1714,8 @@ const printTicket = (order, descuento=0, autoDescuento=0) => {
   <div class="row"><span>Envio:</span><span>${fmt(order.envio||0)}</span></div>
   <div class="line"></div>
   <div class="row total"><span>TOTAL:</span><span>${fmt(Math.max(0,Number(order.total)-descuento-autoDescuento+(Number(order.envio)||0)))}</span></div>
-  <div class="line"></div>
-  <br/>
-  </body></html>`;
-
-  printWithFallback(html);
+  <div class="line"></div><br/></body></html>`;
+  printWithFallback(html, buildTicketEscPos(order, descuento, autoDescuento));
 };
 
 function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) {
