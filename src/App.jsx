@@ -266,6 +266,15 @@ const GS = () => (
       @page { margin: 2mm; size: 80mm auto; }
     }
     .ticket-print { display:none; }
+    .cv-cart-panel{display:none;}
+    .cv-menu-panel{padding-bottom:90px;}
+    @media(min-width:900px){
+      .cv-root{max-width:1200px!important;margin:0 auto!important;display:flex!important;flex-direction:row;align-items:flex-start;min-height:100vh;}
+      .cv-menu-panel{flex:1;min-width:0;padding-bottom:60px;}
+      .cv-cart-panel{width:380px;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;border-left:1px solid var(--border);background:var(--bg);padding:24px 20px;display:flex!important;flex-direction:column;}
+      .cv-bottom-cart{display:none!important;}
+      .cv-checkout-root{max-width:880px!important;margin:0 auto!important;}
+    }
   `}</style>
 );
 
@@ -893,7 +902,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   );
 
   if (step === "checkout") return (
-    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"var(--bg2)"}}>
+    <div className="cv-checkout-root" style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"var(--bg2)"}}>
       <div style={{position:"sticky",top:0,background:"rgba(255,255,255,.97)",backdropFilter:"blur(14px)",borderBottom:"1px solid var(--border)",padding:"14px 16px",display:"flex",alignItems:"center",gap:12,zIndex:10}}>
         <button className="btn" onClick={()=>setStep("menu")} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"7px 16px",color:"var(--text2)",fontSize:14,fontWeight:600}}>← Volver</button>
         <span className="sh" style={{fontSize:20,color:"var(--text)"}}>Confirmá tu pedido</span>
@@ -1084,7 +1093,8 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   );
 
   return (
-    <div style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",paddingBottom:90,background:"var(--bg2)"}}>
+    <div className="cv-root" style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"var(--bg2)"}}>
+      <div className="cv-menu-panel">
       <div style={{background:"var(--red)",padding:"18px 18px 16px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -1262,8 +1272,50 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           })}
         </div>
       ))}
+      </div>{/* end cv-menu-panel */}
+      <div className="cv-cart-panel">
+        <div className="sh" style={{fontSize:20,color:"var(--text)",paddingBottom:16,marginBottom:16,borderBottom:"2px solid var(--border)"}}>🛒 TU PEDIDO</div>
+        {count===0?(
+          <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 0",gap:12,opacity:.5}}>
+            <span style={{fontSize:44}}>🍱</span>
+            <span style={{fontSize:14,color:"var(--text3)",textAlign:"center"}}>Agregá productos<br/>para comenzar</span>
+          </div>
+        ):(
+          <>
+            <div style={{flex:1,overflowY:"auto",marginBottom:16}}>
+              {cart.map(c=>(
+                <div key={c.cartKey} style={{display:"flex",justifyContent:"space-between",alignItems:"flex-start",padding:"12px 0",borderBottom:"1px solid var(--border)"}}>
+                  <div style={{flex:1,paddingRight:10}}>
+                    <div style={{fontSize:13,fontWeight:600,color:"var(--text)",lineHeight:1.35}}>{c.item.nombre}</div>
+                    {c.selecciones&&<div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>{seleccionesLabel(c.item,c.selecciones)}</div>}
+                    <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{fmt(c.precioUnitario??c.item.precio)} c/u</div>
+                  </div>
+                  <div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
+                    <button className="btn" onClick={()=>setQty(c.cartKey,c.qty-1)} style={{width:26,height:26,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                    <span style={{fontSize:14,fontWeight:800,minWidth:18,textAlign:"center",color:"var(--red)"}}>{c.qty}</span>
+                    <button className="btn" onClick={()=>add(c.item,c.selecciones,c.precioUnitario)} style={{width:26,height:26,borderRadius:7,background:"var(--red)",color:"#fff",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                    <span style={{fontSize:13,fontWeight:700,color:"var(--red)",minWidth:64,textAlign:"right"}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div style={{borderTop:"2px solid var(--border)",paddingTop:16,marginTop:"auto"}}>
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:16}}>
+                <span className="sh" style={{fontSize:20,color:"var(--text)"}}>TOTAL</span>
+                <span className="sh" style={{fontSize:22,color:"var(--red)"}}>{fmt(total)}</span>
+              </div>
+              <button className="btn" onClick={()=>setStep("checkout")}
+                style={{width:"100%",padding:"15px 20px",borderRadius:14,background:"var(--red)",color:"#fff",fontSize:17,fontWeight:800,boxShadow:"0 8px 24px var(--red-glow)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                <span style={{background:"rgba(255,255,255,.25)",borderRadius:20,padding:"2px 10px",fontSize:13}}>{count}</span>
+                <span>CONFIRMAR PEDIDO</span>
+                <span>{fmt(total)}</span>
+              </button>
+            </div>
+          </>
+        )}
+      </div>
       {count>0&&(
-        <div style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"10px 14px",background:"rgba(255,255,255,.97)",backdropFilter:"blur(18px)",borderTop:"1px solid var(--border)",zIndex:20}}>
+        <div className="cv-bottom-cart" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"10px 14px",background:"rgba(255,255,255,.97)",backdropFilter:"blur(18px)",borderTop:"1px solid var(--border)",zIndex:20}}>
           <button className="btn" onClick={()=>setStep("checkout")}
             style={{width:"100%",padding:"14px 20px",borderRadius:14,background:"var(--red)",color:"#fff",fontSize:17,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 6px 20px var(--red-glow)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
             <span style={{background:"rgba(255,255,255,.25)",borderRadius:20,padding:"3px 11px",fontSize:14}}>{count}</span>
@@ -1538,7 +1590,7 @@ const qzPrint = async (html) => {
     await window.qz.print(config, data);
     // Send cut command
     const cutConfig = window.qz.configs.create(PRINTER_NAME);
-    await window.qz.print(cutConfig, [{type:"raw", format:"command", data:"i"}]);
+    await window.qz.print(cutConfig, [{type:"raw", format:"command", flavor:"plain", data:"VB "}]);
     return true;
   } catch(e) {
     console.warn("QZ Tray no disponible, usando window.print:", e);
