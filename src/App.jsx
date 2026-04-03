@@ -269,11 +269,11 @@ const GS = () => (
     .cv-cart-panel{display:none;}
     .cv-menu-panel{padding-bottom:90px;}
     @media(min-width:900px){
-      .cv-root{max-width:1200px!important;margin:0 auto!important;display:flex!important;flex-direction:row;align-items:flex-start;min-height:100vh;}
+      .cv-root{width:100%!important;max-width:100%!important;margin:0!important;display:flex!important;flex-direction:row;align-items:flex-start;min-height:100vh;}
       .cv-menu-panel{flex:1;min-width:0;padding-bottom:60px;}
-      .cv-cart-panel{width:380px;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;border-left:1px solid var(--border);background:var(--bg);padding:24px 20px;display:flex!important;flex-direction:column;}
+      .cv-cart-panel{width:420px;flex-shrink:0;position:sticky;top:0;height:100vh;overflow-y:auto;border-left:1px solid var(--border);background:#fff;padding:28px 24px;display:flex!important;flex-direction:column;box-shadow:-4px 0 24px rgba(0,0,0,.04);}
       .cv-bottom-cart{display:none!important;}
-      .cv-checkout-root{max-width:880px!important;margin:0 auto!important;}
+      .cv-checkout-root{max-width:900px!important;margin:0 auto!important;}
     }
   `}</style>
 );
