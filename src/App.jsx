@@ -444,36 +444,36 @@ const seleccionesLabel = (item, selecciones) => {
 
 // ── Zonas de envío con polígonos exactos del KMZ ─────────────────────────
 const ZONAS_ENVIO = [
-  {nombre:"abril", grupo:1, precio:3000, coords:[[-34.7998116,-58.1614657],[-34.8068593,-58.170907],[-34.823419,-58.1510801],[-34.8155271,-58.1418963]]},
-  {nombre:"hudson park", grupo:1, precio:3000, coords:[[-34.8068593,-58.170907],[-34.8098711,-58.1747966],[-34.8199479,-58.1626945],[-34.8170589,-58.1587463]]},
-  {nombre:"green ville", grupo:1, precio:3000, coords:[[-34.8008054,-58.1596622],[-34.8041884,-58.1554565],[-34.8010521,-58.1512078],[-34.8061969,-58.1442985],[-34.8024264,-58.1387624],[-34.7943211,-58.1509074]]},
-  {nombre:"san juan chico", grupo:1, precio:3000, coords:[[-34.8061501,-58.1530532],[-34.8099204,-58.1485471],[-34.8065729,-58.1443414],[-34.8029434,-58.1488046]]},
-  {nombre:"acacias", grupo:1, precio:3000, coords:[[-34.7910417,-58.1564877],[-34.79587,-58.1599209],[-34.7963634,-58.1593201],[-34.7924162,-58.1541703]]},
-  {nombre:"ombues", grupo:1, precio:3000, coords:[[-34.8003106,-58.1682409],[-34.8016145,-58.1665672],[-34.7954474,-58.1605161],[-34.7946016,-58.1615032]]},
-  {nombre:"altos de hudson 1", grupo:1, precio:3000, coords:[[-34.8024691,-58.1709874],[-34.8042663,-58.1688417],[-34.8023987,-58.1665242],[-34.8006719,-58.16867]]},
-  {nombre:"altos de hudson 2", grupo:1, precio:3000, coords:[[-34.8043281,-58.173917],[-34.8069709,-58.1772644],[-34.8090498,-58.174904],[-34.8062661,-58.1714279]]},
-  {nombre:"hudson chico", grupo:1, precio:3000, coords:[[-34.794787,-58.1483042],[-34.797254,-58.1442701],[-34.7958795,-58.1426822],[-34.7930954,-58.1466305]]},
-  {nombre:"la portenia", grupo:1, precio:3000, coords:[[-34.7987832,-58.1615906],[-34.8005452,-58.1599598],[-34.794378,-58.1513767],[-34.7925101,-58.1538658]]},
-  {nombre:"pueblo nuevo", grupo:1, precio:3000, coords:[[-34.7897788,-58.1558819],[-34.7947165,-58.1486045],[-34.7930249,-58.1469308],[-34.7956996,-58.1424923],[-34.7971835,-58.1445704],[-34.7984837,-58.1427069],[-34.7935146,-58.1375143],[-34.784492,-58.1512041]]},
-  {nombre:"hudson", grupo:1, precio:3000, coords:[[-34.8065668,-58.1774498],[-34.7904618,-58.1574083],[-34.7830955,-58.169725],[-34.7932108,-58.1800247],[-34.7985675,-58.1729008],[-34.8044877,-58.1801964]]},
-  {nombre:"platanos", grupo:1, precio:3000, coords:[[-34.783089,-58.1702389],[-34.7817496,-58.1683077],[-34.7780838,-58.1746163],[-34.7720912,-58.182899],[-34.7779076,-58.1873192],[-34.7853448,-58.1863322],[-34.7913717,-58.1787362]]},
-  {nombre:"carmencito", grupo:2, precio:4000, coords:[[-34.8149144,-58.1801476],[-34.8195651,-58.1740536],[-34.8153372,-58.168818],[-34.810334,-58.1746544]]},
-  {nombre:"barrancas de iraola", grupo:2, precio:4000, coords:[[-34.8224949,-58.1877339],[-34.8159066,-58.1792796],[-34.8149144,-58.1801476],[-34.8209448,-58.1878627]]},
-  {nombre:"fincas de iraola 2", grupo:2, precio:4000, coords:[[-34.8248364,-58.1845153],[-34.8183892,-58.1763184],[-34.8159066,-58.1792796],[-34.8227226,-58.187691]]},
-  {nombre:"fincas de iraola 1", grupo:2, precio:4000, coords:[[-34.8252944,-58.1838715],[-34.827232,-58.1810391],[-34.8212782,-58.1730998],[-34.8189529,-58.1756318]]},
-  {nombre:"fincas de hudson", grupo:2, precio:4000, coords:[[-34.8200803,-58.1634438],[-34.82385,-58.1686366],[-34.8268445,-58.1650746],[-34.8232863,-58.1591523]]},
-  {nombre:"maritimo", grupo:2, precio:4000, coords:[[-34.8092835,-58.1751626],[-34.7988883,-58.1879943],[-34.8125956,-58.2044309],[-34.8210162,-58.1905263]]},
-  {nombre:"la reserva", grupo:2, precio:4000, coords:[[-34.8009838,-58.1398886],[-34.80486,-58.1343526],[-34.8023933,-58.1327647],[-34.7989398,-58.1378716]]},
-  {nombre:"el carmen", grupo:3, precio:5000, coords:[[-34.8275072,-58.1803771],[-34.8294095,-58.1772872],[-34.8197919,-58.163683],[-34.8157754,-58.1683608],[-34.8199328,-58.1739398],[-34.8213068,-58.1723519]]},
-  {nombre:"village del parque", grupo:3, precio:5000, coords:[[-34.833909,-58.16998],[-34.8360225,-58.1666326],[-34.8311614,-58.1608819],[-34.8286603,-58.1640148]]},
-  {nombre:"barrio san juan", grupo:3, precio:5000, coords:[[-34.8371338,-58.1662905],[-34.8385075,-58.1680929],[-34.8429456,-58.15436],[-34.8387189,-58.1481373],[-34.8347738,-58.1532442],[-34.8394938,-58.161956]]},
-  {nombre:"gutierrez", grupo:3, precio:5000, coords:[[-34.8227888,-58.1891603],[-34.8315959,-58.1915206],[-34.8385,-58.1711787],[-34.836457,-58.1670589]]},
-  {nombre:"golondrinas", grupo:3, precio:5000, coords:[[-34.7765249,-58.1613324],[-34.7811073,-58.1663106],[-34.7853722,-58.1601737],[-34.7803671,-58.1555818]]},
-  {nombre:"puerto nizuk", grupo:3, precio:5000, coords:[[-34.7795211,-58.152406],[-34.7509648,-58.1216357],[-34.7496248,-58.1391452],[-34.7720481,-58.1631349]]},
-  {nombre:"magallanes", grupo:3, precio:5000, coords:[[-34.7761815,-58.1467772],[-34.7819975,-58.1391383],[-34.7784374,-58.1349326],[-34.7729031,-58.1430007]]},
-  {nombre:"villalobos", grupo:3, precio:5000, coords:[[-34.774954,-58.138949],[-34.7679388,-58.1307093],[-34.7650832,-58.1344429],[-34.7721692,-58.1427256]]},
-  {nombre:"gaboto", grupo:3, precio:5000, coords:[[-34.7751303,-58.1385199],[-34.7778093,-58.1345288],[-34.7709706,-58.1266752],[-34.7682209,-58.1304947]]},
-  {nombre:"ranelagh", grupo:3, precio:5000, coords:[[-34.8100679,-58.2043894],[-34.7923073,-58.1820734],[-34.7875141,-58.1860216],[-34.7769398,-58.1923731],[-34.7968183,-58.2303102]]},
+  {nombre:"abril", grupo:1, precio:4000, coords:[[-34.7998116,-58.1614657],[-34.8068593,-58.170907],[-34.823419,-58.1510801],[-34.8155271,-58.1418963]]},
+  {nombre:"hudson park", grupo:1, precio:4000, coords:[[-34.8068593,-58.170907],[-34.8098711,-58.1747966],[-34.8199479,-58.1626945],[-34.8170589,-58.1587463]]},
+  {nombre:"green ville", grupo:1, precio:4000, coords:[[-34.8008054,-58.1596622],[-34.8041884,-58.1554565],[-34.8010521,-58.1512078],[-34.8061969,-58.1442985],[-34.8024264,-58.1387624],[-34.7943211,-58.1509074]]},
+  {nombre:"san juan chico", grupo:1, precio:4000, coords:[[-34.8061501,-58.1530532],[-34.8099204,-58.1485471],[-34.8065729,-58.1443414],[-34.8029434,-58.1488046]]},
+  {nombre:"acacias", grupo:1, precio:4000, coords:[[-34.7910417,-58.1564877],[-34.79587,-58.1599209],[-34.7963634,-58.1593201],[-34.7924162,-58.1541703]]},
+  {nombre:"ombues", grupo:1, precio:4000, coords:[[-34.8003106,-58.1682409],[-34.8016145,-58.1665672],[-34.7954474,-58.1605161],[-34.7946016,-58.1615032]]},
+  {nombre:"altos de hudson 1", grupo:1, precio:4000, coords:[[-34.8024691,-58.1709874],[-34.8042663,-58.1688417],[-34.8023987,-58.1665242],[-34.8006719,-58.16867]]},
+  {nombre:"altos de hudson 2", grupo:1, precio:4000, coords:[[-34.8043281,-58.173917],[-34.8069709,-58.1772644],[-34.8090498,-58.174904],[-34.8062661,-58.1714279]]},
+  {nombre:"hudson chico", grupo:1, precio:4000, coords:[[-34.794787,-58.1483042],[-34.797254,-58.1442701],[-34.7958795,-58.1426822],[-34.7930954,-58.1466305]]},
+  {nombre:"la portenia", grupo:1, precio:4000, coords:[[-34.7987832,-58.1615906],[-34.8005452,-58.1599598],[-34.794378,-58.1513767],[-34.7925101,-58.1538658]]},
+  {nombre:"pueblo nuevo", grupo:1, precio:4000, coords:[[-34.7897788,-58.1558819],[-34.7947165,-58.1486045],[-34.7930249,-58.1469308],[-34.7956996,-58.1424923],[-34.7971835,-58.1445704],[-34.7984837,-58.1427069],[-34.7935146,-58.1375143],[-34.784492,-58.1512041]]},
+  {nombre:"hudson", grupo:1, precio:4000, coords:[[-34.8065668,-58.1774498],[-34.7904618,-58.1574083],[-34.7830955,-58.169725],[-34.7932108,-58.1800247],[-34.7985675,-58.1729008],[-34.8044877,-58.1801964]]},
+  {nombre:"platanos", grupo:1, precio:4000, coords:[[-34.783089,-58.1702389],[-34.7817496,-58.1683077],[-34.7780838,-58.1746163],[-34.7720912,-58.182899],[-34.7779076,-58.1873192],[-34.7853448,-58.1863322],[-34.7913717,-58.1787362]]},
+  {nombre:"carmencito", grupo:2, precio:5000, coords:[[-34.8149144,-58.1801476],[-34.8195651,-58.1740536],[-34.8153372,-58.168818],[-34.810334,-58.1746544]]},
+  {nombre:"barrancas de iraola", grupo:2, precio:5000, coords:[[-34.8224949,-58.1877339],[-34.8159066,-58.1792796],[-34.8149144,-58.1801476],[-34.8209448,-58.1878627]]},
+  {nombre:"fincas de iraola 2", grupo:2, precio:5000, coords:[[-34.8248364,-58.1845153],[-34.8183892,-58.1763184],[-34.8159066,-58.1792796],[-34.8227226,-58.187691]]},
+  {nombre:"fincas de iraola 1", grupo:2, precio:5000, coords:[[-34.8252944,-58.1838715],[-34.827232,-58.1810391],[-34.8212782,-58.1730998],[-34.8189529,-58.1756318]]},
+  {nombre:"fincas de hudson", grupo:2, precio:5000, coords:[[-34.8200803,-58.1634438],[-34.82385,-58.1686366],[-34.8268445,-58.1650746],[-34.8232863,-58.1591523]]},
+  {nombre:"maritimo", grupo:2, precio:5000, coords:[[-34.8092835,-58.1751626],[-34.7988883,-58.1879943],[-34.8125956,-58.2044309],[-34.8210162,-58.1905263]]},
+  {nombre:"la reserva", grupo:2, precio:5000, coords:[[-34.8009838,-58.1398886],[-34.80486,-58.1343526],[-34.8023933,-58.1327647],[-34.7989398,-58.1378716]]},
+  {nombre:"el carmen", grupo:3, precio:6000, coords:[[-34.8275072,-58.1803771],[-34.8294095,-58.1772872],[-34.8197919,-58.163683],[-34.8157754,-58.1683608],[-34.8199328,-58.1739398],[-34.8213068,-58.1723519]]},
+  {nombre:"village del parque", grupo:3, precio:6000, coords:[[-34.833909,-58.16998],[-34.8360225,-58.1666326],[-34.8311614,-58.1608819],[-34.8286603,-58.1640148]]},
+  {nombre:"barrio san juan", grupo:3, precio:6000, coords:[[-34.8371338,-58.1662905],[-34.8385075,-58.1680929],[-34.8429456,-58.15436],[-34.8387189,-58.1481373],[-34.8347738,-58.1532442],[-34.8394938,-58.161956]]},
+  {nombre:"gutierrez", grupo:3, precio:6000, coords:[[-34.8227888,-58.1891603],[-34.8315959,-58.1915206],[-34.8385,-58.1711787],[-34.836457,-58.1670589]]},
+  {nombre:"golondrinas", grupo:3, precio:6000, coords:[[-34.7765249,-58.1613324],[-34.7811073,-58.1663106],[-34.7853722,-58.1601737],[-34.7803671,-58.1555818]]},
+  {nombre:"puerto nizuk", grupo:3, precio:6000, coords:[[-34.7795211,-58.152406],[-34.7509648,-58.1216357],[-34.7496248,-58.1391452],[-34.7720481,-58.1631349]]},
+  {nombre:"magallanes", grupo:3, precio:6000, coords:[[-34.7761815,-58.1467772],[-34.7819975,-58.1391383],[-34.7784374,-58.1349326],[-34.7729031,-58.1430007]]},
+  {nombre:"villalobos", grupo:3, precio:6000, coords:[[-34.774954,-58.138949],[-34.7679388,-58.1307093],[-34.7650832,-58.1344429],[-34.7721692,-58.1427256]]},
+  {nombre:"gaboto", grupo:3, precio:6000, coords:[[-34.7751303,-58.1385199],[-34.7778093,-58.1345288],[-34.7709706,-58.1266752],[-34.7682209,-58.1304947]]},
+  {nombre:"ranelagh", grupo:3, precio:6000, coords:[[-34.8100679,-58.2043894],[-34.7923073,-58.1820734],[-34.7875141,-58.1860216],[-34.7769398,-58.1923731],[-34.7968183,-58.2303102]]},
 ];
 
 // Point-in-polygon (ray casting)
@@ -646,8 +646,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const [search,     setSearch]     = useState("");
   const [cart,       setCart]       = useState([]);
   const [step,       setStep]       = useState("menu");
-  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",dni:"",envio:0,zona_envio:""});
-  const [dniLooking, setDniLooking] = useState(false);
+  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",envio:0,zona_envio:""});
   const [dniFound,   setDniFound]   = useState(false);
   const [loading,    setLoading]    = useState(false);
   const [orderId,    setOrderId]    = useState(null);
@@ -685,15 +684,13 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const total      = cart.reduce((s,c) => s+(c.precioUnitario??c.item.precio)*c.qty, 0);
   const totalConRecargo = form.pago==="tarjeta" ? Math.round(total*(1+appConfig.recargoMP)) : total;
   const count      = cart.reduce((s,c) => s+c.qty, 0);
-  const canConfirm = mesaQR ? true : (form.nombre.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim())&&form.envio>0&&form.zona_envio)));
+  const canConfirm = mesaQR ? true : (form.nombre.trim() && form.telefono.trim() && (form.tipo==="retiro"||(form.calle.trim()&&(form.numero.trim()||form.entreCalle.trim())&&form.envio>0&&form.zona_envio)));
 
-  const lookupDni = async (val, isPhone=false) => {
-    setForm(p=>({...p,[isPhone?"telefono":"dni"]:val}));
+  const lookupDni = async (val) => {
+    setForm(p=>({...p,telefono:val}));
     if (val.length < 6) { setDniFound(false); return; }
-    setDniLooking(true);
     const {data} = await supabase.from("customers")
       .select("*").or(`dni.eq.${val},telefono.eq.${val}`).limit(1);
-    setDniLooking(false);
     if (data && data.length > 0) {
       const c = data[0];
       setDniFound(true);
@@ -951,23 +948,12 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           <>
             <Card>
               <Label>TUS DATOS</Label>
-              <div style={{display:"flex",gap:8,marginBottom:10}}>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DNI</div>
-                  <div style={{position:"relative"}}>
-                    <input value={form.dni} onChange={e=>lookupDni(e.target.value)} placeholder="Tu DNI"
-                      style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:14,transition:"border .2s"}}/>
-                    {dniLooking&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:12,color:"var(--text4)"}}>🔍</span>}
-                    {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>✓</span>}
-                  </div>
-                </div>
-                <div style={{flex:1}}>
-                  <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>TELÉFONO</div>
-                  <div style={{position:"relative"}}>
-                    <input value={form.telefono} onChange={e=>lookupDni(e.target.value,true)} placeholder="Tu teléfono"
-                      style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:14,transition:"border .2s"}}/>
-                    {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>✓</span>}
-                  </div>
+              <div style={{marginBottom:10}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>TELÉFONO *</div>
+                <div style={{position:"relative"}}>
+                  <input value={form.telefono} onChange={e=>lookupDni(e.target.value)} placeholder="Tu teléfono"
+                    style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:`1px solid ${dniFound?"#16A34A":"var(--border)"}`,borderRadius:10,fontSize:14,transition:"border .2s"}}/>
+                  {dniFound&&<span style={{position:"absolute",right:10,top:"50%",transform:"translateY(-50%)",fontSize:14,color:"#16A34A"}}>✓</span>}
                 </div>
               </div>
               {dniFound&&<div style={{fontSize:11,color:"#16A34A",marginBottom:10,fontWeight:600}}>✓ Cliente encontrado — datos completados automáticamente</div>}
@@ -1528,7 +1514,7 @@ const epCtr  = t => { const s=noAcc(t).substring(0,PW); return ' '.repeat(Math.m
 const buildTicketEscPos = (order, descuento=0, autoDescuento=0) => {
   const fmt = n => '$'+Number(n).toLocaleString('es-AR');
   const fecha = new Date(Number(order.created_at)).toLocaleDateString('es-AR',{day:'numeric',month:'numeric',year:'numeric'});
-  const hora  = new Date(Number(order.created_at)).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  const hora  = new Date(Number(order.created_at)).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
   const dir = [order.calle,order.numero,order.entrecalle?'e/'+order.entrecalle:'',order.piso,order.barrio].filter(Boolean).join(' ');
   let t = EP.INIT+EP.CENTER+EP.BOLD1+EP.TALL;
   t += 'SHAKO SUSHI'+EP.LF;
@@ -1571,7 +1557,7 @@ const buildTicketEscPos = (order, descuento=0, autoDescuento=0) => {
 };
 
 const buildKitchenEscPos = (titulo, items, order) => {
-  const hora = new Date(Number(order.created_at)).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+  const hora = new Date(Number(order.created_at)).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
   const nro  = order.id.slice(-5).toUpperCase();
   let t = EP.INIT+EP.CENTER+EP.BOLD1+EP.BIG;
   t += noAcc(titulo)+EP.LF;
@@ -1621,7 +1607,7 @@ const printWithFallback = async (html, escpos) => {
 };
 
 const printKitchenTickets = (order) => {
-  const hora = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+  const hora = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false});
   const pedidoNro = order.id.slice(-5).toUpperCase();
 
   const buildKitchenHtml = (titulo, emoji, items) => {
@@ -1673,7 +1659,7 @@ const printKitchenTickets = (order) => {
 const printTicket = (order, descuento=0, autoDescuento=0) => {
   const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
   const fecha = new Date(Number(order.created_at)).toLocaleDateString("es-AR",{day:"numeric",month:"numeric",year:"numeric"});
-  const hora  = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+  const hora  = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false});
   const dir = [order.calle, order.numero, order.entrecalle?"e/"+order.entrecalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
   const itemsHtml = (order.items||[]).map(c => {
     const precio = c.precioUnitario ?? c.item.precio;
@@ -2099,7 +2085,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
               return(<>
                 {all.map((o,i)=>{
                   if (o._isMesaSession) {
-                    const hora = new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+                    const hora = new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false});
                     const nItems = o.orders.reduce((s,p)=>s+(p.items?.reduce((a,c)=>a+c.qty,0)||0),0);
                     return(
                       <div key={o.key} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:"1px solid var(--border)"}}>
@@ -2130,7 +2116,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                           {o.tipo==="delivery"&&<span style={{marginLeft:4,color:"#D97706"}}>🛵</span>}
                         </div>
                         <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
-                          {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})} · {o.items?.reduce((s,c)=>s+c.qty,0)||0} items
+                          {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})} · {o.items?.reduce((s,c)=>s+c.qty,0)||0} items
                           {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"}</span>}
                         </div>
                       </div>
@@ -2197,7 +2183,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                     <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
                       {order.orders.map(o=>(
                         <div key={o.id} style={{marginBottom:8,padding:"8px 12px",background:"var(--bg2)",borderRadius:10,border:"1px solid var(--border)"}}>
-                          <div style={{fontSize:11,color:"var(--text4)",marginBottom:4}}>#{o.id.slice(-5).toUpperCase()} · {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}</div>
+                          <div style={{fontSize:11,color:"var(--text4)",marginBottom:4}}>#{o.id.slice(-5).toUpperCase()} · {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})}</div>
                           {o.items?.filter(c=>c.item).map(c=>(
                             <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0"}}>
                               <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
@@ -3374,7 +3360,7 @@ function HistorialCajaTabla({ historial, onReload }) {
                               {o.tipo==="delivery"&&<span style={{fontSize:10,color:"#D97706",background:"#FFFBEB",padding:"1px 6px",borderRadius:20,fontWeight:600}}>🛵</span>}
                             </div>
                             <div style={{fontSize:11,color:"var(--text3)",marginTop:1}}>
-                              {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"})}
+                              {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})}
                               {" · "}{o.items?.reduce((s,c)=>s+c.qty,0)||0} items
                               {o.pago&&<span style={{marginLeft:4}}>{o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"} {o.pago}</span>}
                             </div>
@@ -3407,7 +3393,7 @@ function HistorialCajaTabla({ historial, onReload }) {
                       const isExp = expandedOrderId === "s-"+sessionKey;
                       const total = mOrders.reduce((s,o)=>s+Number(o.total),0);
                       const allOk = mOrders.every(o=>o.status==="entregado");
-                      const hora = new Date(Number(mOrders[0].created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"});
+                      const hora = new Date(Number(mOrders[0].created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false});
                       return(
                         <div key={sessionKey} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,marginBottom:8,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
                           <div style={{display:"flex",alignItems:"center",gap:10,padding:"10px 12px",cursor:"pointer"}} onClick={()=>setExpandedOrderId(isExp?null:"s-"+sessionKey)}>
