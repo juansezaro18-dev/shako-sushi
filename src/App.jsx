@@ -1209,7 +1209,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                   };
                   return(
                     <div key={item.id} style={{flexShrink:0,width:150,background:"var(--surface)",border:"2px solid #FDE68A",borderRadius:14,overflow:"hidden",boxShadow:"0 2px 8px rgba(245,158,11,.15)"}}>
-                      {item.imagen&&<div style={{height:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
+                      {item.imagen&&<div style={{height:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
                       <div style={{padding:"10px 10px 8px"}}>
                         <div style={{fontSize:12,fontWeight:700,color:"var(--text)",lineHeight:1.3,marginBottom:2}}>
                           {item.nombre}
@@ -1246,7 +1246,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
             const qty=getQty(itemConCat);
             return(
               <div key={item.id} style={{margin:"0 14px 8px",background:"var(--surface)",border:`2px solid ${qty>0?"var(--red)":"var(--border)"}`,borderRadius:14,overflow:"hidden",display:"flex",transition:"border .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
-                {item.imagen&&<div style={{width:90,minWidth:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.parentNode.style.display="none";}}/></div>}
+                {item.imagen&&<div style={{width:90,minWidth:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.parentNode.style.display="none";}}/></div>}
                 <div style={{flex:1,padding:"13px 14px",display:"flex",alignItems:"center",gap:12,minWidth:0}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:15,fontWeight:600,lineHeight:1.35,color:"var(--text)"}}>{item.nombre}</div>
@@ -1359,7 +1359,7 @@ function ItemModal({ item, onClose, onConfirm }) {
           <button className="btn" onClick={onClose} style={{width:32,height:32,borderRadius:"50%",background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,marginLeft:12}}>×</button>
         </div>
         {/* Imagen si tiene */}
-        {item.imagen&&<div style={{width:"100%",height:180,overflow:"hidden",flexShrink:0}}><img src={item.imagen} alt={item.nombre} style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
+        {item.imagen&&<div style={{width:"100%",height:180,overflow:"hidden",flexShrink:0}}><img src={item.imagen} alt={item.nombre} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover"}}/></div>}
         {/* Opciones */}
         <div style={{overflowY:"auto",flex:1,padding:"0 0 8px"}}>
           {(item.opciones||[]).map(grupo => (
