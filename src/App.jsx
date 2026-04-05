@@ -646,7 +646,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const [search,     setSearch]     = useState("");
   const [cart,       setCart]       = useState([]);
   const [step,       setStep]       = useState("menu");
-  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",envio:0,zona_envio:""});
+  const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",envio:0,zona_envio:"",horaEntrega:""});
   const [dniFound,   setDniFound]   = useState(false);
   const [loading,    setLoading]    = useState(false);
   const [orderId,    setOrderId]    = useState(null);
@@ -739,7 +739,9 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
       return;
     }
     setLoading(true);
-    const {entreCalle, ...formRest} = form;
+    const {entreCalle, horaEntrega, ...formRest} = form;
+    const notasCliente = [horaEntrega?`⏰ ${horaEntrega}`:"", formRest.notas].filter(Boolean).join(" | ");
+    formRest.notas = notasCliente;
     // Get current mesa session number if ordering from a mesa
     let mesaSession = 1;
     if (mesaQR) {
@@ -1066,7 +1068,13 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                 </button>
               ))}
             </div>
-          <div style={{marginTop:12,fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOTAS ADICIONALES (opcional)</div>
+          <div style={{marginTop:12,fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>HORA DE ENTREGA / RETIRO</div>
+          <select value={form.horaEntrega} onChange={e=>setForm(p=>({...p,horaEntrega:e.target.value}))}
+            style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,marginBottom:12,color:"var(--text)"}}>
+            <option value="">Lo antes posible</option>
+            {(()=>{const s=[];let h=appConfig.abreH,m=appConfig.abreM;while(h<appConfig.cierraH||(h===appConfig.cierraH&&m<=appConfig.cierraM)){s.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);m+=30;if(m>=60){h++;m-=60;}}return s;})().map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+          <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>NOTAS ADICIONALES (opcional)</div>
           <textarea value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} placeholder="Alergias, aclaraciones, referencias para llegar..." rows={3}
             style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,resize:"none",lineHeight:1.6}}/>
         </Card>
@@ -2843,7 +2851,7 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
 function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONFIG }) {
   const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
   const [cart,     setCart]     = useState([]);
-  const [form,     setForm]     = useState({nombre:"",telefono:"",tipo:mesaId?"mesa":"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",notas:"",dni:""});
+  const [form,     setForm]     = useState({nombre:"",telefono:"",tipo:mesaId?"mesa":"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",notas:"",dni:"",envio:0,zona_envio:"",horaEntrega:""});
   const [loading,  setLoading]  = useState(false);
   const [dniFound, setDniFound] = useState(false);
   const [search,   setSearch]   = useState("");
@@ -2873,6 +2881,8 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
       const c = data[0];
       setDniFound(true);
       const {calle:pc2, nro:pn2, entreCalle:pec2, barrio:pb2} = parseDireccion(c.direccion);
+      const barrioLower2 = (pb2||"").toLowerCase();
+      const zonaAdmin = pc2 ? ZONAS_ENVIO.find(z => barrioLower2.includes(z.nombre.toLowerCase()) || z.nombre.toLowerCase().includes(barrioLower2.split(" ")[0])) : null;
       setForm(p=>({...p,
         nombre:     p.nombre     || c.nombre   || "",
         telefono:   p.telefono   || c.telefono || "",
@@ -2881,6 +2891,8 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
         entreCalle: p.entreCalle || pec2 || "",
         barrio:     p.barrio     || pb2  || "",
         tipo:       pc2 ? "delivery" : p.tipo,
+        envio:      p.envio || (zonaAdmin?.precio||0),
+        zona_envio: p.zona_envio || (zonaAdmin?`Grupo ${zonaAdmin.grupo}`:""),
       }));
       // Load last 5 orders for this customer
       const {data:ords} = await supabase.from("orders").select("*")
@@ -2897,14 +2909,16 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
     if (!mesaId && !form.nombre.trim()) return;
     setLoading(true);
     const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
-    const {entreCalle:ec2, ...formRest2} = form;
+    const {entreCalle:ec2, horaEntrega:he2, ...formRest2} = form;
     const orderNombre = form.nombre.trim() || (mesaId ? 'Mesa '+(mesaId.replace('mv','V').replace('m','')) : '');
     let mesaSession2 = 1;
     if (mesaId) {
       const {data:md2} = await supabase.from("mesas").select("session_num").eq("id",mesaId).maybeSingle();
       mesaSession2 = md2?.session_num || 1;
     }
-    const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", items:cart, subtotal:total, total, source:"admin", status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
+    const envioAdmin = form.tipo==="delivery" ? (form.envio||0) : 0;
+    const notasAdmin = [he2?`⏰ ${he2}`:"", form.notas].filter(Boolean).join(" | ");
+    const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", notas:notasAdmin, items:cart, subtotal:total, total:total+envioAdmin, envio:envioAdmin, source:"admin", status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
     await supabase.from("orders").insert(order);
     // Mark mesa as ocupada
     if (mesaId) await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesaId);
@@ -2968,12 +2982,17 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
         <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:14,padding:14,marginBottom:14}}>
           <div className="sh" style={{fontSize:13,color:"#16A34A",marginBottom:8}}>PRODUCTOS SELECCIONADOS</div>
           {cart.map(c=>(
-            <div key={c.cartKey} style={{borderBottom:"1px solid #BBF7D0",padding:"3px 0"}}>
-              <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}>
-                <span>{c.qty}× {c.item.nombre}</span>
-                <span style={{fontWeight:700}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
+            <div key={c.cartKey} style={{borderBottom:"1px solid #BBF7D0",padding:"5px 0"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:13,gap:8}}>
+                <span style={{flex:1,color:"var(--text2)"}}>{c.item.nombre}</span>
+                <div style={{display:"flex",alignItems:"center",gap:5,flexShrink:0}}>
+                  <button className="btn" onClick={()=>setQty(c.cartKey,c.qty-1)} style={{width:22,height:22,borderRadius:6,background:"#DCFCE7",border:"1px solid #86EFAC",color:"#16A34A",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>−</button>
+                  <span style={{fontSize:13,fontWeight:800,minWidth:16,textAlign:"center",color:"var(--text)"}}>{c.qty}</span>
+                  <button className="btn" onClick={()=>setQty(c.cartKey,c.qty+1)} style={{width:22,height:22,borderRadius:6,background:"#16A34A",color:"#fff",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>+</button>
+                  <span style={{fontWeight:700,minWidth:52,textAlign:"right"}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
+                </div>
               </div>
-              {c.selecciones&&<div style={{fontSize:11,color:"#166534",paddingLeft:12}}>{seleccionesLabel(c.item,c.selecciones)}</div>}
+              {c.selecciones&&<div style={{fontSize:11,color:"#166534",paddingLeft:2}}>{seleccionesLabel(c.item,c.selecciones)}</div>}
             </div>
           ))}
           <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0 0",fontWeight:800,fontSize:16,fontFamily:"'Barlow Condensed',sans-serif"}}>
@@ -3067,9 +3086,31 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
                 </div>
                 <div style={{flex:2}}>
                   <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>Barrio / Localidad</div>
-                  <input value={form.barrio} onChange={e=>setForm(p=>({...p,barrio:e.target.value}))} placeholder="Ej: Hudson, Berazategui..."
+                  <input value={form.barrio} onChange={e=>{
+                    const b=e.target.value;
+                    const bl=b.toLowerCase();
+                    const z=ZONAS_ENVIO.find(z=>bl.includes(z.nombre.toLowerCase())||z.nombre.toLowerCase().includes(bl.split(" ")[0])||bl.length>0&&bl.split(" ")[0].length>3&&z.nombre.toLowerCase().startsWith(bl.split(" ")[0]));
+                    setForm(p=>({...p,barrio:b,envio:z?z.precio:p.envio,zona_envio:z?`Grupo ${z.grupo}`:p.zona_envio}));
+                  }} placeholder="Ej: Hudson, Berazategui..."
                     style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13}}/>
                 </div>
+              </div>
+              {/* Zona de envío */}
+              <div style={{marginTop:8}}>
+                <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>ZONA DE ENVÍO</div>
+                <div style={{display:"flex",gap:6}}>
+                  {[{g:1,p:4000},{g:2,p:5000},{g:3,p:6000}].map(({g,p})=>(
+                    <button key={g} className="btn" onClick={()=>setForm(f=>({...f,zona_envio:`Grupo ${g}`,envio:p}))}
+                      style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,
+                        background:form.zona_envio===`Grupo ${g}`?"var(--red-light)":"var(--bg2)",
+                        border:`2px solid ${form.zona_envio===`Grupo ${g}`?"var(--red)":"var(--border)"}`,
+                        color:form.zona_envio===`Grupo ${g}`?"var(--red)":"var(--text3)",
+                        fontFamily:"'Barlow Condensed',sans-serif"}}>
+                      G{g} · ${p.toLocaleString("es-AR")}
+                    </button>
+                  ))}
+                </div>
+                {form.zona_envio&&<div style={{fontSize:11,color:"#16A34A",marginTop:5,fontWeight:600}}>✓ {form.zona_envio} · Envío: ${Number(form.envio).toLocaleString("es-AR")}</div>}
               </div>
             </div>
           )}
@@ -3083,6 +3124,14 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
             </div>
           </div>
         </>}
+        <div style={{marginTop:10}}>
+          <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>HORA DE ENTREGA / RETIRO</div>
+          <select value={form.horaEntrega} onChange={e=>setForm(p=>({...p,horaEntrega:e.target.value}))}
+            style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,color:"var(--text)"}}>
+            <option value="">Lo antes posible</option>
+            {(()=>{const s=[];let h=appConfig.abreH,m=appConfig.abreM;while(h<appConfig.cierraH||(h===appConfig.cierraH&&m<=appConfig.cierraM)){s.push(`${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}`);m+=30;if(m>=60){h++;m-=60;}}return s;})().map(t=><option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
         <div style={{marginTop:10}}>
           <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>NOTAS</div>
           <textarea value={form.notas} onChange={e=>setForm(p=>({...p,notas:e.target.value}))} placeholder="Aclaraciones..." rows={2}
