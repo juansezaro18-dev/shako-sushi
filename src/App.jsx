@@ -620,7 +620,7 @@ function MapPicker({ onSelect, onClose }) {
 }
 
 function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
-  const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
+  const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false&&!i.soloAdmin)})).filter(c=>c.items.length>0);
   // Detect mesa from URL: ?mesa=m5
   const mesaQR = new URLSearchParams(window.location.search).get("mesa") || "";
 
@@ -1167,7 +1167,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           const promoList = (appConfig.promociones||[]);
           if(!promoList.length) return null;
           const promoItems = promoList.map(p=>{
-            const item = menu.flatMap(c=>c.items).find(i=>i.id===p.itemId&&i.disponible!==false);
+            const item = menu.flatMap(c=>c.items).find(i=>i.id===p.itemId&&i.disponible!==false&&!i.soloAdmin);
             if (!item) return null;
             // Build selecciones if a variant was chosen
             let selecciones = null;
@@ -2408,7 +2408,7 @@ function MenuEditor({ menu, saveMenu }) {
                     </div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:item.disponible===false?"var(--text4)":"var(--text)"}}>
-                        {item.disponible===false?"🚫 ":""}{item.nombre}
+                        {item.disponible===false?"🚫 ":""}{item.soloAdmin?"👤 ":""}{item.nombre}
                       </div>
                       <div className="sh" style={{fontSize:13,color:"var(--red)",marginTop:1}}>{fmt(item.precio)}{item.opciones?.length?<span style={{fontSize:10,color:"var(--text4)",marginLeft:6,fontFamily:"'Barlow',sans-serif",fontWeight:400}}>{item.opciones.length} grupo{item.opciones.length!==1?"s":""} de opciones</span>:null}</div>
                     </div>
@@ -2455,11 +2455,22 @@ function MenuEditor({ menu, saveMenu }) {
                           style={{width:"100%",padding:"9px 11px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,fontSize:16,fontWeight:800,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
                       </div>
                       {/* Disponible toggle */}
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 11px",background:"var(--bg2)",borderRadius:8,border:"1px solid var(--border)",marginBottom:10}} onClick={e=>e.stopPropagation()}>
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 11px",background:"var(--bg2)",borderRadius:8,border:"1px solid var(--border)",marginBottom:6}} onClick={e=>e.stopPropagation()}>
                         <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>Disponible en el menú</div>
                         <div onClick={()=>updItem(cat.id,item.id,{disponible:item.disponible===false})}
                           style={{width:38,height:21,borderRadius:11,background:item.disponible!==false?"var(--red)":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
                           <div style={{width:15,height:15,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:item.disponible!==false?"20px":"3px",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                        </div>
+                      </div>
+                      {/* Solo Admin toggle */}
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 11px",background:"var(--bg2)",borderRadius:8,border:"1px solid var(--border)",marginBottom:10}} onClick={e=>e.stopPropagation()}>
+                        <div>
+                          <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>👤 Solo admin</div>
+                          <div style={{fontSize:10,color:"var(--text3)"}}>Oculto en el menú de clientes, visible al hacer pedidos desde admin</div>
+                        </div>
+                        <div onClick={()=>updItem(cat.id,item.id,{soloAdmin:!item.soloAdmin})}
+                          style={{width:38,height:21,borderRadius:11,background:item.soloAdmin?"#7C3AED":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0,marginLeft:10}}>
+                          <div style={{width:15,height:15,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:item.soloAdmin?"20px":"3px",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
                         </div>
                       </div>
                       {/* Opciones */}
