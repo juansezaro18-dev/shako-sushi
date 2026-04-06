@@ -1731,6 +1731,13 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
 
   const loadCaja = useCallback(async () => {
     const hoy = fechaLocal();
+    // Fix cajas with future dates caused by UTC timezone bug (created after 21:00 local = next day in UTC)
+    const {data: cajasFuturas} = await supabase.from("caja").select("id,fecha").gt("fecha", hoy);
+    if (cajasFuturas && cajasFuturas.length > 0) {
+      await Promise.all(cajasFuturas.map(c =>
+        supabase.from("caja").update({fecha: hoy}).eq("id", c.id)
+      ));
+    }
     // Auto-close any open cajas from previous days
     const {data: cajasViejas} = await supabase.from("caja").select("id,fecha").eq("estado","abierta").neq("fecha",hoy);
     if (cajasViejas && cajasViejas.length > 0) {
