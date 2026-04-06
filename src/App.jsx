@@ -27,12 +27,12 @@ const CONFIG = {
 
 // ── Grupos de opciones reutilizables ─────────────────────────────────────
 const SALSAS_COMUNES = [
-  {id:"sc1",nombre:"Buenos Aires",precio:2000},
-  {id:"sc2",nombre:"Teriyaki",precio:2000},
-  {id:"sc3",nombre:"Tonkatzu",precio:2000},
-  {id:"sc4",nombre:"Maracuyá",precio:2000},
-  {id:"sc5",nombre:"Agridulce Spring Roll",precio:2000},
-  {id:"sc6",nombre:"Soja extra",precio:2000},
+  {id:"sc1",nombre:"Buenos Aires",precio:3000},
+  {id:"sc2",nombre:"Teriyaki",precio:3000},
+  {id:"sc3",nombre:"Tonkatzu",precio:3000},
+  {id:"sc4",nombre:"Maracuyá",precio:3000},
+  {id:"sc5",nombre:"Agridulce Spring Roll",precio:3000},
+  {id:"sc6",nombre:"Soja extra",precio:3000},
 ];
 const INGREDIENTES_WOK = [
   {id:"iw1",nombre:"Pollo",precio:3000},
