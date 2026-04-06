@@ -2153,7 +2153,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
           </>}
 
           {(cajaVista==="semana"||cajaVista==="mes")&&<HistorialCajaResumen historial={historialCaja} vista={cajaVista} orders={orders}/>}
-          {cajaVista==="historial"&&<HistorialCajaTabla historial={historialCaja} onReload={loadHistorialCaja}/>}
+          {cajaVista==="historial"&&<HistorialCajaTabla historial={historialCaja} onReload={loadHistorialCaja} orders={orders}/>}
         </div>
       )}
 
@@ -3339,7 +3339,7 @@ function HistorialCajaResumen({ historial, vista, orders }) {
 }
 
 /* ══ HISTORIAL CAJA TABLA ═════════════════════════════════════ */
-function HistorialCajaTabla({ historial, onReload }) {
+function HistorialCajaTabla({ historial, onReload, orders=[] }) {
   const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
   const [expandedId,      setExpandedId]      = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -3360,12 +3360,10 @@ function HistorialCajaTabla({ historial, onReload }) {
       const cierreStr   = cierreHora   ? c.fecha + "T" + cierreHora   + ":59" : c.fecha + "T23:59:59";
       const inicio = new Date(aperturaStr).getTime();
       const fin    = new Date(cierreStr).getTime();
-      const {data} = await supabase.from("orders")
-        .select("*")
-        .gte("created_at", inicio)
-        .lte("created_at", fin)
-        .order("created_at", {ascending:true});
-      setPedidosDia(p => ({...p, [c.id]: data || []}));
+      const data = orders
+        .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts <= fin; })
+        .sort((a,b) => Number(a.created_at) - Number(b.created_at));
+      setPedidosDia(p => ({...p, [c.id]: data}));
       setLoadingDia(null);
     }
   };
