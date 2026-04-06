@@ -933,7 +933,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
             </div>
           )}
           <div style={{display:"flex",justifyContent:"space-between",padding:"10px 0 0",fontSize:20,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",color:"var(--text)",borderTop:"1px solid var(--border)",marginTop:4}}>
-            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(total+(form.tipo==="delivery"?form.envio:0))}</span>
+            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(totalConRecargo+(form.tipo==="delivery"?form.envio:0))}</span>
           </div>
         </Card>
         {/* Si viene de mesa QR, mostrar banner de mesa en lugar de formulario de datos */}
@@ -1220,7 +1220,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                         </div>
                         {p.etiqueta&&<div style={{fontSize:10,fontWeight:700,color:"#D97706",marginBottom:4}}>{p.etiqueta}</div>}
                         <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:8}}>
-                          {p.precioPromo&&p.precioPromo<item.precio&&<span style={{fontSize:11,color:"var(--text4)",textDecoration:"line-through"}}>{fmt(item.precio)}</span>}
+                          {p.precioPromo&&p.precioPromo<precioBase&&<span style={{fontSize:11,color:"var(--text4)",textDecoration:"line-through"}}>{fmt(precioBase)}</span>}
                           <span className="sh" style={{fontSize:14,color:"#D97706"}}>{fmt(precioMostrar)}</span>
                         </div>
                         {qty===0
