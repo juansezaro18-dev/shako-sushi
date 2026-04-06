@@ -1806,8 +1806,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
 
   useEffect(() => {
     loadOrders();
-    loadCaja();
-    loadHistorialCaja();
+    loadCaja().then(() => loadHistorialCaja());
     supabase.from("mesas").select("id,session_num,estado").then(({data})=>setMesasData(data||[]));
 
     // Polling cada 5 segundos como fallback
