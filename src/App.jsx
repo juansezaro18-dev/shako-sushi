@@ -416,7 +416,7 @@ const calcOpcionesPrice = (item, selecciones) => {
     if (!sel || !sel.choiceIds.length) return;
     if (grupo.tipo === "radio" && grupo.obligatorio) {
       const choice = grupo.choices.find(c => c.id === sel.choiceIds[0]);
-      if (choice) base = choice.precio; // obligatorio radio sets the base
+      if (choice) base += choice.precio; // obligatorio radio contributes to base (additive for multiple groups)
     } else {
       sel.choiceIds.forEach(cid => {
         const choice = grupo.choices.find(c => c.id === cid);
