@@ -2450,9 +2450,22 @@ function MenuEditor({ menu, saveMenu }) {
                       </div>
                       {/* Precio */}
                       <div style={{marginBottom:8}}>
-                        <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>PRECIO BASE ($) {item.opciones?.length?"(precio mínimo mostrado)":""}</div>
+                        <div style={{fontSize:10,color:"var(--text3)",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>
+                          {item.porKilo?"PRECIO POR KG ($)":"PRECIO BASE ($)"} {item.opciones?.length&&!item.porKilo?"(precio mínimo mostrado)":""}
+                        </div>
                         <input type="number" min="0" step="100" value={item.precio} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{precio:Number(e.target.value)});}} onClick={e=>e.stopPropagation()}
                           style={{width:"100%",padding:"9px 11px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,fontSize:16,fontWeight:800,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                      </div>
+                      {/* Por kilo toggle */}
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 11px",background:"var(--bg2)",borderRadius:8,border:"1px solid var(--border)",marginBottom:6}} onClick={e=>e.stopPropagation()}>
+                        <div>
+                          <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>⚖️ Venta por kilo</div>
+                          <div style={{fontSize:10,color:"var(--text3)"}}>El admin ingresa el peso en kg al agregar al pedido</div>
+                        </div>
+                        <div onClick={()=>updItem(cat.id,item.id,{porKilo:!item.porKilo})}
+                          style={{width:38,height:21,borderRadius:11,background:item.porKilo?"#D97706":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0,marginLeft:10}}>
+                          <div style={{width:15,height:15,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:item.porKilo?"20px":"3px",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+                        </div>
                       </div>
                       {/* Disponible toggle */}
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 11px",background:"var(--bg2)",borderRadius:8,border:"1px solid var(--border)",marginBottom:6}} onClick={e=>e.stopPropagation()}>
@@ -2869,14 +2882,25 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
   const [lastOrders, setLastOrders] = useState([]);
 
   const [modalAdminItem, setModalAdminItem] = useState(null);
+  const [modalKiloItem, setModalKiloItem] = useState(null);
+  const [kiloWeight, setKiloWeight] = useState("");
   const add = (item, selecciones=null, precioUnitario=null) => {
     const key = getCartKey(item, selecciones);
     const precio = precioUnitario ?? item.precio;
     setCart(p => { const ex=p.find(c=>c.cartKey===key); return ex?p.map(c=>c.cartKey===key?{...c,qty:c.qty+1}:c):[...p,{item,qty:1,selecciones,precioUnitario:precio,cartKey:key,catId:item.catId||""}]; });
   };
+  const addKilo = (item, kg) => {
+    const kgNum = parseFloat(kg);
+    if (!kgNum || kgNum<=0) return;
+    const precioUnitario = Math.round(kgNum * item.precio);
+    const itemConPeso = {...item, nombre:`${item.nombre} (${kgNum} kg)`};
+    const cartKey = item.id + "-kilo-" + Date.now();
+    setCart(p => [...p, {item:itemConPeso, qty:1, selecciones:null, precioUnitario, cartKey, catId:item.catId||"", kiloQty:kgNum}]);
+    setModalKiloItem(null); setKiloWeight("");
+  };
   const setQty = (key,q) => setCart(p => q<=0?p.filter(c=>c.cartKey!==key):p.map(c=>c.cartKey===key?{...c,qty:q}:c));
-  const getQty = (item) => { if(!item.opciones?.length) return cart.find(c=>c.item.id===item.id&&!c.selecciones?.length)?.qty||0; return 0; };
-  const handleAddAdminItem = (item) => { if(item.opciones?.length) { setModalAdminItem(item); } else { add(item); } };
+  const getQty = (item) => { if(!item.opciones?.length&&!item.porKilo) return cart.find(c=>c.item.id===item.id&&!c.selecciones?.length)?.qty||0; return 0; };
+  const handleAddAdminItem = (item) => { if(item.porKilo) { setModalKiloItem(item); setKiloWeight(""); } else if(item.opciones?.length) { setModalAdminItem(item); } else { add(item); } };
   const total  = cart.reduce((s,c)=>s+(c.precioUnitario??c.item.precio)*c.qty,0);
   const fmt    = (n) => `$${Number(n).toLocaleString("es-AR")}`;
 
@@ -2970,16 +2994,18 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
                   <div key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 4px",borderBottom:"1px solid var(--border)"}}>
                     <div style={{flex:1}}>
                       <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{item.nombre}</div>
-                      <div style={{fontSize:12,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{fmt(item.precio)}</div>
+                      <div style={{fontSize:12,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{fmt(item.precio)}{item.porKilo?<span style={{fontSize:10,color:"var(--text4)",marginLeft:3}}>/kg</span>:null}</div>
                     </div>
-                    {qty===0
-                      ?<button className="btn" onClick={()=>handleAddAdminItem(itemConCat)} style={{width:32,height:32,borderRadius:8,background:"var(--red-light)",border:"1px solid var(--red-border)",color:"var(--red)",fontSize:item.opciones?.length?14:20,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{item.opciones?.length?"Ver":"+"}
-                      </button>
-                      :<div style={{display:"flex",alignItems:"center",gap:6}}>
-                        <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:28,height:28,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
-                        <span style={{fontSize:14,fontWeight:800,minWidth:18,textAlign:"center",color:"var(--red)"}}>{qty}</span>
-                        <button className="btn" onClick={()=>handleAddAdminItem(itemConCat)} style={{width:28,height:28,borderRadius:7,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-                      </div>}
+                    {item.porKilo
+                      ?<button className="btn" onClick={()=>handleAddAdminItem(itemConCat)} style={{padding:"0 10px",height:32,borderRadius:8,background:"#FEF3C7",border:"1px solid #FCD34D",color:"#D97706",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,gap:4}}>⚖️ kg</button>
+                      :qty===0
+                        ?<button className="btn" onClick={()=>handleAddAdminItem(itemConCat)} style={{width:32,height:32,borderRadius:8,background:"var(--red-light)",border:"1px solid var(--red-border)",color:"var(--red)",fontSize:item.opciones?.length?14:20,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{item.opciones?.length?"Ver":"+"}
+                        </button>
+                        :<div style={{display:"flex",alignItems:"center",gap:6}}>
+                          <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:28,height:28,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                          <span style={{fontSize:14,fontWeight:800,minWidth:18,textAlign:"center",color:"var(--red)"}}>{qty}</span>
+                          <button className="btn" onClick={()=>handleAddAdminItem(itemConCat)} style={{width:28,height:28,borderRadius:7,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                        </div>}
                   </div>
                 );
               })}
@@ -2997,9 +3023,12 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
               <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:13,gap:8}}>
                 <span style={{flex:1,color:"var(--text2)"}}>{c.item.nombre}</span>
                 <div style={{display:"flex",alignItems:"center",gap:5,flexShrink:0}}>
-                  <button className="btn" onClick={()=>setQty(c.cartKey,c.qty-1)} style={{width:22,height:22,borderRadius:6,background:"#DCFCE7",border:"1px solid #86EFAC",color:"#16A34A",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>−</button>
-                  <span style={{fontSize:13,fontWeight:800,minWidth:16,textAlign:"center",color:"var(--text)"}}>{c.qty}</span>
-                  <button className="btn" onClick={()=>setQty(c.cartKey,c.qty+1)} style={{width:22,height:22,borderRadius:6,background:"#16A34A",color:"#fff",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>+</button>
+                  {c.kiloQty!=null
+                    ?<button className="btn" onClick={()=>setQty(c.cartKey,0)} style={{width:22,height:22,borderRadius:6,background:"#FEE2E2",border:"1px solid #FCA5A5",color:"#DC2626",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>×</button>
+                    :<><button className="btn" onClick={()=>setQty(c.cartKey,c.qty-1)} style={{width:22,height:22,borderRadius:6,background:"#DCFCE7",border:"1px solid #86EFAC",color:"#16A34A",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>−</button>
+                    <span style={{fontSize:13,fontWeight:800,minWidth:16,textAlign:"center",color:"var(--text)"}}>{c.qty}</span>
+                    <button className="btn" onClick={()=>setQty(c.cartKey,c.qty+1)} style={{width:22,height:22,borderRadius:6,background:"#16A34A",color:"#fff",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>+</button></>
+                  }
                   <span style={{fontWeight:700,minWidth:52,textAlign:"right"}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
                 </div>
               </div>
@@ -3155,6 +3184,34 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
         {loading?"CREANDO PEDIDO...":`CONFIRMAR PEDIDO · ${fmt(total)}`}
       </button>
       {modalAdminItem&&<ItemModal item={modalAdminItem} onClose={()=>setModalAdminItem(null)} onConfirm={(sel,precio,qty=1)=>{for(let i=0;i<qty;i++)add(modalAdminItem,sel,precio);setModalAdminItem(null);}}/>}
+      {modalKiloItem&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
+          <div style={{background:"var(--surface)",borderRadius:18,padding:24,width:"100%",maxWidth:320,boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
+            <div className="sh" style={{fontSize:18,marginBottom:4}}>⚖️ PESO DEL PRODUCTO</div>
+            <div style={{fontSize:13,color:"var(--text3)",marginBottom:16}}>{modalKiloItem.nombre} — {fmt(modalKiloItem.precio)}/kg</div>
+            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>PESO (kg)</div>
+            <input
+              type="number" min="0.001" step="0.001" placeholder="Ej: 1.250"
+              value={kiloWeight} onChange={e=>setKiloWeight(e.target.value)}
+              autoFocus
+              style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:20,fontWeight:800,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:8,boxSizing:"border-box"}}
+            />
+            {kiloWeight&&parseFloat(kiloWeight)>0&&(
+              <div style={{fontSize:13,color:"var(--text3)",marginBottom:16,textAlign:"center"}}>
+                Total: <strong style={{color:"var(--red)"}}>{fmt(Math.round(parseFloat(kiloWeight)*modalKiloItem.precio))}</strong>
+              </div>
+            )}
+            <div style={{display:"flex",gap:10}}>
+              <button className="btn" onClick={()=>{setModalKiloItem(null);setKiloWeight("");}} style={{flex:1,padding:"11px 0",borderRadius:10,background:"var(--bg2)",border:"1px solid var(--border)",fontSize:14,fontWeight:600,color:"var(--text3)"}}>Cancelar</button>
+              <button className="btn" onClick={()=>addKilo({...modalKiloItem},kiloWeight)}
+                disabled={!kiloWeight||parseFloat(kiloWeight)<=0}
+                style={{flex:2,padding:"11px 0",borderRadius:10,background:(!kiloWeight||parseFloat(kiloWeight)<=0)?"var(--border)":"var(--red)",color:(!kiloWeight||parseFloat(kiloWeight)<=0)?"var(--text4)":"#fff",fontSize:15,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+                AGREGAR AL PEDIDO
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
