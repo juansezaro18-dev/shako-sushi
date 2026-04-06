@@ -3343,30 +3343,25 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
   const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
   const [expandedId,      setExpandedId]      = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
-  const [pedidosDia,      setPedidosDia]      = useState({});
-  const [loadingDia,      setLoadingDia]      = useState(null);
 
   useEffect(() => { onReload(); }, []);
 
-  const toggleDia = async (c) => {
-    const isExp = expandedId === c.id;
-    setExpandedId(isExp ? null : c.id);
-    if (!isExp && !pedidosDia[c.id]) {
-      setLoadingDia(c.fecha);
-      const parseHora = (h) => { if (!h) return null; const m = h.match(/(\d{1,2}):(\d{2})/); if (!m) return null; let hh=parseInt(m[1]); const mm=m[2]; if (h.toLowerCase().includes("p") && hh<12) hh+=12; if (h.toLowerCase().includes("a") && hh===12) hh=0; return hh.toString().padStart(2,"0")+":"+mm; };
-      const aperturaHora = parseHora(c.hora_apertura);
-      const cierreHora   = parseHora(c.hora_cierre);
-      const aperturaStr = aperturaHora ? c.fecha + "T" + aperturaHora + ":00" : c.fecha + "T00:00:00";
-      const cierreStr   = cierreHora   ? c.fecha + "T" + cierreHora   + ":59" : c.fecha + "T23:59:59";
-      const inicio = new Date(aperturaStr).getTime();
-      const fin    = new Date(cierreStr).getTime();
-      const data = orders
-        .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts <= fin; })
-        .sort((a,b) => Number(a.created_at) - Number(b.created_at));
-      setPedidosDia(p => ({...p, [c.id]: data}));
-      setLoadingDia(null);
-    }
+  const parseHora = (h) => { if (!h) return null; const m = h.match(/(\d{1,2}):(\d{2})/); if (!m) return null; let hh=parseInt(m[1]); const mm=m[2]; if (h.toLowerCase().includes("p") && hh<12) hh+=12; if (h.toLowerCase().includes("a") && hh===12) hh=0; return hh.toString().padStart(2,"0")+":"+mm; };
+
+  const getPedidosCaja = (c) => {
+    const aperturaHora = parseHora(c.hora_apertura);
+    const cierreHora   = parseHora(c.hora_cierre);
+    const [y,mo,d] = c.fecha.split("-").map(Number);
+    const [ah=0,am=0] = (aperturaHora||"00:00").split(":").map(Number);
+    const [ch=23,cm=59] = (cierreHora||"23:59").split(":").map(Number);
+    const inicio = new Date(y, mo-1, d, ah, am, 0).getTime();
+    const fin    = new Date(y, mo-1, d, ch, cm, 59).getTime();
+    return orders
+      .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts <= fin; })
+      .sort((a,b) => Number(a.created_at) - Number(b.created_at));
   };
+
+  const toggleDia = (c) => setExpandedId(p => p === c.id ? null : c.id);
 
   const ESTADOS = {
     pendiente_pago: {label:"Pend. pago", color:"#D97706", bg:"rgba(217,119,6,.1)", ring:"#D97706", next:"nuevo", nextLabel:"✓ Confirmar pago"},
@@ -3395,8 +3390,8 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
         const isExp   = expandedId === c.id;
         const abierta = c.estado === "abierta";
         const fecha   = new Date(c.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
-        const pedidos = pedidosDia[c.id] || [];
-        const loading = loadingDia === c.fecha;
+        const pedidos = isExp ? getPedidosCaja(c) : [];
+        const totalVentasLive = pedidos.filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0);
         return (
           <div key={c.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--red-border)":"var(--border)"}`,borderRadius:14,marginBottom:8,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
             {/* Header del día */}
@@ -3411,9 +3406,7 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
               </div>
               <div style={{textAlign:"right"}}>
                 <div className="sh" style={{fontSize:17,color:abierta?"#D97706":"#16A34A"}}>
-                  {pedidosDia[c.id]
-                    ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0))
-                    : fmt(c.total_ventas)}
+                  {isExp ? fmt(totalVentasLive) : fmt(c.total_ventas)}
                 </div>
                 <div style={{fontSize:10,color:"var(--text4)",marginTop:1,fontWeight:600}}>{abierta?"EN CURSO":"CERRADA"}</div>
               </div>
@@ -3428,7 +3421,7 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
                   {[
                     {l:"Efectivo apertura", v:fmt(c.monto_apertura),                                          col:"#2563EB"},
                     {l:"Efectivo cierre",   v:abierta?"—":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
-                    {l:"Total ventas",      v:pedidosDia[c.id] ? fmt(pedidosDia[c.id].filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0)) : fmt(c.total_ventas), col:"var(--red)"},
+                    {l:"Total ventas",      v:fmt(totalVentasLive||c.total_ventas||0), col:"var(--red)"},
                     {l:"Diferencia caja",   v:abierta?"—":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)), col:"#7C3AED"},
                   ].map(k=>(
                     <div key={k.l} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",border:"1px solid var(--border)"}}>
@@ -3444,16 +3437,14 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
 
                 {/* Pedidos del día */}
                 <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:10,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                  PEDIDOS DE LA CAJA {!loading&&`(${pedidos.length})`}
+                  PEDIDOS DE LA CAJA ({pedidos.length})
                 </div>
 
-                {loading&&<div style={{textAlign:"center",padding:"16px 0",color:"var(--text4)",fontSize:13}}>Cargando pedidos...</div>}
-
-                {!loading&&pedidos.length===0&&(
+                {pedidos.length===0&&(
                   <div style={{textAlign:"center",padding:"16px 0",color:"var(--text4)",fontSize:12}}>No hay pedidos registrados este día</div>
                 )}
 
-                {!loading&&(()=>{
+                {(()=>{
                   // Group by mesa_id + mesa_session
                   const sessionMap = {};
                   const individuales = [];
