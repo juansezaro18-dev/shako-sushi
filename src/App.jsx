@@ -8,6 +8,9 @@ const supabase = createClient(
 
 const LOGO_SRC = "/logo.png";
 
+// Fecha local (Argentina UTC-3) — evita el bug de toISOString() que usa UTC
+const fechaLocal = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+
 const CONFIG = {
   nombre: "Shako Sushi", adminPin: "1234",
   ubicacion: "Hudson Plaza Comercial, Berazategui", horario: "16:30 a 23:30", abreH:16, abreM:30, cierraH:23, cierraM:30,
@@ -313,7 +316,7 @@ export default function App() {
       .catch(() => {});
     // Check caja status - initial load
     const checkCaja = () => {
-      const hoy = new Date().toISOString().split("T")[0];
+      const hoy = fechaLocal();
       supabase.from("caja").select("estado").eq("fecha", hoy).eq("estado","abierta").limit(1)
         .then(({data}) => setCajaStatus(data && data.length > 0 ? "abierta" : "cerrada"))
         .catch(() => setCajaStatus("cerrada"));
@@ -1727,7 +1730,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const [cajaVista,    setCajaVista]     = useState("hoy"); // 'hoy' | 'semana' | 'mes'
 
   const loadCaja = useCallback(async () => {
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = fechaLocal();
     // Auto-close any open cajas from previous days
     const {data: cajasViejas} = await supabase.from("caja").select("id,fecha").eq("estado","abierta").neq("fecha",hoy);
     if (cajasViejas && cajasViejas.length > 0) {
@@ -1746,14 +1749,14 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     // Último mes de caja
     const hace30 = new Date();
     hace30.setDate(hace30.getDate()-30);
-    const desde = hace30.toISOString().split("T")[0];
+    const desde = fechaLocal(hace30);
     const {data} = await supabase.from("caja").select("*").gte("fecha", desde).order("fecha", {ascending:false});
     setHistorialCaja(data || []);
   }, []);
 
   const abrirCaja = async (monto, notas) => {
     setCajaLoading(true);
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = fechaLocal();
     const now = new Date(); const hora = now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
     const {data} = await supabase.from("caja").insert({fecha:hoy, estado:"abierta", hora_apertura:hora, monto_apertura:Number(monto), notas_apertura:notas}).select().single();
     setCaja(data);
@@ -1764,7 +1767,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     if (!caja) return;
     setCajaLoading(true);
     const now2 = new Date(); const hora = now2.getHours().toString().padStart(2,"0")+":"+now2.getMinutes().toString().padStart(2,"0");
-    const hoy = new Date().toISOString().split("T")[0];
+    const hoy = fechaLocal();
     const ordersHoyLocal = orders.filter(o=>Number(o.created_at)>=new Date(hoy).setHours(0,0,0,0));
     // Get current mesas session data
     const {data:mesasNow} = await supabase.from("mesas").select("id,session_num");
@@ -3296,7 +3299,7 @@ function HistorialCajaResumen({ historial, vista, orders }) {
               const pct = (d.total/maxVal)*100;
               const fecha = new Date(d.fecha+"T12:00:00");
               const label = fecha.toLocaleDateString("es-AR",{weekday:"short",day:"numeric"});
-              const isHoy = d.fecha === new Date().toISOString().split("T")[0];
+              const isHoy = d.fecha === fechaLocal();
               return(
                 <div key={d.fecha} style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1,minWidth:32}}>
                   <div style={{fontSize:9,color:"var(--text4)",marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>
