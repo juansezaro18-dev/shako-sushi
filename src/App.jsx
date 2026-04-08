@@ -312,7 +312,26 @@ export default function App() {
       .then(({data}) => { if (data?.data) setAppConfig(prev=>({...prev,...data.data})); });
 
     supabase.from("menu_config").select("data").eq("id",1).maybeSingle()
-      .then(({data}) => { if (data?.data) setMenu(data.data); })
+      .then(({data}) => {
+        if (!data?.data) return;
+        // Merge opciones from DEFAULT_MENU: if a stored item is missing option groups that
+        // DEFAULT_MENU defines (by group id), add them — handles when code adds new groups
+        // without requiring a manual menu resave in the admin panel.
+        const defById = {};
+        DEFAULT_MENU.forEach(cat => (cat.items||[]).forEach(it => { defById[it.id] = it; }));
+        const merged = data.data.map(cat => ({
+          ...cat,
+          items: (cat.items||[]).map(item => {
+            const def = defById[item.id];
+            if (!def?.opciones?.length) return item;
+            if (!item.opciones?.length) return {...item, opciones: def.opciones};
+            const existingIds = new Set(item.opciones.map(g=>g.id));
+            const missing = def.opciones.filter(g=>!existingIds.has(g.id));
+            return missing.length ? {...item, opciones:[...item.opciones,...missing]} : item;
+          })
+        }));
+        setMenu(merged);
+      })
       .catch(() => {});
     // Check caja status - initial load
     const checkCaja = () => {
@@ -442,6 +461,19 @@ const seleccionesLabel = (item, selecciones) => {
     if (names.length) parts.push(names.join(", "));
   });
   return parts.join(" · ");
+};
+
+// Igual que seleccionesLabel pero devuelve un array (una línea por grupo) para tickets
+const seleccionesLines = (item, selecciones) => {
+  if (!selecciones?.length) return [];
+  const lines = [];
+  item.opciones?.forEach(grupo => {
+    const sel = selecciones.find(s=>s.grupoId===grupo.id);
+    if (!sel || !sel.choiceIds.length) return;
+    const names = sel.choiceIds.map(cid => grupo.choices.find(c=>c.id===cid)?.nombre).filter(Boolean);
+    if (names.length) lines.push(names.join(", "));
+  });
+  return lines;
 };
 
 
@@ -1548,11 +1580,12 @@ const buildTicketEscPos = (order, descuento=0, autoDescuento=0) => {
   t += epLine();
   (order.items||[]).forEach(c => {
     const precio = c.precioUnitario ?? c.item.precio;
-    const nombre = noAcc(c.item.nombre||'').toUpperCase().substring(0,18);
+    const nombre = noAcc(c.item.nombre||c.item.nome||'').toUpperCase().substring(0,18);
     t += epCols(c.qty+'x '+nombre, fmt(precio*c.qty));
     if (c.selecciones?.length) {
-      const label = seleccionesLabel(c.item,c.selecciones);
-      if (label) t += '  '+noAcc(label).substring(0,28)+EP.LF;
+      seleccionesLines(c.item,c.selecciones).forEach(l => {
+        if (l) t += '  '+noAcc(l).substring(0,PW-2)+EP.LF;
+      });
     }
   });
   t += epLine();
@@ -1580,10 +1613,11 @@ const buildKitchenEscPos = (titulo, items, order) => {
   if (order.notas)   t += noAcc('NOTA: '+order.notas).substring(0,PW)+EP.LF;
   t += epLine('=');
   items.forEach(c => {
-    t += EP.BOLD1+EP.TALL+c.qty+'x '+noAcc(c.item.nombre||'').toUpperCase().substring(0,22)+EP.LF+EP.NORM+EP.BOLD0;
+    t += EP.BOLD1+EP.TALL+c.qty+'x '+noAcc(c.item.nombre||c.item.nome||'').toUpperCase().substring(0,22)+EP.LF+EP.NORM+EP.BOLD0;
     if (c.selecciones?.length) {
-      const label = seleccionesLabel(c.item,c.selecciones);
-      if (label) t += '   '+noAcc(label).substring(0,26)+EP.LF;
+      seleccionesLines(c.item,c.selecciones).forEach(l => {
+        if (l) t += '   '+noAcc(l).substring(0,PW-3)+EP.LF;
+      });
     }
     t += epLine();
   });
@@ -1624,10 +1658,11 @@ const printKitchenTickets = (order) => {
   const buildKitchenHtml = (titulo, emoji, items) => {
     if (!items.length) return null;
     const itemsHtml = items.map(c => {
-      const label = c.selecciones?.length ? seleccionesLabel(c.item,c.selecciones) : "";
+      const lines = c.selecciones?.length ? seleccionesLines(c.item,c.selecciones) : [];
+      const linesHtml = lines.map(l=>`<div style="font-size:11px;color:#555;padding-left:8px">${l}</div>`).join("");
       return `<div style="margin:6px 0;padding:4px 0;border-bottom:1px dashed #ccc">
-        <div style="font-size:14px;font-weight:bold">${c.qty}x ${c.item.nombre.toUpperCase()}</div>
-        ${label?`<div style="font-size:11px;color:#555;padding-left:8px">${label}</div>`:""}
+        <div style="font-size:14px;font-weight:bold">${c.qty}x ${(c.item.nombre||c.item.nome||'').toUpperCase()}</div>
+        ${linesHtml}
       </div>`;
     }).join("");
     return `<!DOCTYPE html><html><head><meta charset="UTF-8">
@@ -1674,11 +1709,12 @@ const printTicket = (order, descuento=0, autoDescuento=0) => {
   const dir = [order.calle, order.numero, order.entrecalle?"e/"+order.entrecalle:"", order.piso, order.barrio].filter(Boolean).join(" ");
   const itemsHtml = (order.items||[]).map(c => {
     const precio = c.precioUnitario ?? c.item.precio;
-    const label = c.selecciones?.length ? seleccionesLabel(c.item,c.selecciones) : "";
+    const lines = c.selecciones?.length ? seleccionesLines(c.item,c.selecciones) : [];
+    const linesHtml = lines.map(l=>`<div style="font-size:9px;color:#555;padding-left:8px">${l}</div>`).join("");
     return `<div style="display:flex;justify-content:space-between;margin:2px 0">
-      <span>${c.qty}x ${c.item.nombre.toUpperCase().substring(0,20)}</span>
+      <span>${c.qty}x ${(c.item.nombre||c.item.nome||'').toUpperCase().substring(0,20)}</span>
       <span>${fmt(precio*c.qty)}</span>
-    </div>${label?`<div style="font-size:9px;color:#555;padding-left:8px">${label.substring(0,40)}</div>`:""}`;
+    </div>${linesHtml}`;
   }).join("");
   const html = `<!DOCTYPE html><html><head><meta charset="UTF-8">
   <style>* { margin:0; padding:0; box-sizing:border-box; }
@@ -1770,12 +1806,22 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     setCajaLoading(false);
   };
 
+  const agregarMovimiento = async (tipo, monto, descripcion) => {
+    if (!caja) return;
+    const now = new Date();
+    const hora = now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
+    const mov = { tipo, monto: Number(monto), descripcion: descripcion.trim() || (tipo==="salida"?"Retiro de efectivo":"Entrada de efectivo"), hora };
+    const nuevos = [...(caja.movimientos || []), mov];
+    const { data } = await supabase.from("caja").update({ movimientos: nuevos }).eq("id", caja.id).select().single();
+    if (data) setCaja(data);
+  };
+
   const cerrarCaja = async (monto, notas) => {
     if (!caja) return;
     setCajaLoading(true);
     const now2 = new Date(); const hora = now2.getHours().toString().padStart(2,"0")+":"+now2.getMinutes().toString().padStart(2,"0");
     const hoy = fechaLocal();
-    const ordersHoyLocal = orders.filter(o=>Number(o.created_at)>=new Date(hoy).setHours(0,0,0,0));
+    const ordersHoyLocal = orders.filter(o=>Number(o.created_at)>=new Date(hoy).setHours(0,0,0,0)&&o.status!=="eliminado");
     // Get current mesas session data
     const {data:mesasNow} = await supabase.from("mesas").select("id,session_num");
     const mesasMap = {};
@@ -1841,13 +1887,15 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     delete repartidorOverrides.current[order.id];
   };
   const deleteOrder = async (id) => {
-    setOrders(p => p.filter(o => o.id!==id));
-    await supabase.from("orders").delete().eq("id", id);
+    const motivo = window.prompt("¿Por qué eliminás este pedido?\n(Dejá en blanco si no querés especificar)");
+    if (motivo === null) return; // canceló
+    setOrders(p => p.map(o => o.id===id ? {...o, status:"eliminado", motivo_eliminacion: motivo.trim()||"Sin motivo"} : o));
+    await supabase.from("orders").update({status:"eliminado", motivo_eliminacion: motivo.trim()||"Sin motivo"}).eq("id", id);
   };
 
   const hoy = new Date(); hoy.setHours(0,0,0,0);
   const hoyTs = hoy.getTime();
-  const ordersHoy = orders.filter(o => Number(o.created_at) >= hoyTs);
+  const ordersHoy = orders.filter(o => Number(o.created_at) >= hoyTs && o.status !== "eliminado");
   const entH   = ordersHoy.filter(o => o.status === "entregado" && !o.mesa_id);
   // For mesa orders: count once per session (deduplicated by mesa+session key)
   // Only count mesa orders whose session is closed (mesa.session_num > order.mesa_session)
@@ -1988,7 +2036,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       {filter==="facturacion" && (
         <div className="fade-in" style={{padding:14,paddingBottom:40}}>
           {/* ── ESTADO DE CAJA ── */}
-          <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja}/>
+          <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja} onAgregarMovimiento={agregarMovimiento} totEf={totEf}/>
           {/* ── TABS HOY / SEMANA / MES ── */}
           <div style={{display:"flex",gap:6,marginBottom:16,background:"var(--surface2)",borderRadius:12,padding:4}}>
             {[{k:"hoy",l:"Hoy"},{k:"semana",l:"Esta semana"},{k:"mes",l:"Este mes"},{k:"historial",l:"Historial"}].map(t=>(
@@ -2150,6 +2198,30 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
               </>);
             })()}
           </Card>
+          {(()=>{
+            const eliminadosHoy = orders.filter(o=>o.status==="eliminado"&&Number(o.created_at)>=hoyTs);
+            if (eliminadosHoy.length===0) return null;
+            return (
+              <Card style={{marginTop:8}}>
+                <Label>PEDIDOS ELIMINADOS HOY ({eliminadosHoy.length})</Label>
+                {eliminadosHoy.sort((a,b)=>Number(b.created_at)-Number(a.created_at)).map((o,i)=>(
+                  <div key={o.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<eliminadosHoy.length-1?"1px solid var(--border)":"none"}}>
+                    <div style={{width:8,height:8,borderRadius:"50%",background:"#9CA3AF",flexShrink:0}}/>
+                    <div style={{flex:1,minWidth:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                        <span style={{fontSize:14,fontWeight:600,color:"var(--text3)",textDecoration:"line-through"}}>{o.nombre}</span>
+                        <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
+                      </div>
+                      <div style={{fontSize:11,color:"var(--text4)",marginTop:2}}>
+                        {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})} · Motivo: <em>{o.motivo_eliminacion||"Sin motivo"}</em>
+                      </div>
+                    </div>
+                    <span className="sh" style={{fontSize:15,color:"#9CA3AF",flexShrink:0,textDecoration:"line-through"}}>{fmt(o.total)}</span>
+                  </div>
+                ))}
+              </Card>
+            );
+          })()}
           </>}
 
           {(cajaVista==="semana"||cajaVista==="mes")&&<HistorialCajaResumen historial={historialCaja} vista={cajaVista} orders={orders}/>}
@@ -2577,16 +2649,38 @@ function MenuEditor({ menu, saveMenu }) {
 }
 
 /* ══ CAJA WIDGET ══════════════════════════════════════════════ */
-function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
-  const [showForm, setShowForm] = useState(false);
-  const [monto,    setMonto]    = useState("");
-  const [notas,    setNotas]    = useState("");
+function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento, totEf=0 }) {
+  const [showForm,    setShowForm]    = useState(false);
+  const [monto,       setMonto]       = useState("");
+  const [notas,       setNotas]       = useState("");
+  const [showMov,     setShowMov]     = useState(false);
+  const [movTipo,     setMovTipo]     = useState("salida");
+  const [movMonto,    setMovMonto]    = useState("");
+  const [movDesc,     setMovDesc]     = useState("");
+  const [movLoading,  setMovLoading]  = useState(false);
+
+  const fmt     = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
   const abierta = caja?.estado === "abierta";
+  const movimientos    = caja?.movimientos || [];
+  const totalSalidas   = movimientos.filter(m=>m.tipo==="salida").reduce((s,m)=>s+Number(m.monto),0);
+  const totalEntradas  = movimientos.filter(m=>m.tipo==="entrada").reduce((s,m)=>s+Number(m.monto),0);
+  const saldoInicial   = Number(caja?.monto_apertura || 0);
+  const esperado       = saldoInicial + totEf - totalSalidas + totalEntradas;
+  const montoReal      = monto !== "" ? Number(monto) : null;
+  const diferencia     = montoReal !== null ? montoReal - esperado : null;
 
   const handleSubmit = async () => {
     if (abierta) await onCerrar(monto, notas);
     else         await onAbrir(monto, notas);
     setShowForm(false); setMonto(""); setNotas("");
+  };
+
+  const handleAgregarMov = async () => {
+    if (!movMonto || Number(movMonto) <= 0) return;
+    setMovLoading(true);
+    await onAgregarMovimiento(movTipo, movMonto, movDesc);
+    setMovLoading(false);
+    setShowMov(false); setMovMonto(""); setMovDesc(""); setMovTipo("salida");
   };
 
   return (
@@ -2599,7 +2693,7 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
             <div className="sh" style={{fontSize:18,color:abierta?"#16A34A":"#DC2626"}}>{caja?`CAJA ${abierta?"ABIERTA":"CERRADA"}`:"SIN CAJA HOY"}</div>
             {caja&&<div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
               {abierta?`Apertura: ${caja.hora_apertura}`:`Cierre: ${caja.hora_cierre}`}
-              {caja.monto_apertura>0&&` · Efectivo inicial: $${Number(caja.monto_apertura).toLocaleString("es-AR")}`}
+              {caja.monto_apertura>0&&` · Inicial: ${fmt(caja.monto_apertura)}`}
             </div>}
           </div>
         </div>
@@ -2609,13 +2703,115 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar }) {
         </button>
       </div>
 
+      {/* ── Movimientos de efectivo (solo cuando está abierta) ── */}
+      {abierta&&(
+        <div style={{marginTop:10}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
+            <div style={{fontSize:11,color:"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>MOVIMIENTOS DE EFECTIVO</div>
+            <button className="btn" onClick={()=>setShowMov(!showMov)}
+              style={{fontSize:11,padding:"5px 12px",borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+              + AGREGAR
+            </button>
+          </div>
+
+          {showMov&&(
+            <div className="slide-up" style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:8}}>
+              <div style={{display:"flex",gap:6,marginBottom:10}}>
+                {[{k:"salida",l:"↑ RETIRO / SALIDA"},{k:"entrada",l:"↓ ENTRADA"}].map(t=>(
+                  <button key={t.k} className="btn" onClick={()=>setMovTipo(t.k)}
+                    style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",
+                      background:movTipo===t.k?(t.k==="salida"?"#DC2626":"#16A34A"):"var(--bg2)",
+                      color:movTipo===t.k?"#fff":"var(--text3)",
+                      border:`1px solid ${movTipo===t.k?(t.k==="salida"?"#DC2626":"#16A34A"):"var(--border)"}`}}>
+                    {t.l}
+                  </button>
+                ))}
+              </div>
+              <input type="number" min="1" value={movMonto} onChange={e=>setMovMonto(e.target.value)} placeholder="Monto $"
+                style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:16,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:8}}/>
+              <input value={movDesc} onChange={e=>setMovDesc(e.target.value)}
+                placeholder={movTipo==="salida"?"Descripción (ej: compra mercadería)":"Descripción (ej: fondo de caja extra)"}
+                style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,color:"var(--text)",marginBottom:10}}/>
+              <div style={{display:"flex",gap:8}}>
+                <button className="btn" onClick={()=>{setShowMov(false);setMovMonto("");setMovDesc("");}}
+                  style={{flex:1,padding:"10px 0",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,color:"var(--text3)",fontSize:13,fontWeight:600}}>Cancelar</button>
+                <button className="btn" onClick={handleAgregarMov} disabled={movLoading||!movMonto}
+                  style={{flex:2,padding:"10px 0",background:movTipo==="salida"?"#DC2626":"#16A34A",borderRadius:10,color:"#fff",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                  {movLoading?"...":(movTipo==="salida"?"CONFIRMAR RETIRO":"CONFIRMAR ENTRADA")}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {movimientos.length>0?(
+            <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,overflow:"hidden"}}>
+              {movimientos.map((m,i)=>(
+                <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:i<movimientos.length-1?"1px solid var(--border)":"none"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:8}}>
+                    <span style={{fontSize:16,lineHeight:1}}>{m.tipo==="salida"?"↑":"↓"}</span>
+                    <div>
+                      <div style={{fontSize:12,fontWeight:700,color:m.tipo==="salida"?"#DC2626":"#16A34A",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+                        {m.tipo==="salida"?"RETIRO":"ENTRADA"}
+                      </div>
+                      <div style={{fontSize:11,color:"var(--text3)"}}>{m.hora} · {m.descripcion}</div>
+                    </div>
+                  </div>
+                  <span className="sh" style={{fontSize:15,color:m.tipo==="salida"?"#DC2626":"#16A34A"}}>
+                    {m.tipo==="salida"?"-":"+"}{fmt(m.monto)}
+                  </span>
+                </div>
+              ))}
+              {(totalSalidas>0||totalEntradas>0)&&(
+                <div style={{display:"flex",justifyContent:"space-between",padding:"8px 14px",background:"var(--bg2)",borderTop:"1px solid var(--border)"}}>
+                  {totalEntradas>0&&<span style={{fontSize:12,color:"#16A34A",fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>Entradas: +{fmt(totalEntradas)}</span>}
+                  {totalSalidas>0&&<span style={{fontSize:12,color:"#DC2626",fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>Retiros: -{fmt(totalSalidas)}</span>}
+                </div>
+              )}
+            </div>
+          ):(
+            <div style={{textAlign:"center",padding:"10px 0",color:"var(--text4)",fontSize:12}}>Sin movimientos registrados hoy</div>
+          )}
+        </div>
+      )}
+
       {/* Formulario apertura/cierre */}
       {showForm&&(
         <div className="slide-up" style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:16,marginTop:8}}>
           <div className="sh" style={{fontSize:16,color:"var(--text)",marginBottom:14}}>{abierta?"CERRAR CAJA":"ABRIR CAJA"}</div>
+
+          {/* Arqueo (solo al cerrar) */}
+          {abierta&&(
+            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:10}}>ARQUEO DE CAJA</div>
+              {[
+                {l:"Saldo inicial",     v:fmt(saldoInicial),   c:"#2563EB"},
+                {l:"+ Ventas efectivo", v:fmt(totEf),          c:"#16A34A"},
+                ...(totalEntradas>0?[{l:"+ Entradas extra",    v:fmt(totalEntradas), c:"#16A34A"}]:[]),
+                ...(totalSalidas>0? [{l:"- Retiros",           v:fmt(totalSalidas),  c:"#DC2626"}]:[]),
+              ].map(r=>(
+                <div key={r.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--border)"}}>
+                  <span style={{fontSize:12,color:"var(--text3)"}}>{r.l}</span>
+                  <span style={{fontSize:13,fontWeight:700,color:r.c,fontFamily:"'Barlow Condensed',sans-serif"}}>{r.v}</span>
+                </div>
+              ))}
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,marginTop:4}}>
+                <span style={{fontSize:12,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>ESPERADO EN CAJA</span>
+                <span className="sh" style={{fontSize:18,color:"var(--text)"}}>{fmt(esperado)}</span>
+              </div>
+              {diferencia!==null&&(
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:6,marginTop:6,borderTop:"1px solid var(--border)"}}>
+                  <span style={{fontSize:12,color:"var(--text3)"}}>Diferencia</span>
+                  <span className="sh" style={{fontSize:15,color:diferencia===0?"#16A34A":diferencia>0?"#D97706":"#DC2626"}}>
+                    {diferencia>0?"+":""}{fmt(diferencia)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
           <div style={{marginBottom:12}}>
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>
-              {abierta?"EFECTIVO EN CAJA AL CIERRE ($)":"EFECTIVO INICIAL EN CAJA ($)"}
+              {abierta?"EFECTIVO REAL EN CAJA ($)":"EFECTIVO INICIAL EN CAJA ($)"}
             </div>
             <input type="number" min="0" value={monto} onChange={e=>setMonto(e.target.value)} placeholder="0"
               style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:18,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
@@ -3357,7 +3553,20 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
     const inicio = new Date(y, mo-1, d, ah, am, 0).getTime();
     const fin    = new Date(y, mo-1, d, ch, cm, 59).getTime();
     return orders
-      .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts <= fin; })
+      .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts <= fin && o.status !== "eliminado"; })
+      .sort((a,b) => Number(a.created_at) - Number(b.created_at));
+  };
+
+  const getEliminadosCaja = (c) => {
+    const aperturaHora = parseHora(c.hora_apertura);
+    const cierreHora   = parseHora(c.hora_cierre);
+    const [y,mo,d] = c.fecha.split("-").map(Number);
+    const [ah=0,am=0] = (aperturaHora||"00:00").split(":").map(Number);
+    const [ch=23,cm=59] = (cierreHora||"23:59").split(":").map(Number);
+    const inicio = new Date(y, mo-1, d, ah, am, 0).getTime();
+    const fin    = new Date(y, mo-1, d, ch, cm, 59).getTime();
+    return orders
+      .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts <= fin && o.status === "eliminado"; })
       .sort((a,b) => Number(a.created_at) - Number(b.created_at));
   };
 
@@ -3390,7 +3599,8 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
         const isExp   = expandedId === c.id;
         const abierta = c.estado === "abierta";
         const fecha   = new Date(c.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
-        const pedidos = isExp ? getPedidosCaja(c) : [];
+        const pedidos = getPedidosCaja(c);
+        const eliminados = isExp ? getEliminadosCaja(c) : [];
         const totalVentasLive = pedidos.filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0);
         return (
           <div key={c.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--red-border)":"var(--border)"}`,borderRadius:14,marginBottom:8,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
@@ -3406,7 +3616,7 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
               </div>
               <div style={{textAlign:"right"}}>
                 <div className="sh" style={{fontSize:17,color:abierta?"#D97706":"#16A34A"}}>
-                  {isExp ? fmt(totalVentasLive) : fmt(c.total_ventas)}
+                  {fmt(totalVentasLive)}
                 </div>
                 <div style={{fontSize:10,color:"var(--text4)",marginTop:1,fontWeight:600}}>{abierta?"EN CURSO":"CERRADA"}</div>
               </div>
@@ -3551,6 +3761,40 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
                     )}
                   </>);
                 })()}
+
+                {/* Movimientos de caja */}
+                {(c.movimientos||[]).length>0&&(
+                  <div style={{marginTop:14}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#D97706",letterSpacing:2,marginBottom:8,fontFamily:"'Barlow Condensed',sans-serif"}}>MOVIMIENTOS DE EFECTIVO</div>
+                    {(c.movimientos||[]).map((m,i)=>(
+                      <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",marginBottom:4}}>
+                        <div>
+                          <span style={{fontSize:12,fontWeight:700,color:m.tipo==="salida"?"#DC2626":"#16A34A",fontFamily:"'Barlow Condensed',sans-serif"}}>{m.tipo==="salida"?"↑ RETIRO":"↓ ENTRADA"}</span>
+                          <span style={{fontSize:11,color:"var(--text3)",marginLeft:8}}>{m.hora} · {m.descripcion}</span>
+                        </div>
+                        <span style={{fontSize:13,fontWeight:700,color:m.tipo==="salida"?"#DC2626":"#16A34A",fontFamily:"'Barlow Condensed',sans-serif"}}>
+                          {m.tipo==="salida"?"-":"+"}{fmt(m.monto)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Pedidos eliminados */}
+                {eliminados.length>0&&(
+                  <div style={{marginTop:14}}>
+                    <div style={{fontSize:11,fontWeight:700,color:"#9CA3AF",letterSpacing:2,marginBottom:8,fontFamily:"'Barlow Condensed',sans-serif"}}>PEDIDOS ELIMINADOS ({eliminados.length})</div>
+                    {eliminados.map((o,i)=>(
+                      <div key={o.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",marginBottom:4,opacity:.7}}>
+                        <div>
+                          <span style={{fontSize:12,fontWeight:600,color:"var(--text3)",textDecoration:"line-through"}}>{o.nombre}</span>
+                          <span style={{fontSize:11,color:"var(--text4)",marginLeft:8}}>{new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})} · {o.motivo_eliminacion||"Sin motivo"}</span>
+                        </div>
+                        <span style={{fontSize:13,color:"#9CA3AF",textDecoration:"line-through",fontFamily:"'Barlow Condensed',sans-serif"}}>{fmt(o.total)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
