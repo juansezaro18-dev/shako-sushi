@@ -299,6 +299,7 @@ if (typeof window !== "undefined" && !window._qzLoaded) {
 export default function App() {
   const isAdmin = window.location.pathname === "/admin";
   const [menu,       setMenu]       = useState(MENU_DEFAULT);
+  const menuLoaded = useRef(false);
   const [cajaStatus, setCajaStatus] = useState(null); // null=loading, 'abierta', 'cerrada'
   const [appConfig,  setAppConfig]  = useState({...CONFIG});
 
@@ -331,8 +332,9 @@ export default function App() {
           })
         }));
         setMenu(merged);
+        menuLoaded.current = true;
       })
-      .catch(() => {});
+      .catch(() => { menuLoaded.current = true; });
     // Check caja status - initial load
     const checkCaja = () => {
       const hoy = fechaLocal();
@@ -351,6 +353,7 @@ export default function App() {
   }, []);
 
   const saveMenu = async (m) => {
+    if (!menuLoaded.current) return; // prevent saving default menu before Supabase loads
     setMenu(m);
     supabase.from("menu_config").upsert({id:1, data:m}).then(()=>{});
   };
@@ -2036,7 +2039,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       {filter==="facturacion" && (
         <div className="fade-in" style={{padding:14,paddingBottom:40}}>
           {/* ── ESTADO DE CAJA ── */}
-          <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja} onAgregarMovimiento={agregarMovimiento} totEf={totEf}/>
+          <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja} onAgregarMovimiento={agregarMovimiento} totEf={totEf} lastCierre={historialCaja.find(c=>c.estado==="cerrada"&&c.fecha!==fechaLocal())?.monto_cierre}/>
           {/* ── TABS HOY / SEMANA / MES ── */}
           <div style={{display:"flex",gap:6,marginBottom:16,background:"var(--surface2)",borderRadius:12,padding:4}}>
             {[{k:"hoy",l:"Hoy"},{k:"semana",l:"Esta semana"},{k:"mes",l:"Este mes"},{k:"historial",l:"Historial"}].map(t=>(
@@ -2434,7 +2437,7 @@ function MenuEditor({ menu, saveMenu }) {
     }
   }, [editId]);
 
-  const delItem = (catId,itemId)    => { saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.filter(i=>i.id!==itemId)}:c)); if(editItemId===itemId)setEditId(null); };
+  const delItem = (catId,itemId)    => { if(!window.confirm("¿Eliminar este producto?"))return; saveMenu(menu.map(c=>c.id===catId?{...c,items:c.items.filter(i=>i.id!==itemId)}:c)); if(editItemId===itemId)setEditId(null); };
   const addItem = (catId)           => { const ni={id:genId(),nombre:"Nuevo producto",desc:"",precio:0}; saveMenu(menu.map(c=>c.id===catId?{...c,items:[...c.items,ni]}:c)); setEditId(`${catId}:${ni.id}`); setExpandedCat(catId); };
   const addCat  = ()                => { const nc={id:genId(),nombre:"Nueva categoría",emoji:"🍴",desc:"",items:[]}; saveMenu([...menu,nc]); setExpandedCat(nc.id); };
   const delCat  = (catId)           => { if(!window.confirm("¿Eliminar esta categoría?"))return; saveMenu(menu.filter(c=>c.id!==catId)); if(expandedCat===catId)setExpandedCat(null); };
@@ -2649,7 +2652,7 @@ function MenuEditor({ menu, saveMenu }) {
 }
 
 /* ══ CAJA WIDGET ══════════════════════════════════════════════ */
-function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento, totEf=0 }) {
+function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento, totEf=0, lastCierre }) {
   const [showForm,    setShowForm]    = useState(false);
   const [monto,       setMonto]       = useState("");
   const [notas,       setNotas]       = useState("");
@@ -2658,6 +2661,10 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
   const [movMonto,    setMovMonto]    = useState("");
   const [movDesc,     setMovDesc]     = useState("");
   const [movLoading,  setMovLoading]  = useState(false);
+  // Arqueo de billetes (cierre)
+  const BILLETES = [100,200,500,1000,2000,5000,10000,20000];
+  const [arqueo, setArqueo] = useState(()=>Object.fromEntries(BILLETES.map(b=>[b,0])));
+  const arqueoTotal = BILLETES.reduce((s,b)=>s+b*arqueo[b],0);
 
   const fmt     = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
   const abierta = caja?.estado === "abierta";
@@ -2669,10 +2676,22 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
   const montoReal      = monto !== "" ? Number(monto) : null;
   const diferencia     = montoReal !== null ? montoReal - esperado : null;
 
+  const toggleForm = () => {
+    if (!showForm) {
+      // Pre-fill: apertura con cierre anterior, cierre con 0
+      if (!abierta && lastCierre != null) setMonto(String(lastCierre));
+      else setMonto("");
+      setNotas("");
+      setArqueo(Object.fromEntries(BILLETES.map(b=>[b,0])));
+    }
+    setShowForm(!showForm);
+  };
+
   const handleSubmit = async () => {
     if (abierta) await onCerrar(monto, notas);
     else         await onAbrir(monto, notas);
     setShowForm(false); setMonto(""); setNotas("");
+    setArqueo(Object.fromEntries(BILLETES.map(b=>[b,0])));
   };
 
   const handleAgregarMov = async () => {
@@ -2697,7 +2716,7 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
             </div>}
           </div>
         </div>
-        <button className="btn" onClick={()=>setShowForm(!showForm)}
+        <button className="btn" onClick={toggleForm}
           style={{padding:"9px 18px",borderRadius:12,background:abierta?"rgba(220,38,38,.1)":"rgba(22,163,74,.1)",border:`1px solid ${abierta?"#DC2626":"#16A34A"}`,color:abierta?"#DC2626":"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
           {abierta?"CERRAR CAJA":"ABRIR CAJA"}
         </button>
@@ -2779,33 +2798,59 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
         <div className="slide-up" style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:16,marginTop:8}}>
           <div className="sh" style={{fontSize:16,color:"var(--text)",marginBottom:14}}>{abierta?"CERRAR CAJA":"ABRIR CAJA"}</div>
 
-          {/* Arqueo (solo al cerrar) */}
+          {/* Arqueo de billetes (solo al cerrar) */}
           {abierta&&(
             <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:14}}>
-              <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:10}}>ARQUEO DE CAJA</div>
-              {[
-                {l:"Saldo inicial",     v:fmt(saldoInicial),   c:"#2563EB"},
-                {l:"+ Ventas efectivo", v:fmt(totEf),          c:"#16A34A"},
-                ...(totalEntradas>0?[{l:"+ Entradas extra",    v:fmt(totalEntradas), c:"#16A34A"}]:[]),
-                ...(totalSalidas>0? [{l:"- Retiros",           v:fmt(totalSalidas),  c:"#DC2626"}]:[]),
-              ].map(r=>(
-                <div key={r.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderBottom:"1px solid var(--border)"}}>
-                  <span style={{fontSize:12,color:"var(--text3)"}}>{r.l}</span>
-                  <span style={{fontSize:13,fontWeight:700,color:r.c,fontFamily:"'Barlow Condensed',sans-serif"}}>{r.v}</span>
-                </div>
-              ))}
-              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,marginTop:4}}>
-                <span style={{fontSize:12,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>ESPERADO EN CAJA</span>
-                <span className="sh" style={{fontSize:18,color:"var(--text)"}}>{fmt(esperado)}</span>
+              <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:10}}>ARQUEO DE BILLETES</div>
+              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
+                {BILLETES.map(b=>(
+                  <div key={b} style={{display:"flex",alignItems:"center",gap:6,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:9,padding:"6px 10px"}}>
+                    <span style={{fontSize:12,fontWeight:700,color:"var(--text2)",fontFamily:"'Barlow Condensed',sans-serif",minWidth:52}}>${b.toLocaleString("es-AR")}</span>
+                    <span style={{color:"var(--text4)",fontSize:12}}>×</span>
+                    <input type="number" min="0" value={arqueo[b]||""} onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setArqueo(p=>({...p,[b]:v}));}}
+                      placeholder="0" style={{width:46,padding:"5px 6px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:7,fontSize:14,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif",textAlign:"center"}}/>
+                    <span style={{fontSize:11,color:"var(--text4)",flex:1,textAlign:"right",fontFamily:"'Barlow Condensed',sans-serif"}}>{arqueo[b]>0?fmt(b*arqueo[b]):""}</span>
+                  </div>
+                ))}
               </div>
-              {diferencia!==null&&(
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:6,marginTop:6,borderTop:"1px solid var(--border)"}}>
-                  <span style={{fontSize:12,color:"var(--text3)"}}>Diferencia</span>
-                  <span className="sh" style={{fontSize:15,color:diferencia===0?"#16A34A":diferencia>0?"#D97706":"#DC2626"}}>
-                    {diferencia>0?"+":""}{fmt(diferencia)}
-                  </span>
+              {arqueoTotal>0&&(
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:9,marginBottom:10}}>
+                  <span style={{fontSize:12,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>TOTAL ARQUEO</span>
+                  <span className="sh" style={{fontSize:20,color:"#2563EB"}}>{fmt(arqueoTotal)}</span>
                 </div>
               )}
+              {arqueoTotal>0&&arqueoTotal!==Number(monto||0)&&(
+                <button className="btn" onClick={()=>setMonto(String(arqueoTotal))}
+                  style={{width:"100%",padding:"8px 0",borderRadius:9,background:"#2563EB",color:"#fff",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:10,border:"none"}}>
+                  USAR TOTAL ARQUEO COMO MONTO DE CIERRE
+                </button>
+              )}
+              <div style={{borderTop:"1px solid var(--border)",paddingTop:10}}>
+                <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:8}}>RESUMEN ESPERADO</div>
+                {[
+                  {l:"Saldo inicial",     v:fmt(saldoInicial),   c:"#2563EB"},
+                  {l:"+ Ventas efectivo", v:fmt(totEf),          c:"#16A34A"},
+                  ...(totalEntradas>0?[{l:"+ Entradas extra",    v:fmt(totalEntradas), c:"#16A34A"}]:[]),
+                  ...(totalSalidas>0? [{l:"- Retiros",           v:fmt(totalSalidas),  c:"#DC2626"}]:[]),
+                ].map(r=>(
+                  <div key={r.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
+                    <span style={{fontSize:12,color:"var(--text3)"}}>{r.l}</span>
+                    <span style={{fontSize:13,fontWeight:700,color:r.c,fontFamily:"'Barlow Condensed',sans-serif"}}>{r.v}</span>
+                  </div>
+                ))}
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,marginTop:4}}>
+                  <span style={{fontSize:12,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>ESPERADO EN CAJA</span>
+                  <span className="sh" style={{fontSize:18,color:"var(--text)"}}>{fmt(esperado)}</span>
+                </div>
+                {diferencia!==null&&(
+                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:6,marginTop:6,borderTop:"1px solid var(--border)"}}>
+                    <span style={{fontSize:12,color:"var(--text3)"}}>Diferencia</span>
+                    <span className="sh" style={{fontSize:15,color:diferencia===0?"#16A34A":diferencia>0?"#D97706":"#DC2626"}}>
+                      {diferencia>0?"+":""}{fmt(diferencia)}
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -2813,6 +2858,9 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>
               {abierta?"EFECTIVO REAL EN CAJA ($)":"EFECTIVO INICIAL EN CAJA ($)"}
             </div>
+            {!abierta&&lastCierre!=null&&lastCierre>0&&monto===String(lastCierre)&&(
+              <div style={{fontSize:10,color:"#2563EB",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif"}}>Pre-cargado del cierre anterior ({fmt(lastCierre)})</div>
+            )}
             <input type="number" min="0" value={monto} onChange={e=>setMonto(e.target.value)} placeholder="0"
               style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:18,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
           </div>
@@ -2822,7 +2870,7 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
               style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,resize:"none",lineHeight:1.5}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
-            <button className="btn" onClick={()=>{setShowForm(false);setMonto("");setNotas("");}}
+            <button className="btn" onClick={()=>{setShowForm(false);setMonto("");setNotas("");setArqueo(Object.fromEntries(BILLETES.map(b=>[b,0])));}}
               style={{flex:1,padding:"11px 0",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:12,color:"var(--text3)",fontSize:14,fontWeight:600}}>Cancelar</button>
             <button className="btn" onClick={handleSubmit} disabled={cajaLoading}
               style={{flex:2,padding:"11px 0",background:abierta?"#DC2626":"#16A34A",borderRadius:12,color:"#fff",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
@@ -3628,12 +3676,20 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
               <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
                 {/* KPIs del día */}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:12,marginBottom:14}}>
-                  {[
-                    {l:"Efectivo apertura", v:fmt(c.monto_apertura),                                          col:"#2563EB"},
-                    {l:"Efectivo cierre",   v:abierta?"—":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
-                    {l:"Total ventas",      v:fmt(totalVentasLive||c.total_ventas||0), col:"var(--red)"},
-                    {l:"Diferencia caja",   v:abierta?"—":fmt(Number(c.monto_cierre||0)-Number(c.monto_apertura||0)), col:"#7C3AED"},
-                  ].map(k=>(
+                  {(()=>{
+                    const movs = c.movimientos||[];
+                    const hEntradas = movs.filter(m=>m.tipo==="entrada").reduce((s,m)=>s+Number(m.monto),0);
+                    const hSalidas  = movs.filter(m=>m.tipo==="salida").reduce((s,m)=>s+Number(m.monto),0);
+                    const ventasEf  = pedidos.filter(o=>o.status==="entregado"&&o.pago==="efectivo").reduce((s,o)=>s+Number(o.total),0);
+                    const hEsperado = Number(c.monto_apertura||0) + ventasEf + hEntradas - hSalidas;
+                    const hDif      = abierta?null:Number(c.monto_cierre||0) - hEsperado;
+                    return [
+                      {l:"Efectivo apertura", v:fmt(c.monto_apertura),                                          col:"#2563EB"},
+                      {l:"Efectivo cierre",   v:abierta?"—":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
+                      {l:"Total ventas",      v:fmt(totalVentasLive||c.total_ventas||0), col:"var(--red)"},
+                      {l:"Diferencia caja",   v:abierta?"—":(hDif===0?"$0":(hDif>0?"+":"")+fmt(hDif)), col:abierta?"var(--text4)":hDif===0?"#16A34A":hDif>0?"#D97706":"#DC2626"},
+                    ];
+                  })().map(k=>(
                     <div key={k.l} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",border:"1px solid var(--border)"}}>
                       <div style={{fontSize:9,color:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:.5,marginBottom:3}}>{k.l.toUpperCase()}</div>
                       <div className="sh" style={{fontSize:17,color:k.col}}>{k.v}</div>
