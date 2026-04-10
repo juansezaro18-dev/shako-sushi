@@ -314,27 +314,37 @@ export default function App() {
 
     supabase.from("menu_config").select("data").eq("id",1).maybeSingle()
       .then(({data}) => {
-        if (!data?.data) return;
-        // Merge opciones from DEFAULT_MENU: if a stored item is missing option groups that
-        // DEFAULT_MENU defines (by group id), add them — handles when code adds new groups
+        if (!data?.data) { menuLoaded.current = true; return; }
+        // Merge opciones from MENU_DEFAULT: if a stored item is missing option groups that
+        // MENU_DEFAULT defines (by group id), add them — handles when code adds new groups
         // without requiring a manual menu resave in the admin panel.
-        const defById = {};
-        DEFAULT_MENU.forEach(cat => (cat.items||[]).forEach(it => { defById[it.id] = it; }));
-        const merged = data.data.map(cat => ({
-          ...cat,
-          items: (cat.items||[]).map(item => {
-            const def = defById[item.id];
-            if (!def?.opciones?.length) return item;
-            if (!item.opciones?.length) return {...item, opciones: def.opciones};
-            const existingIds = new Set(item.opciones.map(g=>g.id));
-            const missing = def.opciones.filter(g=>!existingIds.has(g.id));
-            return missing.length ? {...item, opciones:[...item.opciones,...missing]} : item;
-          })
-        }));
-        setMenu(merged);
+        try {
+          const defById = {};
+          MENU_DEFAULT.forEach(cat => (cat.items||[]).forEach(it => { defById[it.id] = it; }));
+          const merged = data.data.map(cat => ({
+            ...cat,
+            items: (cat.items||[]).map(item => {
+              const def = defById[item.id];
+              if (!def?.opciones?.length) return item;
+              if (!item.opciones?.length) return {...item, opciones: def.opciones};
+              const existingIds = new Set(item.opciones.map(g=>g.id));
+              const missing = def.opciones.filter(g=>!existingIds.has(g.id));
+              return missing.length ? {...item, opciones:[...item.opciones,...missing]} : item;
+            })
+          }));
+          setMenu(merged);
+        } catch (err) {
+          // Defensive fallback: if merge fails for any reason, use raw stored menu so the
+          // user never loses their custom menu and edits don't overwrite it with the default.
+          console.error("Error merging menu, using raw stored menu:", err);
+          setMenu(data.data);
+        }
         menuLoaded.current = true;
       })
-      .catch(() => { menuLoaded.current = true; });
+      .catch((err) => {
+        // Don't mark menuLoaded if fetch failed, to prevent overwriting Supabase with the default
+        console.error("Error loading menu from Supabase:", err);
+      });
     // Check caja status - initial load
     const checkCaja = () => {
       const hoy = fechaLocal();
@@ -1592,10 +1602,14 @@ const buildTicketEscPos = (order, descuento=0, autoDescuento=0) => {
     }
   });
   t += epLine();
-  t += epCols('Subtotal:', fmt(order.subtotal||order.total));
+  const subOrd = Number(order.subtotal||order.total)||0;
+  const envOrd = Number(order.envio||0)||0;
+  const descOrden = Math.max(0, subOrd + envOrd - Number(order.total||0));
+  t += epCols('Subtotal:', fmt(subOrd));
   if (autoDescuento>0) t += epCols('Desc. promo:', '- '+fmt(autoDescuento));
+  if (descOrden>0)     t += epCols('Descuento:', '- '+fmt(descOrden));
   if (descuento>0)     t += epCols('Desc/Adelanto:', '- '+fmt(descuento));
-  t += epCols('Envio:', fmt(order.envio||0));
+  t += epCols('Envio:', fmt(envOrd));
   t += epLine();
   t += EP.BOLD1+EP.TALL;
   t += epCols('TOTAL:', fmt(Math.max(0,Number(order.total)-descuento-autoDescuento)));
@@ -1746,6 +1760,7 @@ const printTicket = (order, descuento=0, autoDescuento=0) => {
   <div class="line"></div>
   <div class="row"><span>Subtotal:</span><span>${fmt(order.subtotal||order.total)}</span></div>
   ${autoDescuento>0?`<div class="row"><span>Desc. promo:</span><span>- ${fmt(autoDescuento)}</span></div>`:""}
+  ${(()=>{const so=Number(order.subtotal||order.total)||0,eo=Number(order.envio||0)||0,d=Math.max(0,so+eo-Number(order.total||0));return d>0?`<div class="row"><span>Descuento:</span><span>- ${fmt(d)}</span></div>`:"";})()}
   ${descuento>0?`<div class="row"><span>Desc/Adelanto:</span><span>- ${fmt(descuento)}</span></div>`:""}
   <div class="row"><span>Envio:</span><span>${fmt(order.envio||0)}</span></div>
   <div class="line"></div>
@@ -3168,6 +3183,8 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
   const [modalAdminItem, setModalAdminItem] = useState(null);
   const [modalKiloItem, setModalKiloItem] = useState(null);
   const [kiloWeight, setKiloWeight] = useState("");
+  const [descTipo, setDescTipo] = useState("monto"); // 'monto' | 'porcentaje'
+  const [descValor, setDescValor] = useState("");
   const add = (item, selecciones=null, precioUnitario=null) => {
     const key = getCartKey(item, selecciones);
     const precio = precioUnitario ?? item.precio;
@@ -3185,7 +3202,13 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
   const setQty = (key,q) => setCart(p => q<=0?p.filter(c=>c.cartKey!==key):p.map(c=>c.cartKey===key?{...c,qty:q}:c));
   const getQty = (item) => { if(!item.opciones?.length&&!item.porKilo) return cart.find(c=>c.item.id===item.id&&!c.selecciones?.length)?.qty||0; return 0; };
   const handleAddAdminItem = (item) => { if(item.porKilo) { setModalKiloItem(item); setKiloWeight(""); } else if(item.opciones?.length) { setModalAdminItem(item); } else { add(item); } };
-  const total  = cart.reduce((s,c)=>s+(c.precioUnitario??c.item.precio)*c.qty,0);
+  const subtotalCart = cart.reduce((s,c)=>s+(c.precioUnitario??c.item.precio)*c.qty,0);
+  const descValorNum = Number(descValor)||0;
+  const descuentoMonto = Math.min(
+    subtotalCart,
+    Math.max(0, Math.round(descTipo==="porcentaje" ? subtotalCart*descValorNum/100 : descValorNum))
+  );
+  const total  = subtotalCart - descuentoMonto;
   const fmt    = (n) => `$${Number(n).toLocaleString("es-AR")}`;
 
   const menuFiltered = search.trim()
@@ -3236,8 +3259,11 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
       mesaSession2 = md2?.session_num || 1;
     }
     const envioAdmin = form.tipo==="delivery" ? (form.envio||0) : 0;
-    const notasAdmin = [he2?`⏰ ${he2}`:"", form.notas].filter(Boolean).join(" | ");
-    const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", notas:notasAdmin, items:cart, subtotal:total, total:total+envioAdmin, envio:envioAdmin, source:"admin", status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
+    const descLabel = descuentoMonto>0
+      ? `Desc: -${fmt(descuentoMonto)}${descTipo==="porcentaje"?` (${descValorNum}%)`:""}`
+      : "";
+    const notasAdmin = [he2?`⏰ ${he2}`:"", descLabel, form.notas].filter(Boolean).join(" | ");
+    const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", notas:notasAdmin, items:cart, subtotal:subtotalCart, total:total+envioAdmin, envio:envioAdmin, source:"admin", status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
     await supabase.from("orders").insert(order);
     // Mark mesa as ocupada
     if (mesaId) await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesaId);
@@ -3319,6 +3345,35 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
               {c.selecciones&&<div style={{fontSize:11,color:"#166534",paddingLeft:2}}>{seleccionesLabel(c.item,c.selecciones)}</div>}
             </div>
           ))}
+          {/* Descuento */}
+          <div style={{marginTop:10,padding:"10px 0 4px",borderTop:"1px dashed #BBF7D0"}}>
+            <div style={{fontSize:10,color:"#15803D",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCUENTO (opcional)</div>
+            <div style={{display:"flex",gap:6,alignItems:"center"}}>
+              <button className="btn" onClick={()=>setDescTipo("monto")}
+                style={{padding:"8px 0",width:36,borderRadius:8,fontSize:13,fontWeight:800,background:descTipo==="monto"?"#16A34A":"#fff",color:descTipo==="monto"?"#fff":"#16A34A",border:"1px solid #86EFAC",fontFamily:"'Barlow Condensed',sans-serif"}}>$</button>
+              <button className="btn" onClick={()=>setDescTipo("porcentaje")}
+                style={{padding:"8px 0",width:36,borderRadius:8,fontSize:13,fontWeight:800,background:descTipo==="porcentaje"?"#16A34A":"#fff",color:descTipo==="porcentaje"?"#fff":"#16A34A",border:"1px solid #86EFAC",fontFamily:"'Barlow Condensed',sans-serif"}}>%</button>
+              <input type="number" min="0" max={descTipo==="porcentaje"?"100":undefined} value={descValor}
+                onChange={e=>setDescValor(e.target.value)}
+                placeholder={descTipo==="porcentaje"?"Ej: 10":"Ej: 2000"}
+                style={{flex:1,padding:"8px 12px",background:"#fff",border:"1px solid #86EFAC",borderRadius:8,fontSize:14,fontWeight:700,color:"#15803D",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+              {descuentoMonto>0&&(
+                <button className="btn" onClick={()=>setDescValor("")}
+                  style={{padding:"8px 10px",borderRadius:8,background:"#FEE2E2",border:"1px solid #FCA5A5",color:"#DC2626",fontSize:12,fontWeight:700}}>×</button>
+              )}
+            </div>
+          </div>
+          {descuentoMonto>0&&(
+            <>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0 0",fontSize:13,color:"#15803D"}}>
+                <span>Subtotal</span><span>{fmt(subtotalCart)}</span>
+              </div>
+              <div style={{display:"flex",justifyContent:"space-between",padding:"4px 0 0",fontSize:13,color:"#16A34A",fontWeight:700}}>
+                <span>Descuento{descTipo==="porcentaje"?` (${descValorNum}%)`:""}</span>
+                <span>− {fmt(descuentoMonto)}</span>
+              </div>
+            </>
+          )}
           <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0 0",fontWeight:800,fontSize:16,fontFamily:"'Barlow Condensed',sans-serif"}}>
             <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(total)}</span>
           </div>
