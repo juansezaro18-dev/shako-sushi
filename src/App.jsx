@@ -1815,13 +1815,20 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   };
 
   const agregarMovimiento = async (tipo, monto, descripcion) => {
-    if (!caja) return;
+    if (!caja) return { ok:false, error:"No hay caja abierta" };
     const now = new Date();
     const hora = now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
     const mov = { tipo, monto: Number(monto), descripcion: descripcion.trim() || (tipo==="salida"?"Retiro de efectivo":"Entrada de efectivo"), hora };
-    const nuevos = [...(caja.movimientos || []), mov];
-    const { data } = await supabase.from("caja").update({ movimientos: nuevos }).eq("id", caja.id).select().single();
+    // Re-fetch latest movimientos from DB to avoid clobbering concurrent writes / stale local state
+    const { data: fresh, error: fetchErr } = await supabase.from("caja").select("movimientos,estado").eq("id", caja.id).single();
+    if (fetchErr) return { ok:false, error:"No se pudo leer la caja: "+fetchErr.message };
+    if (fresh?.estado !== "abierta") return { ok:false, error:"La caja ya no está abierta" };
+    const nuevos = [...(fresh?.movimientos || []), mov];
+    const { data, error } = await supabase.from("caja").update({ movimientos: nuevos }).eq("id", caja.id).select().single();
+    if (error) return { ok:false, error:error.message };
     if (data) setCaja(data);
+    await loadHistorialCaja();
+    return { ok:true };
   };
 
   const cerrarCaja = async (monto, notas) => {
@@ -1848,6 +1855,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       : notas;
     const {data} = await supabase.from("caja").update({estado:"cerrada", hora_cierre:hora, monto_cierre:Number(monto), notas_cierre:notasFinales, total_ventas:totalVentas}).eq("id",caja.id).select().single();
     setCaja(data);
+    await loadHistorialCaja();
     setCajaLoading(false);
   };
 
@@ -2716,8 +2724,12 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
   const handleAgregarMov = async () => {
     if (!movMonto || Number(movMonto) <= 0) return;
     setMovLoading(true);
-    await onAgregarMovimiento(movTipo, movMonto, movDesc);
+    const result = await onAgregarMovimiento(movTipo, movMonto, movDesc);
     setMovLoading(false);
+    if (result && result.ok === false) {
+      alert("❌ No se pudo guardar el movimiento:\n" + (result.error||"error desconocido") + "\n\nIntentá de nuevo.");
+      return;
+    }
     setShowMov(false); setMovMonto(""); setMovDesc(""); setMovTipo("salida");
   };
 
