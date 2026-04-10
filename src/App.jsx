@@ -1890,10 +1890,9 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     delete repartidorOverrides.current[order.id];
   };
   const deleteOrder = async (id) => {
-    const motivo = window.prompt("¿Por qué eliminás este pedido?\n(Dejá en blanco si no querés especificar)");
-    if (motivo === null) return; // canceló
-    setOrders(p => p.map(o => o.id===id ? {...o, status:"eliminado", motivo_eliminacion: motivo.trim()||"Sin motivo"} : o));
-    await supabase.from("orders").update({status:"eliminado", motivo_eliminacion: motivo.trim()||"Sin motivo"}).eq("id", id);
+    if (!window.confirm("¿Eliminar este pedido? Esta acción no se puede deshacer.")) return;
+    setOrders(p => p.filter(o => o.id !== id));
+    await supabase.from("orders").delete().eq("id", id);
   };
 
   const hoy = new Date(); hoy.setHours(0,0,0,0);
@@ -2201,30 +2200,6 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
               </>);
             })()}
           </Card>
-          {(()=>{
-            const eliminadosHoy = orders.filter(o=>o.status==="eliminado"&&Number(o.created_at)>=hoyTs);
-            if (eliminadosHoy.length===0) return null;
-            return (
-              <Card style={{marginTop:8}}>
-                <Label>PEDIDOS ELIMINADOS HOY ({eliminadosHoy.length})</Label>
-                {eliminadosHoy.sort((a,b)=>Number(b.created_at)-Number(a.created_at)).map((o,i)=>(
-                  <div key={o.id} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 0",borderBottom:i<eliminadosHoy.length-1?"1px solid var(--border)":"none"}}>
-                    <div style={{width:8,height:8,borderRadius:"50%",background:"#9CA3AF",flexShrink:0}}/>
-                    <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
-                        <span style={{fontSize:14,fontWeight:600,color:"var(--text3)",textDecoration:"line-through"}}>{o.nombre}</span>
-                        <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
-                      </div>
-                      <div style={{fontSize:11,color:"var(--text4)",marginTop:2}}>
-                        {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})} · Motivo: <em>{o.motivo_eliminacion||"Sin motivo"}</em>
-                      </div>
-                    </div>
-                    <span className="sh" style={{fontSize:15,color:"#9CA3AF",flexShrink:0,textDecoration:"line-through"}}>{fmt(o.total)}</span>
-                  </div>
-                ))}
-              </Card>
-            );
-          })()}
           </>}
 
           {(cajaVista==="semana"||cajaVista==="mes")&&<HistorialCajaResumen historial={historialCaja} vista={cajaVista} orders={orders}/>}
@@ -3605,19 +3580,6 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
       .sort((a,b) => Number(a.created_at) - Number(b.created_at));
   };
 
-  const getEliminadosCaja = (c) => {
-    const aperturaHora = parseHora(c.hora_apertura);
-    const cierreHora   = parseHora(c.hora_cierre);
-    const [y,mo,d] = c.fecha.split("-").map(Number);
-    const [ah=0,am=0] = (aperturaHora||"00:00").split(":").map(Number);
-    const [ch=23,cm=59] = (cierreHora||"23:59").split(":").map(Number);
-    const inicio = new Date(y, mo-1, d, ah, am, 0).getTime();
-    const fin    = new Date(y, mo-1, d, ch, cm, 59).getTime();
-    return orders
-      .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts <= fin && o.status === "eliminado"; })
-      .sort((a,b) => Number(a.created_at) - Number(b.created_at));
-  };
-
   const toggleDia = (c) => setExpandedId(p => p === c.id ? null : c.id);
 
   const ESTADOS = {
@@ -3648,7 +3610,6 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
         const abierta = c.estado === "abierta";
         const fecha   = new Date(c.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
         const pedidos = getPedidosCaja(c);
-        const eliminados = isExp ? getEliminadosCaja(c) : [];
         const totalVentasLive = pedidos.filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0);
         return (
           <div key={c.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--red-border)":"var(--border)"}`,borderRadius:14,marginBottom:8,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
@@ -3836,21 +3797,6 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
                   </div>
                 )}
 
-                {/* Pedidos eliminados */}
-                {eliminados.length>0&&(
-                  <div style={{marginTop:14}}>
-                    <div style={{fontSize:11,fontWeight:700,color:"#9CA3AF",letterSpacing:2,marginBottom:8,fontFamily:"'Barlow Condensed',sans-serif"}}>PEDIDOS ELIMINADOS ({eliminados.length})</div>
-                    {eliminados.map((o,i)=>(
-                      <div key={o.id} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"7px 10px",borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",marginBottom:4,opacity:.7}}>
-                        <div>
-                          <span style={{fontSize:12,fontWeight:600,color:"var(--text3)",textDecoration:"line-through"}}>{o.nombre}</span>
-                          <span style={{fontSize:11,color:"var(--text4)",marginLeft:8}}>{new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})} · {o.motivo_eliminacion||"Sin motivo"}</span>
-                        </div>
-                        <span style={{fontSize:13,color:"#9CA3AF",textDecoration:"line-through",fontFamily:"'Barlow Condensed',sans-serif"}}>{fmt(o.total)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
               </div>
             )}
           </div>
