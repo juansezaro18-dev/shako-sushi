@@ -1852,9 +1852,9 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   };
 
   const reabrirCaja = async (id) => {
-    const pin = window.prompt("PIN de administrador para reabrir la caja:");
+    const pin = window.prompt("PIN para reabrir la caja:");
     if (pin === null) return;
-    if (pin !== appConfig.adminPin) { alert("PIN incorrecto"); return; }
+    if (pin !== "2706") { alert("PIN incorrecto"); return; }
     if (!window.confirm("¿Reabrir esta caja?\nVas a poder agregar movimientos y volver a cerrarla.")) return;
     const {data: target} = await supabase.from("caja").select("*").eq("id", id).single();
     if (!target) { alert("Caja no encontrada"); return; }
