@@ -1777,16 +1777,21 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
         supabase.from("caja").update({fecha: hoy}).eq("id", c.id)
       ));
     }
-    // Auto-close any open cajas from previous days
-    const {data: cajasViejas} = await supabase.from("caja").select("id,fecha").eq("estado","abierta").neq("fecha",hoy);
-    if (cajasViejas && cajasViejas.length > 0) {
-      await Promise.all(cajasViejas.map(c =>
-        supabase.from("caja").update({estado:"cerrada", notas_cierre:"Cerrada automáticamente por cambio de día"}).eq("id", c.id)
+    // Auto-close any open cajas from previous days (but skip manually reopened ones)
+    const {data: cajasViejas} = await supabase.from("caja").select("id,fecha,notas_cierre").eq("estado","abierta").neq("fecha",hoy);
+    const paraCerrar = (cajasViejas||[]).filter(c => !(c.notas_cierre||"").includes("Reabierta"));
+    if (paraCerrar.length > 0) {
+      await Promise.all(paraCerrar.map(c =>
+        supabase.from("caja").update({estado:"cerrada", notas_cierre: (c.notas_cierre?c.notas_cierre+"\n":"")+"Cerrada automáticamente por cambio de día"}).eq("id", c.id)
       ));
     }
-    // Prefer open caja of today, fallback to most recent of today
+    // Prefer open caja of today
     const {data: abierta} = await supabase.from("caja").select("*").eq("fecha", hoy).eq("estado","abierta").limit(1);
     if (abierta && abierta.length > 0) { setCaja(abierta[0]); return; }
+    // Fallback: any manually reopened caja (from previous days) — takes priority over closed today
+    const {data: reabierta} = await supabase.from("caja").select("*").eq("estado","abierta").ilike("notas_cierre","%Reabierta%").order("created_at",{ascending:false}).limit(1);
+    if (reabierta && reabierta.length > 0) { setCaja(reabierta[0]); return; }
+    // Fallback: most recent of today (closed)
     const {data: reciente} = await supabase.from("caja").select("*").eq("fecha", hoy).order("created_at",{ascending:false}).limit(1);
     setCaja(reciente && reciente.length > 0 ? reciente[0] : null);
   }, []);
@@ -1823,17 +1828,56 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     if (!caja) return;
     setCajaLoading(true);
     const now2 = new Date(); const hora = now2.getHours().toString().padStart(2,"0")+":"+now2.getMinutes().toString().padStart(2,"0");
-    const hoy = fechaLocal();
-    const ordersHoyLocal = orders.filter(o=>Number(o.created_at)>=new Date(hoy).setHours(0,0,0,0)&&o.status!=="eliminado");
+    // Compute day window based on caja's own fecha (correct for reopened old cajas too)
+    const [y,mo,d] = (caja.fecha||fechaLocal()).split("-").map(Number);
+    const inicioDia = new Date(y, mo-1, d, 0, 0, 0).getTime();
+    const finDia   = new Date(y, mo-1, d, 23, 59, 59).getTime();
+    const ordersDelDia = orders.filter(o=>{
+      const ts = Number(o.created_at);
+      return ts >= inicioDia && ts <= finDia && o.status !== "eliminado";
+    });
     // Get current mesas session data
     const {data:mesasNow} = await supabase.from("mesas").select("id,session_num");
     const mesasMap = {};
     (mesasNow||[]).forEach(m=>mesasMap[m.id]=m.session_num||1);
     // Only count mesa orders whose session is closed
-    const totalVentas = ordersHoyLocal.filter(o=>o.status==="entregado"&&(!o.mesa_id||(mesasMap[o.mesa_id]||1)>(o.mesa_session||1))).reduce((s,o)=>s+Number(o.total),0);
-    const {data} = await supabase.from("caja").update({estado:"cerrada", hora_cierre:hora, monto_cierre:Number(monto), notas_cierre:notas, total_ventas:totalVentas}).eq("id",caja.id).select().single();
+    const totalVentas = ordersDelDia.filter(o=>o.status==="entregado"&&(!o.mesa_id||(mesasMap[o.mesa_id]||1)>(o.mesa_session||1))).reduce((s,o)=>s+Number(o.total),0);
+    // Preserve audit trail: if caja was reopened, append new notas instead of overwriting
+    const notasFinales = (caja.notas_cierre||"").includes("Reabierta")
+      ? `${caja.notas_cierre}\n${notas||"(re-cerrada)"}`.trim()
+      : notas;
+    const {data} = await supabase.from("caja").update({estado:"cerrada", hora_cierre:hora, monto_cierre:Number(monto), notas_cierre:notasFinales, total_ventas:totalVentas}).eq("id",caja.id).select().single();
     setCaja(data);
     setCajaLoading(false);
+  };
+
+  const reabrirCaja = async (id) => {
+    const pin = window.prompt("PIN de administrador para reabrir la caja:");
+    if (pin === null) return;
+    if (pin !== appConfig.adminPin) { alert("PIN incorrecto"); return; }
+    if (!window.confirm("¿Reabrir esta caja?\nVas a poder agregar movimientos y volver a cerrarla.")) return;
+    const {data: target} = await supabase.from("caja").select("*").eq("id", id).single();
+    if (!target) { alert("Caja no encontrada"); return; }
+    // Guard: no other open caja (only one abierta allowed at a time to avoid ambiguity)
+    const {data: yaAbierta} = await supabase.from("caja").select("id,fecha").eq("estado","abierta").neq("id", id);
+    if (yaAbierta && yaAbierta.length > 0) {
+      alert(`Ya hay otra caja abierta (fecha ${yaAbierta[0].fecha}). Cerrala primero antes de reabrir esta.`);
+      return;
+    }
+    const ahora = new Date().toLocaleString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+    const marca = `⚠️ Reabierta ${ahora}`;
+    const notasNuevas = target.notas_cierre ? `${target.notas_cierre}\n${marca}` : marca;
+    await supabase.from("caja").update({
+      estado: "abierta",
+      monto_cierre: null,
+      hora_cierre: null,
+      total_ventas: null,
+      notas_cierre: notasNuevas,
+    }).eq("id", id);
+    await loadCaja();
+    await loadHistorialCaja();
+    setCajaVista("hoy");
+    alert("Caja reabierta. Ya podés agregar movimientos y volver a cerrarla desde la vista Hoy.");
   };
 
   const loadOrders = useCallback(async () => {
@@ -2203,7 +2247,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
           </>}
 
           {(cajaVista==="semana"||cajaVista==="mes")&&<HistorialCajaResumen historial={historialCaja} vista={cajaVista} orders={orders}/>}
-          {cajaVista==="historial"&&<HistorialCajaTabla historial={historialCaja} onReload={loadHistorialCaja} orders={orders}/>}
+          {cajaVista==="historial"&&<HistorialCajaTabla historial={historialCaja} onReload={loadHistorialCaja} orders={orders} onReabrir={reabrirCaja}/>}
         </div>
       )}
 
@@ -3558,7 +3602,7 @@ function HistorialCajaResumen({ historial, vista, orders }) {
 }
 
 /* ══ HISTORIAL CAJA TABLA ═════════════════════════════════════ */
-function HistorialCajaTabla({ historial, onReload, orders=[] }) {
+function HistorialCajaTabla({ historial, onReload, orders=[], onReabrir }) {
   const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
   const [expandedId,      setExpandedId]      = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
@@ -3794,6 +3838,19 @@ function HistorialCajaTabla({ historial, onReload, orders=[] }) {
                         </span>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {/* Reabrir caja (solo cerradas) */}
+                {!abierta&&onReabrir&&(
+                  <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid var(--border)"}}>
+                    <button className="btn" onClick={()=>onReabrir(c.id)}
+                      style={{width:"100%",padding:"11px 0",background:"#FFF1F2",border:"1px solid #FECDD3",borderRadius:11,color:"#DC2626",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+                      🔓 REABRIR CAJA (REQUIERE PIN)
+                    </button>
+                    <div style={{fontSize:10,color:"var(--text4)",marginTop:6,textAlign:"center",lineHeight:1.4}}>
+                      Usar solo si faltó cargar un retiro o hay un error en el cierre.
+                    </div>
                   </div>
                 )}
 
