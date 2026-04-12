@@ -1773,6 +1773,8 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const [orders,     setOrders]     = useState([]);
   const [filter,     setFilter]     = useState("activos");
   const [expandedId, setExpandedId] = useState(null);
+  const [splitPayId, setSplitPayId] = useState(null);
+  const [splitAmounts, setSplitAmounts] = useState({efectivo:"", transferencia:"", tarjeta:""});
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [nuevoPedidoMesaId, setNuevoPedidoMesaId] = useState(null);
   const [mesasData, setMesasData] = useState([]);
@@ -1945,8 +1947,27 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       const base = order.subtotal || order.total; // fallback for old orders without subtotal
       nuevoTotal = pago === "tarjeta" ? Math.round(base * (1 + appConfig.recargoMP)) : base;
     }
-    setOrders(p => p.map(o => o.id===order.id ? {...o, pago, total:nuevoTotal} : o));
-    await supabase.from("orders").update({pago, total:nuevoTotal}).eq("id", order.id);
+    setOrders(p => p.map(o => o.id===order.id ? {...o, pago, total:nuevoTotal, pago_detalle:null} : o));
+    await supabase.from("orders").update({pago, total:nuevoTotal, pago_detalle:null}).eq("id", order.id);
+    setSplitPayId(null);
+  };
+  const updatePagoDetalle = async (order, amounts) => {
+    // amounts = {efectivo: 3000, transferencia: 2000, tarjeta: 0}
+    const detalle = Object.entries(amounts)
+      .filter(([,m]) => Number(m) > 0)
+      .map(([metodo,monto]) => ({metodo, monto:Number(monto)}));
+    if (detalle.length === 0) return;
+    if (detalle.length === 1) {
+      // Solo un método → usar pago normal
+      const pago = detalle[0].metodo;
+      setOrders(p => p.map(o => o.id===order.id ? {...o, pago, pago_detalle:null} : o));
+      await supabase.from("orders").update({pago, pago_detalle:null}).eq("id", order.id);
+    } else {
+      setOrders(p => p.map(o => o.id===order.id ? {...o, pago:"mixto", pago_detalle:detalle} : o));
+      await supabase.from("orders").update({pago:"mixto", pago_detalle:detalle}).eq("id", order.id);
+    }
+    setSplitPayId(null);
+    setSplitAmounts({efectivo:"", transferencia:"", tarjeta:""});
   };
   const updateRepartidor = async (order, repartidor) => {
     const nuevo = order.repartidor === repartidor ? null : repartidor; // toggle
@@ -1974,16 +1995,25 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     const sessionClosed = mesa ? (mesa.session_num||1) > (o.mesa_session||1) : true;
     if (!sessionClosed) return; // skip open sessions
     const key = o.mesa_id+"-"+(o.mesa_session||1);
-    if (!mesaSessions[key]) mesaSessions[key]={total:0,pago:o.pago,tipo:"mesa"};
+    if (!mesaSessions[key]) mesaSessions[key]={total:0,pago:o.pago,tipo:"mesa",pago_detalle:null};
     mesaSessions[key].total += Number(o.total);
     if (o.pago) mesaSessions[key].pago = o.pago;
+    if (o.pago_detalle) mesaSessions[key].pago_detalle = o.pago_detalle;
   });
   const mesaSessionList = Object.values(mesaSessions);
   const entHAll = [...entH, ...mesaSessionList.map(s=>({...s,status:"entregado"}))];
   const totDia = entH.reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.reduce((s,m)=>s+m.total,0);
-  const totEf  = entH.filter(o=>o.pago==="efectivo").reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.filter(m=>m.pago==="efectivo").reduce((s,m)=>s+m.total,0);
-  const totTr  = entH.filter(o=>o.pago==="transferencia").reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.filter(m=>m.pago==="transferencia").reduce((s,m)=>s+m.total,0);
-  const totTj  = entH.filter(o=>o.pago==="tarjeta").reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.filter(m=>m.pago==="tarjeta").reduce((s,m)=>s+m.total,0);
+  // Helper: monto por método de pago, soporta pago_detalle (mixto)
+  const montoByPago = (o, metodo) => {
+    if (o.pago_detalle && Array.isArray(o.pago_detalle)) {
+      const d = o.pago_detalle.find(d => d.metodo === metodo);
+      return d ? Number(d.monto) : 0;
+    }
+    return o.pago === metodo ? Number(o.total) : 0;
+  };
+  const totEf  = entH.reduce((s,o)=>s+montoByPago(o,"efectivo"),0) + mesaSessionList.reduce((s,m)=>s+montoByPago(m,"efectivo"),0);
+  const totTr  = entH.reduce((s,o)=>s+montoByPago(o,"transferencia"),0) + mesaSessionList.reduce((s,m)=>s+montoByPago(m,"transferencia"),0);
+  const totTj  = entH.reduce((s,o)=>s+montoByPago(o,"tarjeta"),0) + mesaSessionList.reduce((s,m)=>s+montoByPago(m,"tarjeta"),0);
   const totDel = entH.filter(o=>o.tipo==="delivery").reduce((s,o)=>s+Number(o.total),0);
   const totRet = entH.filter(o=>o.tipo==="retiro").reduce((s,o)=>s+Number(o.total),0);
   const totMesa = mesaSessionList.reduce((s,m)=>s+m.total,0);
@@ -2231,7 +2261,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                           </div>
                           <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
                             {hora} · {o.orders.length} pedido{o.orders.length!==1?"s":""} · {nItems} items
-                            {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"}</span>}
+                            {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":o.pago==="mixto"?"#9333EA":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":o.pago==="mixto"?"🔀":"💳"}</span>}
                           </div>
                         </div>
                         <span className="sh" style={{fontSize:15,color:"#16A34A",flexShrink:0}}>{fmt(o.total)}</span>
@@ -2251,7 +2281,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                         </div>
                         <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
                           {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})} · {o.items?.reduce((s,c)=>s+c.qty,0)||0} items
-                          {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"}</span>}
+                          {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":o.pago==="mixto"?"#9333EA":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":o.pago==="mixto"?"🔀":"💳"}</span>}
                         </div>
                       </div>
                       <span className="sh" style={{fontSize:15,color:o.status==="entregado"?"#16A34A":"var(--text3)",flexShrink:0}}>{fmt(o.total)}</span>
@@ -2305,7 +2335,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                       </div>
                       <div style={{fontSize:13,color:"var(--text3)",marginTop:3}}>
                         {order.orders.length} pedido{order.orders.length!==1?"s":""} · {nItems} items · {timeAgo(order.created_at)}
-                        {order.pago&&<span style={{marginLeft:6,color:order.pago==="efectivo"?"#16A34A":order.pago==="transferencia"?"#D97706":"#2563EB"}}>{order.pago==="efectivo"?"💵":order.pago==="transferencia"?"📲":"💳"} {order.pago}</span>}
+                        {order.pago&&<span style={{marginLeft:6,color:order.pago==="efectivo"?"#16A34A":order.pago==="transferencia"?"#D97706":order.pago==="mixto"?"#9333EA":"#2563EB"}}>{order.pago==="efectivo"?"💵":order.pago==="transferencia"?"📲":order.pago==="mixto"?"🔀":"💳"} {order.pago}</span>}
                       </div>
                     </div>
                     <div style={{textAlign:"right",flexShrink:0}}>
@@ -2430,6 +2460,81 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                           </button>
                         ))}
                       </div>
+                    </div>)}
+                    {/* Detallar valores - pago mixto */}
+                    {!order.mesa_id&&(
+                    <div style={{marginBottom:8}}>
+                      {splitPayId!==order.id?(
+                        <button className="btn" onClick={()=>{
+                          setSplitPayId(order.id);
+                          if (order.pago==="mixto"&&order.pago_detalle) {
+                            const sa={efectivo:"",transferencia:"",tarjeta:""};
+                            order.pago_detalle.forEach(d=>{sa[d.metodo]=String(d.monto);});
+                            setSplitAmounts(sa);
+                          } else {
+                            setSplitAmounts({efectivo:order.pago==="efectivo"?String(order.total):"",transferencia:order.pago==="transferencia"?String(order.total):"",tarjeta:order.pago==="tarjeta"?String(order.total):""});
+                          }
+                        }}
+                          style={{width:"100%",padding:"8px 0",borderRadius:10,fontSize:11,fontWeight:700,
+                            background:order.pago==="mixto"?"#F3E8FF":"var(--bg2)",
+                            border:`2px solid ${order.pago==="mixto"?"#C084FC":"var(--border)"}`,
+                            color:order.pago==="mixto"?"#9333EA":"var(--text3)",
+                            fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+                          {order.pago==="mixto"?"🔀 PAGO MIXTO — Editar desglose":"🔀 Detallar valores (pago mixto)"}
+                        </button>
+                      ):(
+                        <div style={{background:"#FAF5FF",border:"2px solid #C084FC",borderRadius:12,padding:12}}>
+                          <div style={{fontSize:10,color:"#9333EA",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:8}}>DETALLAR VALORES</div>
+                          {[{k:"efectivo",l:"💵 Efectivo",c:"#16A34A"},{k:"transferencia",l:"📲 Transferencia",c:"#D97706"},{k:"tarjeta",l:"💳 Tarjeta",c:"#2563EB"}].map(p=>(
+                            <div key={p.k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                              <span style={{fontSize:12,fontWeight:700,color:p.c,width:120,fontFamily:"'Barlow Condensed',sans-serif"}}>{p.l}</span>
+                              <span style={{color:"var(--text3)",fontSize:14}}>$</span>
+                              <input type="number" min="0" value={splitAmounts[p.k]} placeholder="0"
+                                onChange={e=>setSplitAmounts(prev=>({...prev,[p.k]:e.target.value}))}
+                                style={{flex:1,padding:"6px 10px",borderRadius:8,border:"1px solid var(--border)",fontSize:14,fontWeight:700,
+                                  background:"var(--surface)",color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                            </div>
+                          ))}
+                          {(()=>{
+                            const sumSplit = (Number(splitAmounts.efectivo)||0)+(Number(splitAmounts.transferencia)||0)+(Number(splitAmounts.tarjeta)||0);
+                            const diff = sumSplit - Number(order.total);
+                            return(<>
+                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #E9D5FF",marginTop:4}}>
+                                <span style={{fontSize:11,color:"var(--text3)",fontWeight:600}}>Total pedido: <strong>${Number(order.total).toLocaleString("es-AR")}</strong></span>
+                                <span style={{fontSize:11,fontWeight:700,color:diff===0?"#16A34A":diff>0?"#D97706":"#DC2626"}}>
+                                  Suma: ${sumSplit.toLocaleString("es-AR")} {diff!==0&&`(${diff>0?"+":""}${diff.toLocaleString("es-AR")})`}
+                                </span>
+                              </div>
+                              <div style={{display:"flex",gap:6,marginTop:8}}>
+                                <button className="btn" onClick={()=>{setSplitPayId(null);setSplitAmounts({efectivo:"",transferencia:"",tarjeta:""});}}
+                                  style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif"}}>
+                                  Cancelar
+                                </button>
+                                <button className="btn" onClick={()=>updatePagoDetalle(order,splitAmounts)}
+                                  disabled={sumSplit===0}
+                                  style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,
+                                    background:sumSplit>0?"#9333EA":"var(--border)",border:"none",color:"#fff",
+                                    fontFamily:"'Barlow Condensed',sans-serif",opacity:sumSplit===0?.5:1}}>
+                                  Guardar desglose
+                                </button>
+                              </div>
+                            </>);
+                          })()}
+                        </div>
+                      )}
+                      {order.pago==="mixto"&&order.pago_detalle&&splitPayId!==order.id&&(
+                        <div style={{marginTop:6,display:"flex",gap:6,flexWrap:"wrap"}}>
+                          {order.pago_detalle.map(d=>(
+                            <span key={d.metodo} style={{fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:20,
+                              background:d.metodo==="efectivo"?"#F0FDF4":d.metodo==="transferencia"?"#FFFBEB":"#EFF6FF",
+                              border:`1px solid ${d.metodo==="efectivo"?"#BBF7D0":d.metodo==="transferencia"?"#FDE68A":"#BFDBFE"}`,
+                              color:d.metodo==="efectivo"?"#16A34A":d.metodo==="transferencia"?"#D97706":"#2563EB",
+                              fontFamily:"'Barlow Condensed',sans-serif"}}>
+                              {d.metodo==="efectivo"?"💵":d.metodo==="transferencia"?"📲":"💳"} ${Number(d.monto).toLocaleString("es-AR")}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>)}
                     <div style={{display:"flex",gap:8,marginTop:6}}>
                       {est.next&&(()=>{
@@ -3815,7 +3920,7 @@ function HistorialCajaTabla({ historial, onReload, orders=[], onReabrir }) {
                             <div style={{fontSize:11,color:"var(--text3)",marginTop:1}}>
                               {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})}
                               {" · "}{o.items?.reduce((s,c)=>s+c.qty,0)||0} items
-                              {o.pago&&<span style={{marginLeft:4}}>{o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":"💳"} {o.pago}</span>}
+                              {o.pago&&<span style={{marginLeft:4}}>{o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":o.pago==="mixto"?"🔀":"💳"} {o.pago}</span>}
                             </div>
                           </div>
                           <div style={{textAlign:"right",flexShrink:0,display:"flex",alignItems:"center",gap:6}}>
