@@ -11,6 +11,29 @@ const LOGO_SRC = "/logo.png";
 // Fecha local (Argentina UTC-3) — evita el bug de toISOString() que usa UTC
 const fechaLocal = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
+// Día de negocio: corte a las 06:00 AM. De 00:00 a 05:59 cuenta como el día anterior.
+// Así la caja sigue "abierta" aunque sean las 00:30 y el cajero pueda cerrarla sin perder los datos del día.
+const BUSINESS_DAY_CUTOFF_HOUR = 6;
+const fechaNegocio = (d = new Date()) => {
+  const ref = new Date(d);
+  if (ref.getHours() < BUSINESS_DAY_CUTOFF_HOUR) ref.setDate(ref.getDate() - 1);
+  return fechaLocal(ref);
+};
+// Timestamp del inicio (06:00) del día de negocio que contiene d.
+const inicioNegocio = (d = new Date()) => {
+  const ref = new Date(d);
+  if (ref.getHours() < BUSINESS_DAY_CUTOFF_HOUR) ref.setDate(ref.getDate() - 1);
+  ref.setHours(BUSINESS_DAY_CUTOFF_HOUR, 0, 0, 0);
+  return ref.getTime();
+};
+// [inicio, fin) del día de negocio identificado por "YYYY-MM-DD" (06:00 de ese día a 06:00 del siguiente).
+const rangoNegocio = (fechaStr) => {
+  const [y, mo, d] = fechaStr.split("-").map(Number);
+  const ini = new Date(y, mo-1, d, BUSINESS_DAY_CUTOFF_HOUR, 0, 0).getTime();
+  const fin = new Date(y, mo-1, d+1, BUSINESS_DAY_CUTOFF_HOUR, 0, 0).getTime();
+  return [ini, fin];
+};
+
 const CONFIG = {
   nombre: "Shako Sushi", adminPin: "1234",
   ubicacion: "Hudson Plaza Comercial, Berazategui", horario: "16:30 a 23:30", abreH:16, abreM:30, cierraH:23, cierraM:30,
@@ -93,8 +116,8 @@ const MENU_DEFAULT = [
     opciones:[{id:"og9",nombre:"Elegí el tamaño",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"15 Unidades",precio:41000},{id:"c2",nombre:"20 Unidades",precio:46000},{id:"c3",nombre:"30 Unidades",precio:68000},{id:"c4",nombre:"40 Unidades",precio:74000}]},{id:"og10",nombre:"Salsas",tipo:"checkbox",obligatorio:false,choices:SALSAS_COMUNES}]},
   ]},
   { id:"temaki", nombre:"Temaki y Chirashi", emoji:"🌮", desc:"Cono o ensalada", items:[
-    {id:"tm1",nombre:"Temaki (2u.)",  desc:"Sake: Salmón crudo, Philadelphia, Palta. / Ebi: Langostinos, Pepino, Palta.", precio:19000,
-    opciones:[{id:"og11",nombre:"Elegí la variante",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"Sake (Salmón, 2u.)",precio:20000},{id:"c2",nombre:"Ebi (Langostinos, 2u.)",precio:19000}]}]},
+    {id:"tm1",nombre:"Temaki",  desc:"Sake: Salmón crudo, Philadelphia, Palta. / Ebi: Langostinos, Pepino, Palta.", precio:9500,
+    opciones:[{id:"og11",nombre:"Elegí la variante",tipo:"radio",obligatorio:true,choices:[{id:"c1",nombre:"Sake (Salmón, 2u.)",precio:20000},{id:"c2",nombre:"Ebi (Langostinos, 2u.)",precio:19000},{id:"c3",nombre:"Sake (Salmón, 1u.)",precio:10000},{id:"c4",nombre:"Ebi (Langostinos, 1u.)",precio:9500}]}]},
     {id:"tm2",nombre:"Poke Bowl",     desc:"Arroz, Atún rojo, Palta, Cebolla morada, Tomate, Pepino.", precio:48000},
     {id:"tm3",nombre:"Chirashi",      desc:"Arroz, Salmón ahumado, Salmón crudo, Kanikama, Langostinos, Tamagoyaki...", precio:44000},
     {id:"tm4",nombre:"Ensalada Sake", desc:"Arroz, Salmón, Palta y Queso Philadelphia.", precio:38000},
@@ -347,7 +370,7 @@ export default function App() {
       });
     // Check caja status - initial load
     const checkCaja = () => {
-      const hoy = fechaLocal();
+      const hoy = fechaNegocio();
       supabase.from("caja").select("estado").eq("fecha", hoy).eq("estado","abierta").limit(1)
         .then(({data}) => setCajaStatus(data && data.length > 0 ? "abierta" : "cerrada"))
         .catch(() => setCajaStatus("cerrada"));
@@ -766,15 +789,16 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
     if (!order.dni && !order.telefono) return;
     const key = `dni.eq.${order.dni||"NADA"},telefono.eq.${order.telefono||"NADA"}`;
     const {data} = await supabase.from("customers").select("id,direccion").or(key).limit(1);
-    // Save structured: calle|numero|barrio so it can be parsed reliably
-    const direccion = `${order.calle||""}|${order.numero||""}|${order.barrio||""}|${order.entrecalle||""}|${order.piso||""}`;
+    // Save structured: calle|numero|barrio|entreCalle|piso so it can be parsed reliably
+    const hasAddress = !!(order.calle||order.numero||order.barrio||order.entrecalle||"").toString().trim();
+    const direccion = hasAddress ? `${order.calle||""}|${order.numero||""}|${order.barrio||""}|${order.entrecalle||""}|${order.piso||""}` : "";
+    const storedHasAddress = !!(data?.[0]?.direccion && data[0].direccion.replace(/\|/g,"").trim());
     if (!data || data.length === 0) {
-      // New customer
       supabase.from("customers").insert({
         nombre: order.nombre, dni: order.dni||"", telefono: order.telefono||"", direccion
       }).then(()=>{});
-    } else if (direccion && !data[0].direccion) {
-      // Update address if we now have one
+    } else if (hasAddress && !storedHasAddress) {
+      // Customer existía pero sin dirección real (o con "||||") — ahora tenemos una de verdad
       supabase.from("customers").update({direccion, nombre: order.nombre}).eq("id", data[0].id).then(()=>{});
     }
   };
@@ -1566,6 +1590,32 @@ const noAcc = s => String(s)
 const epLine = (ch='-') => ch.repeat(PW)+EP.LF;
 const epCols = (l,r,w=PW) => { const rs=String(r); const ls=noAcc(l).substring(0,w-rs.length); return ls.padEnd(w-rs.length)+rs+EP.LF; };
 const epCtr  = t => { const s=noAcc(t).substring(0,PW); return ' '.repeat(Math.max(0,Math.floor((PW-s.length)/2)))+s+EP.LF; };
+const epWrap = (text, width=PW, indent='') => {
+  const clean = noAcc(String(text||''));
+  if (!clean) return '';
+  const words = clean.split(/\s+/).filter(Boolean);
+  const lines = [];
+  let cur = '';
+  for (const w of words) {
+    const lineIndent = lines.length ? indent : '';
+    const candidate = cur ? cur + ' ' + w : lineIndent + w;
+    if (candidate.length <= width) {
+      cur = candidate;
+      continue;
+    }
+    if (cur) lines.push(cur);
+    let rest = w;
+    const idt = lines.length ? indent : '';
+    const room = Math.max(1, width - idt.length);
+    while (rest.length > room) {
+      lines.push((lines.length ? indent : '') + rest.substring(0, room));
+      rest = rest.substring(room);
+    }
+    cur = (lines.length ? indent : '') + rest;
+  }
+  if (cur) lines.push(cur);
+  return lines.join(EP.LF) + EP.LF;
+};
 
 const buildTicketEscPos = (order, descuento=0, autoDescuento=0) => {
   const fmt = n => '$'+Number(n).toLocaleString('es-AR');
@@ -1583,11 +1633,11 @@ const buildTicketEscPos = (order, descuento=0, autoDescuento=0) => {
   t += 'Pedido: '+order.id.slice(-5).toUpperCase()+EP.LF;
   t += epLine();
   t += noAcc('Cliente: '+(order.nombre||'').toUpperCase())+EP.LF;
-  if (dir) t += noAcc('Dir: '+dir.toUpperCase()).substring(0,PW)+EP.LF;
+  if (dir) t += epWrap('Dir: '+dir.toUpperCase(), PW, '     ');
   if (order.telefono) t += 'TE: '+order.telefono+EP.LF;
   if (order.pago)     t += 'Pago: '+order.pago.toUpperCase()+EP.LF;
   if (order.repartidor) t += noAcc('Rep.: '+order.repartidor)+EP.LF;
-  if (order.notas)    t += noAcc('Nota: '+order.notas).substring(0,PW)+EP.LF;
+  if (order.notas)    t += epWrap('Nota: '+order.notas, PW, '      ');
   t += epLine();
   t += epCols('DESCRIPCION','IMPORTE');
   t += epLine();
@@ -1627,7 +1677,7 @@ const buildKitchenEscPos = (titulo, items, order) => {
   t += EP.BOLD1+'Pedido: #'+nro+' - '+hora+EP.LF+EP.BOLD0;
   if (order.nombre)  t += noAcc('Cliente: '+order.nombre.toUpperCase())+EP.LF;
   if (order.mesa_id) t += 'Mesa: '+order.mesa_id.replace('mv','V').replace('m','')+EP.LF;
-  if (order.notas)   t += noAcc('NOTA: '+order.notas).substring(0,PW)+EP.LF;
+  if (order.notas)   t += epWrap('NOTA: '+order.notas, PW, '      ');
   t += epLine('=');
   items.forEach(c => {
     t += EP.BOLD1+EP.TALL+c.qty+'x '+noAcc(c.item.nombre||c.item.nome||'').toUpperCase().substring(0,22)+EP.LF+EP.NORM+EP.BOLD0;
@@ -1786,7 +1836,8 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const [cajaVista,    setCajaVista]     = useState("hoy"); // 'hoy' | 'semana' | 'mes'
 
   const loadCaja = useCallback(async () => {
-    const hoy = fechaLocal();
+    // "hoy" = día de negocio (corte 06:00 AM), así la caja sigue activa aunque sean las 00:30.
+    const hoy = fechaNegocio();
     // Fix cajas with future dates caused by UTC timezone bug (created after 21:00 local = next day in UTC)
     const {data: cajasFuturas} = await supabase.from("caja").select("id,fecha").gt("fecha", hoy);
     if (cajasFuturas && cajasFuturas.length > 0) {
@@ -1794,7 +1845,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
         supabase.from("caja").update({fecha: hoy}).eq("id", c.id)
       ));
     }
-    // Auto-close any open cajas from previous days (but skip manually reopened ones)
+    // Auto-close any open cajas from previous business days (but skip manually reopened ones)
     const {data: cajasViejas} = await supabase.from("caja").select("id,fecha,notas_cierre").eq("estado","abierta").neq("fecha",hoy);
     const paraCerrar = (cajasViejas||[]).filter(c => !(c.notas_cierre||"").includes("Reabierta"));
     if (paraCerrar.length > 0) {
@@ -1824,7 +1875,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
 
   const abrirCaja = async (monto, notas) => {
     setCajaLoading(true);
-    const hoy = fechaLocal();
+    const hoy = fechaNegocio();
     const now = new Date(); const hora = now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
     const {data} = await supabase.from("caja").insert({fecha:hoy, estado:"abierta", hora_apertura:hora, monto_apertura:Number(monto), notas_apertura:notas}).select().single();
     setCaja(data);
@@ -1852,13 +1903,11 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     if (!caja) return;
     setCajaLoading(true);
     const now2 = new Date(); const hora = now2.getHours().toString().padStart(2,"0")+":"+now2.getMinutes().toString().padStart(2,"0");
-    // Compute day window based on caja's own fecha (correct for reopened old cajas too)
-    const [y,mo,d] = (caja.fecha||fechaLocal()).split("-").map(Number);
-    const inicioDia = new Date(y, mo-1, d, 0, 0, 0).getTime();
-    const finDia   = new Date(y, mo-1, d, 23, 59, 59).getTime();
+    // Ventana por día de negocio (06:00 del día hasta 06:00 del siguiente) — incluye pedidos post-medianoche.
+    const [inicioDia, finDia] = rangoNegocio(caja.fecha || fechaNegocio());
     const ordersDelDia = orders.filter(o=>{
       const ts = Number(o.created_at);
-      return ts >= inicioDia && ts <= finDia && o.status !== "eliminado";
+      return ts >= inicioDia && ts < finDia && o.status !== "eliminado";
     });
     // Get current mesas session data
     const {data:mesasNow} = await supabase.from("mesas").select("id,session_num");
@@ -1983,9 +2032,14 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     await supabase.from("orders").delete().eq("id", id);
   };
 
-  const hoy = new Date(); hoy.setHours(0,0,0,0);
-  const hoyTs = hoy.getTime();
-  const ordersHoy = orders.filter(o => Number(o.created_at) >= hoyTs && o.status !== "eliminado");
+  // "Hoy" = día de negocio actual. Si hay una caja abierta, alineamos a su fecha (caso: caja reabierta de otro día).
+  const [hoyTs, hoyFin] = caja && caja.estado === "abierta"
+    ? rangoNegocio(caja.fecha)
+    : [inicioNegocio(), inicioNegocio() + 24*60*60*1000];
+  const ordersHoy = orders.filter(o => {
+    const ts = Number(o.created_at);
+    return ts >= hoyTs && ts < hoyFin && o.status !== "eliminado";
+  });
   const entH   = ordersHoy.filter(o => o.status === "entregado" && !o.mesa_id);
   // For mesa orders: count once per session (deduplicated by mesa+session key)
   // Only count mesa orders whose session is closed (mesa.session_num > order.mesa_session)
@@ -2135,7 +2189,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       {filter==="facturacion" && (
         <div className="fade-in" style={{padding:14,paddingBottom:40}}>
           {/* ── ESTADO DE CAJA ── */}
-          <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja} onAgregarMovimiento={agregarMovimiento} totEf={totEf} lastCierre={historialCaja.find(c=>c.estado==="cerrada"&&c.fecha!==fechaLocal())?.monto_cierre}/>
+          <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja} onAgregarMovimiento={agregarMovimiento} totEf={totEf} lastCierre={historialCaja.find(c=>c.estado==="cerrada"&&c.fecha!==fechaNegocio())?.monto_cierre}/>
           {/* ── TABS HOY / SEMANA / MES ── */}
           <div style={{display:"flex",gap:6,marginBottom:16,background:"var(--surface2)",borderRadius:12,padding:4}}>
             {[{k:"hoy",l:"Hoy"},{k:"semana",l:"Esta semana"},{k:"mes",l:"Este mes"},{k:"historial",l:"Historial"}].map(t=>(
@@ -3372,6 +3426,19 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
     await supabase.from("orders").insert(order);
     // Mark mesa as ocupada
     if (mesaId) await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesaId);
+    // Guardar / actualizar customer para que el próximo lookup por teléfono traiga la dirección
+    if ((order.dni || order.telefono) && !mesaId) {
+      const key = `dni.eq.${order.dni||"NADA"},telefono.eq.${order.telefono||"NADA"}`;
+      const {data:cu} = await supabase.from("customers").select("id,direccion").or(key).limit(1);
+      const hasAddr = !!(order.calle||order.numero||order.barrio||order.entrecalle||"").toString().trim();
+      const direccion = hasAddr ? `${order.calle||""}|${order.numero||""}|${order.barrio||""}|${order.entrecalle||""}|${order.piso||""}` : "";
+      const storedHasAddr = !!(cu?.[0]?.direccion && cu[0].direccion.replace(/\|/g,"").trim());
+      if (!cu || cu.length === 0) {
+        supabase.from("customers").insert({nombre: order.nombre, dni: order.dni||"", telefono: order.telefono||"", direccion}).then(()=>{});
+      } else if (hasAddr && !storedHasAddr) {
+        supabase.from("customers").update({direccion, nombre: order.nombre}).eq("id", cu[0].id).then(()=>{});
+      }
+    }
     onOrderPlaced();
     onClose();
     setLoading(false);
@@ -3740,7 +3807,7 @@ function HistorialCajaResumen({ historial, vista, orders }) {
               const pct = (d.total/maxVal)*100;
               const fecha = new Date(d.fecha+"T12:00:00");
               const label = fecha.toLocaleDateString("es-AR",{weekday:"short",day:"numeric"});
-              const isHoy = d.fecha === fechaLocal();
+              const isHoy = d.fecha === fechaNegocio();
               return(
                 <div key={d.fecha} style={{display:"flex",flexDirection:"column",alignItems:"center",flex:1,minWidth:32}}>
                   <div style={{fontSize:9,color:"var(--text4)",marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>
@@ -3790,7 +3857,9 @@ function HistorialCajaTabla({ historial, onReload, orders=[], onReabrir }) {
     const [ah=0,am=0] = (aperturaHora||"00:00").split(":").map(Number);
     const [ch=23,cm=59] = (cierreHora||"23:59").split(":").map(Number);
     const inicio = new Date(y, mo-1, d, ah, am, 0).getTime();
-    const fin    = new Date(y, mo-1, d, ch, cm, 59).getTime();
+    // Si la hora de cierre es menor que la de apertura (ej: abrió 17:00, cerró 00:30), el cierre fue al día siguiente.
+    const cerrarSiguiente = (ch*60+cm) < (ah*60+am);
+    const fin = new Date(y, mo-1, d + (cerrarSiguiente?1:0), ch, cm, 59).getTime();
     return orders
       .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts <= fin && o.status !== "eliminado"; })
       .sort((a,b) => Number(a.created_at) - Number(b.created_at));
