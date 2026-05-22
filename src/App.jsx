@@ -717,6 +717,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const [search,     setSearch]     = useState("");
   const [cart,       setCart]       = useState([]);
   const [step,       setStep]       = useState("menu");
+  const [verMenuCerrado, setVerMenuCerrado] = useState(false);
   const [form,       setForm]       = useState({nombre:"",telefono:"",notas:"",tipo:"retiro",calle:"",numero:"",entreCalle:"",piso:"",barrio:"",pago:"efectivo",envio:0,zona_envio:"",horaEntrega:""});
   const [dniFound,   setDniFound]   = useState(false);
   const [loading,    setLoading]    = useState(false);
@@ -878,7 +879,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   const PAGOS = PAGOS_BASE;
 
   // Caja cerrada — mostrar pantalla de local cerrado
-  if (!appConfig.webHabilitada || !isOpen(appConfig)) return (
+  if ((!appConfig.webHabilitada || !isOpen(appConfig)) && !verMenuCerrado) return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
       <img src={LOGO_SRC} alt="Shako Sushi" style={{width:90,height:90,borderRadius:"50%",objectFit:"cover",marginBottom:20,opacity:.7}}/>
       <div className="sh" style={{fontSize:30,color:"var(--text)",marginBottom:8}}>Estamos cerrados</div>
@@ -886,12 +887,16 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         Por el momento no estamos tomando pedidos.<br/>
         Volvemos pronto.
       </div>
-      <div style={{display:"inline-flex",alignItems:"center",gap:8,background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:40,padding:"10px 22px"}}>
+      <div style={{display:"inline-flex",alignItems:"center",gap:8,background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:40,padding:"10px 22px",marginBottom:20}}>
         <div style={{width:7,height:7,borderRadius:"50%",background:"#DC2626",boxShadow:"0 0 6px #DC2626"}}/>
         <span style={{fontSize:13,color:"var(--text3)",fontWeight:600}}>Cerrado</span>
         <span style={{color:"var(--text4)"}}>·</span>
         <span style={{fontSize:13,color:"var(--text3)"}}>{appConfig.horario}</span>
       </div>
+      <button className="btn" onClick={()=>setVerMenuCerrado(true)}
+        style={{padding:"13px 28px",borderRadius:14,background:"var(--surface)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:15,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+        Ver Menú
+      </button>
     </div>
   );
 
@@ -1161,6 +1166,15 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   return (
     <div className="cv-root" style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"var(--bg2)"}}>
       <div className="cv-menu-panel">
+      {verMenuCerrado&&(
+        <div style={{background:"#1C1C1C",padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <div style={{width:7,height:7,borderRadius:"50%",background:"#DC2626",boxShadow:"0 0 6px #DC2626",flexShrink:0}}/>
+            <span style={{fontSize:13,color:"rgba(255,255,255,.8)",fontWeight:600,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>CERRADO · Solo podés ver el menú</span>
+          </div>
+          <button className="btn" onClick={()=>setVerMenuCerrado(false)} style={{fontSize:12,color:"rgba(255,255,255,.5)",background:"none",border:"none",padding:"4px 0",flexShrink:0}}>✕ Salir</button>
+        </div>
+      )}
       <div style={{background:"var(--red)",padding:"18px 18px 16px"}}>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
           <div style={{display:"flex",alignItems:"center",gap:12}}>
@@ -1170,7 +1184,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
               <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>{mesaQR ? `🪑 Mesa ${mesaQR.replace("m","").replace("v","Vereda ")}` : appConfig.ubicacion}</div>
             </div>
           </div>
-          {count>0&&(
+          {count>0&&!verMenuCerrado&&(
             <button className="btn" onClick={()=>setStep("checkout")}
               style={{background:"#fff",borderRadius:40,padding:"9px 14px",display:"flex",alignItems:"center",gap:8,color:"var(--red)",fontSize:14,fontWeight:800,boxShadow:"0 4px 12px rgba(0,0,0,.15)"}}>
               🛒 <span style={{background:"var(--red)",color:"#fff",borderRadius:20,padding:"1px 7px",fontSize:12,fontWeight:700}}>{count}</span>
@@ -1325,13 +1339,13 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
                     {item.desc&&<div style={{fontSize:12,color:"var(--text3)",lineHeight:1.5,marginTop:3}}>{item.desc}</div>}
                     <div className="sh" style={{fontSize:18,color:"var(--red)",marginTop:6}}>{item.opciones?.length?"desde ":""}{fmt(item.precio)}</div>
                   </div>
-                  {qty===0
+                  {!verMenuCerrado&&(qty===0
                     ?<button className="btn" onClick={()=>handleAddItem(itemConCat)} style={{width:40,height:40,borderRadius:10,background:"var(--red-light)",border:"2px solid var(--red-border)",color:"var(--red)",fontSize:24,display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,fontWeight:700}}>{item.opciones?.length?"›":"+"}</button>
                     :<div style={{display:"flex",alignItems:"center",gap:6,flexShrink:0}}>
                       <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:32,height:32,borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
                       <span style={{fontSize:17,fontWeight:900,minWidth:22,textAlign:"center",color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif"}}>{qty}</span>
                       <button className="btn" onClick={()=>handleAddItem(itemConCat)} style={{width:32,height:32,borderRadius:9,background:"var(--red)",color:"#fff",fontSize:18,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
-                    </div>}
+                    </div>)}
                 </div>
               </div>
             );
@@ -1339,7 +1353,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         </div>
       ))}
       </div>{/* end cv-menu-panel */}
-      <div className="cv-cart-panel">
+      {!verMenuCerrado&&<div className="cv-cart-panel">
         <div className="sh" style={{fontSize:20,color:"var(--text)",paddingBottom:16,marginBottom:16,borderBottom:"2px solid var(--border)"}}>🛒 TU PEDIDO</div>
         {count===0?(
           <div style={{flex:1,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"40px 0",gap:12,opacity:.5}}>
@@ -1379,8 +1393,8 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
             </div>
           </>
         )}
-      </div>
-      {count>0&&(
+      </div>}
+      {count>0&&!verMenuCerrado&&(
         <div className="cv-bottom-cart" style={{position:"fixed",bottom:0,left:"50%",transform:"translateX(-50%)",width:"100%",maxWidth:480,padding:"10px 14px",background:"rgba(255,255,255,.97)",backdropFilter:"blur(18px)",borderTop:"1px solid var(--border)",zIndex:20}}>
           <button className="btn" onClick={()=>setStep("checkout")}
             style={{width:"100%",padding:"14px 20px",borderRadius:14,background:"var(--red)",color:"#fff",fontSize:17,fontWeight:800,display:"flex",alignItems:"center",justifyContent:"space-between",boxShadow:"0 6px 20px var(--red-glow)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
@@ -1828,6 +1842,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [nuevoPedidoMesaId, setNuevoPedidoMesaId] = useState(null);
   const [mesasData, setMesasData] = useState([]);
+  const [editOrderId, setEditOrderId] = useState(null);
   const repartidorOverrides = useRef({}); // persists through polling cycles
 
   const [caja,         setCaja]         = useState(null);
@@ -2361,6 +2376,17 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       {filter==="mesas"&&<MesasView onNewOrder={(mesaId)=>{setFilter("nuevo_pedido");setNuevoPedidoMesaId(mesaId);}} />}
       {filter==="config"&&<ConfigEditor appConfig={appConfig} saveAppConfig={saveAppConfig} menu={menu}/>}
       {filter==="nuevo_pedido"&&<NuevoPedidoAdmin menu={menu} mesaId={nuevoPedidoMesaId} appConfig={appConfig} onClose={()=>{setFilter(nuevoPedidoMesaId?"mesas":"activos");setNuevoPedidoMesaId(null);}} onOrderPlaced={()=>{loadOrders();}} />}
+      {editOrderId&&(
+        <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:100,overflowY:"auto"}}>
+          <ModificarPedidoAdmin
+            order={orders.find(o=>o.id===editOrderId)}
+            menu={menu}
+            appConfig={appConfig}
+            onClose={()=>setEditOrderId(null)}
+            onOrderSaved={()=>{loadOrders();setEditOrderId(null);}}
+          />
+        </div>
+      )}
 
       {!["editor","facturacion","config"].includes(filter)&&(
         <div style={{padding:"12px 12px 40px"}}>
@@ -2608,6 +2634,12 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                         );
                       })()}
                       <TicketBtn order={order}/>
+                      {["preparando","listo"].includes(order.status)&&(
+                        <button className="btn" onClick={()=>setEditOrderId(order.id)} title="Modificar pedido"
+                          style={{padding:"12px 16px",borderRadius:12,background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#2563EB",fontSize:13,fontWeight:600}}>
+                          ✏️ Modificar
+                        </button>
+                      )}
                       <button className="btn" onClick={()=>deleteOrder(order.id)} title="Eliminar pedido" style={{padding:"12px 16px",borderRadius:12,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:600}}>Eliminar</button>
                     </div>
                   </div>
@@ -3723,6 +3755,125 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+/* ══ MODIFICAR PEDIDO DESDE ADMIN ═════════════════════════════ */
+function ModificarPedidoAdmin({ order, menu, appConfig=CONFIG, onClose, onOrderSaved }) {
+  const menuVis = menu.map(c=>({...c,items:c.items.filter(i=>i.disponible!==false)})).filter(c=>c.items.length>0);
+  const [cart, setCart] = useState(() => (order?.items||[]).map(c=>({...c,cartKey:c.cartKey||genId()})));
+  const [search, setSearch] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [modalItem, setModalItem] = useState(null);
+  const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
+
+  const add = (item, selecciones=null, precioUnitario=null) => {
+    const key = getCartKey(item, selecciones);
+    const precio = precioUnitario ?? item.precio;
+    setCart(p => { const ex=p.find(c=>c.cartKey===key); return ex?p.map(c=>c.cartKey===key?{...c,qty:c.qty+1}:c):[...p,{item,qty:1,selecciones,precioUnitario:precio,cartKey:key,catId:item.catId||""}]; });
+  };
+  const setQty = (key,q) => setCart(p => q<=0?p.filter(c=>c.cartKey!==key):p.map(c=>c.cartKey===key?{...c,qty:q}:c));
+  const getQty = (item) => { if(!item.opciones?.length&&!item.porKilo) return cart.find(c=>c.item.id===item.id&&!c.selecciones?.length)?.qty||0; return 0; };
+  const handleAddItem = (item) => { if(item.opciones?.length) { setModalItem(item); } else { add(item); } };
+
+  const subtotal = cart.reduce((s,c)=>s+(c.precioUnitario??c.item.precio)*c.qty,0);
+  const envio = Number(order?.envio)||0;
+  const total = subtotal + envio;
+
+  const menuFiltered = search.trim()
+    ? menuVis.map(c=>({...c,items:c.items.filter(i=>i.nombre.toLowerCase().includes(search.toLowerCase()))})).filter(c=>c.items.length>0)
+    : menuVis;
+
+  const saveChanges = async () => {
+    if (!cart.length) return;
+    setLoading(true);
+    await supabase.from("orders").update({ items: cart, subtotal, total }).eq("id", order.id);
+    onOrderSaved();
+    setLoading(false);
+  };
+
+  if (!order) return null;
+
+  return (
+    <div className="fade-in" style={{padding:14,paddingBottom:40,maxWidth:600,margin:"0 auto"}}>
+      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+        <div>
+          <div className="sh" style={{fontSize:22,color:"var(--text)"}}>MODIFICAR PEDIDO</div>
+          <div style={{fontSize:12,color:"var(--text3)"}}>#{order.id.slice(-6).toUpperCase()} — {order.nombre}</div>
+        </div>
+        <button className="btn" onClick={onClose} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"7px 16px",color:"var(--text3)",fontSize:13,fontWeight:600}}>← Volver</button>
+      </div>
+
+      {/* Buscador de productos */}
+      <div style={{marginBottom:14,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:10,background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"8px 12px",marginBottom:10}}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+          <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Buscar producto para agregar..." style={{flex:1,fontSize:13,background:"transparent",border:"none",outline:"none"}}/>
+        </div>
+        <div style={{maxHeight:280,overflowY:"auto"}}>
+          {menuFiltered.map(cat=>(
+            <div key={cat.id}>
+              <div className="sh" style={{fontSize:12,color:"var(--text4)",padding:"6px 4px 4px",letterSpacing:1}}>{cat.nombre}</div>
+              {cat.items.map(item=>{
+                const itemConCat = {...item, catId:cat.id};
+                const qty=getQty(itemConCat);
+                return(
+                  <div key={item.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 4px",borderBottom:"1px solid var(--border)"}}>
+                    <div style={{flex:1}}>
+                      <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{item.nombre}</div>
+                      <div style={{fontSize:12,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{fmt(item.precio)}</div>
+                    </div>
+                    {qty===0
+                      ?<button className="btn" onClick={()=>handleAddItem(itemConCat)} style={{width:32,height:32,borderRadius:8,background:"var(--red-light)",border:"1px solid var(--red-border)",color:"var(--red)",fontSize:item.opciones?.length?14:20,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{item.opciones?.length?"Ver":"+"}</button>
+                      :<div style={{display:"flex",alignItems:"center",gap:6}}>
+                        <button className="btn" onClick={()=>setQty(item.id,qty-1)} style={{width:28,height:28,borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>−</button>
+                        <span style={{fontSize:14,fontWeight:800,minWidth:18,textAlign:"center",color:"var(--red)"}}>{qty}</span>
+                        <button className="btn" onClick={()=>handleAddItem(itemConCat)} style={{width:28,height:28,borderRadius:7,background:"var(--red)",color:"#fff",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center"}}>+</button>
+                      </div>}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Pedido completo */}
+      {cart.length>0&&(
+        <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:14,padding:14,marginBottom:14}}>
+          <div className="sh" style={{fontSize:13,color:"#16A34A",marginBottom:8}}>PEDIDO COMPLETO</div>
+          {cart.map(c=>(
+            <div key={c.cartKey} style={{borderBottom:"1px solid #BBF7D0",padding:"5px 0"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",fontSize:13,gap:8}}>
+                <span style={{flex:1,color:"var(--text2)"}}>{c.item.nombre}</span>
+                <div style={{display:"flex",alignItems:"center",gap:5,flexShrink:0}}>
+                  <button className="btn" onClick={()=>setQty(c.cartKey,c.qty-1)} style={{width:22,height:22,borderRadius:6,background:"#DCFCE7",border:"1px solid #86EFAC",color:"#16A34A",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>−</button>
+                  <span style={{fontSize:13,fontWeight:800,minWidth:16,textAlign:"center",color:"var(--text)"}}>{c.qty}</span>
+                  <button className="btn" onClick={()=>setQty(c.cartKey,c.qty+1)} style={{width:22,height:22,borderRadius:6,background:"#16A34A",color:"#fff",fontSize:15,display:"flex",alignItems:"center",justifyContent:"center",fontWeight:700}}>+</button>
+                  <span style={{fontWeight:700,minWidth:52,textAlign:"right"}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
+                </div>
+              </div>
+              {c.selecciones&&<div style={{fontSize:11,color:"#166534",paddingLeft:2}}>{seleccionesLabel(c.item,c.selecciones)}</div>}
+            </div>
+          ))}
+          {envio>0&&(
+            <div style={{display:"flex",justifyContent:"space-between",padding:"6px 0 0",fontSize:13,color:"var(--text3)"}}>
+              <span>Envío</span><span>{fmt(envio)}</span>
+            </div>
+          )}
+          <div style={{display:"flex",justifyContent:"space-between",padding:"8px 0 0",fontWeight:800,fontSize:16,fontFamily:"'Barlow Condensed',sans-serif"}}>
+            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(total)}</span>
+          </div>
+        </div>
+      )}
+
+      <button className="btn" onClick={saveChanges} disabled={loading||!cart.length}
+        style={{width:"100%",padding:"14px 0",borderRadius:12,background:cart.length?"var(--red)":"var(--border)",color:cart.length?"#fff":"var(--text4)",fontSize:16,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,opacity:loading?.7:1}}>
+        {loading?"Guardando...":"GUARDAR CAMBIOS"}
+      </button>
+
+      {modalItem&&<ItemModal item={modalItem} onClose={()=>setModalItem(null)} onConfirm={(sel,precio,qty=1)=>{for(let i=0;i<qty;i++)add(modalItem,sel,precio);setModalItem(null);}}/>}
     </div>
   );
 }
