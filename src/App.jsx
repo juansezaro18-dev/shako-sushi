@@ -2658,6 +2658,58 @@ function MenuEditor({ menu, saveMenu }) {
   const [editId,      setEditId]      = useState(null);
   const editPanelRef = useRef(null);
   const [saved,       setSaved]       = useState(false);
+  const [showBulk,    setShowBulk]    = useState(false);
+  const [bulkPct,     setBulkPct]     = useState("");
+  const [bulkRound,   setBulkRound]   = useState(50);
+  const [bulkOpc,     setBulkOpc]     = useState(true);
+
+  const aplicarAumento = () => {
+    const pct = Number(bulkPct);
+    if (!pct || isNaN(pct)) { alert("Ingresá un porcentaje válido"); return; }
+    const factor = 1 + pct/100;
+    const redondear = (n) => {
+      if (!n || n <= 0) return n;
+      const nuevo = n * factor;
+      if (bulkRound > 0) return Math.round(nuevo / bulkRound) * bulkRound;
+      return Math.round(nuevo);
+    };
+    const nuevoMenu = menu.map(cat => ({
+      ...cat,
+      items: cat.items.map(it => ({
+        ...it,
+        precio: redondear(it.precio),
+        ...(bulkOpc && it.opciones?.length ? {
+          opciones: it.opciones.map(g => ({
+            ...g,
+            choices: g.choices.map(c => ({ ...c, precio: redondear(c.precio) })),
+          })),
+        } : {}),
+      })),
+    }));
+    saveMenu(nuevoMenu);
+    setShowBulk(false);
+    setBulkPct("");
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
+  const previewAumento = () => {
+    const pct = Number(bulkPct);
+    if (!pct || isNaN(pct)) return null;
+    const factor = 1 + pct/100;
+    const ejemplos = [];
+    for (const cat of menu) {
+      for (const it of cat.items) {
+        if (it.precio > 0) {
+          const nuevo = bulkRound > 0 ? Math.round(it.precio * factor / bulkRound) * bulkRound : Math.round(it.precio * factor);
+          ejemplos.push({ nombre: it.nombre, antes: it.precio, despues: nuevo });
+          if (ejemplos.length >= 3) break;
+        }
+      }
+      if (ejemplos.length >= 3) break;
+    }
+    return ejemplos;
+  };
   const editCatId  = editId?.split(":")[0];
   const editItemId = editId?.split(":")[1];
   const editCat    = editCatId  ? menu.find(c=>c.id===editCatId)  : null;
@@ -2694,9 +2746,68 @@ function MenuEditor({ menu, saveMenu }) {
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {saved&&<span className="fade-in" style={{fontSize:12,color:"#16A34A",fontWeight:700}}>✓ Guardado</span>}
+          <button className="btn" onClick={()=>setShowBulk(true)} style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"8px 14px",color:"#B45309",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>📈 AUMENTAR %</button>
           <button className="btn" onClick={flash} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"8px 16px",color:"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>GUARDAR</button>
         </div>
       </div>
+      {showBulk && (
+        <div onClick={()=>setShowBulk(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+          <div onClick={e=>e.stopPropagation()} className="slide-up" style={{background:"var(--surface)",borderRadius:16,padding:20,maxWidth:420,width:"100%",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
+              <div className="sh" style={{fontSize:20,color:"#B45309"}}>📈 AUMENTAR PRECIOS</div>
+              <button className="btn" onClick={()=>setShowBulk(false)} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text3)",fontSize:12,fontWeight:600}}>✕</button>
+            </div>
+            <div style={{fontSize:12,color:"var(--text3)",marginBottom:14,lineHeight:1.5}}>
+              Aplica un porcentaje a todos los precios del menú. Usá un número negativo para bajar precios.
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:10,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>PORCENTAJE (%)</div>
+              <input type="number" step="0.5" value={bulkPct} onChange={e=>setBulkPct(e.target.value)} placeholder="Ej: 15"
+                autoFocus
+                style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:9,fontSize:22,fontWeight:800,color:"#B45309",fontFamily:"'Barlow Condensed',sans-serif",textAlign:"center"}}/>
+            </div>
+            <div style={{marginBottom:12}}>
+              <div style={{fontSize:10,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>REDONDEAR A</div>
+              <div style={{display:"flex",gap:6}}>
+                {[0,50,100,500].map(r=>(
+                  <button key={r} className="btn" onClick={()=>setBulkRound(r)}
+                    style={{flex:1,padding:"8px 0",borderRadius:8,fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",
+                      background:bulkRound===r?"#FEF3C7":"var(--bg2)",
+                      border:`1px solid ${bulkRound===r?"#FDE68A":"var(--border)"}`,
+                      color:bulkRound===r?"#B45309":"var(--text3)"}}>
+                    {r===0?"Sin redondeo":`$${r}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 12px",background:"var(--bg2)",borderRadius:9,border:"1px solid var(--border)",marginBottom:12}}>
+              <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>Aumentar también precios de opciones</div>
+              <div onClick={()=>setBulkOpc(!bulkOpc)}
+                style={{width:38,height:21,borderRadius:11,background:bulkOpc?"#B45309":"var(--border)",cursor:"pointer",position:"relative",transition:"background .2s",flexShrink:0}}>
+                <div style={{width:15,height:15,borderRadius:"50%",background:"#fff",position:"absolute",top:3,left:bulkOpc?"20px":"3px",transition:"left .2s",boxShadow:"0 1px 3px rgba(0,0,0,.2)"}}/>
+              </div>
+            </div>
+            {bulkPct && !isNaN(Number(bulkPct)) && (
+              <div style={{background:"#FFFBEB",border:"1px solid #FDE68A",borderRadius:9,padding:"10px 12px",marginBottom:14}}>
+                <div style={{fontSize:10,color:"#B45309",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:6}}>PREVIEW</div>
+                {(previewAumento()||[]).map((ej,i)=>(
+                  <div key={i} style={{display:"flex",justifyContent:"space-between",fontSize:12,marginBottom:3,color:"var(--text2)"}}>
+                    <span style={{overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginRight:8}}>{ej.nombre}</span>
+                    <span style={{whiteSpace:"nowrap",fontWeight:700}}>{fmt(ej.antes)} → <span style={{color:"#B45309"}}>{fmt(ej.despues)}</span></span>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div style={{display:"flex",gap:8}}>
+              <button className="btn" onClick={()=>setShowBulk(false)} style={{flex:1,padding:"11px 0",borderRadius:10,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>CANCELAR</button>
+              <button className="btn" onClick={()=>{ if(window.confirm(`¿Aplicar ${bulkPct}% a todos los precios? Esta acción se guarda inmediatamente.`)) aplicarAumento(); }}
+                style={{flex:2,padding:"11px 0",borderRadius:10,background:"#B45309",border:"none",color:"#fff",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
+                APLICAR
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {menu.map(cat=>(
         <div key={cat.id} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,marginBottom:10,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,padding:"12px 14px",cursor:"pointer",borderBottom:expandedCat===cat.id?"1px solid var(--border)":"none"}}
