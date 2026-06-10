@@ -1991,8 +1991,8 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     loadCaja().then(() => loadHistorialCaja());
     supabase.from("mesas").select("id,session_num,estado").then(({data})=>setMesasData(data||[]));
 
-    // Polling cada 5 segundos como fallback
-    const iv = setInterval(loadOrders, 5000);
+    // Polling cada 60 segundos como fallback (realtime avisa al instante; polling frecuente quemaba el egress de Supabase)
+    const iv = setInterval(loadOrders, 60000);
     // Realtime
     const channel = supabase.channel("orders-rt")
       .on("postgres_changes", {event:"*", schema:"public", table:"orders"}, () => loadOrders())
@@ -4387,7 +4387,8 @@ function MesasView({ onNewOrder }) {
   const load = useCallback(async () => {
     const [{ data: mesasData }, { data: ordersData }] = await Promise.all([
       supabase.from("mesas").select("*").order("id"),
-      supabase.from("orders").select("*").neq("mesa_id","").order("created_at",{ascending:false}).limit(200),
+      // Solo pedidos de mesa recientes (48h) — las sesiones de mesa nunca duran más; bajar historial completo quemaba egress
+      supabase.from("orders").select("*").neq("mesa_id","").gte("created_at", Date.now() - 48*60*60*1000).order("created_at",{ascending:false}).limit(200),
     ]);
     const mesas_ = mesasData || [];
     const orders_ = ordersData || [];
@@ -4408,7 +4409,8 @@ function MesasView({ onNewOrder }) {
 
   useEffect(() => {
     load();
-    const iv = setInterval(load, 5000);
+    // 60s como fallback — realtime avisa al instante; polling cada 5s quemaba el egress de Supabase
+    const iv = setInterval(load, 60000);
     const ch = supabase.channel("mesas-rt")
       .on("postgres_changes",{event:"*",schema:"public",table:"mesas"},()=>load())
       .on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>load())
