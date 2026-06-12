@@ -2,3 +2,11 @@ node_modules
 dist
 .env
 .env.local
+
+.vercel
+
+# Scripts con credenciales de DB (migracion temporal jun 2026)
+scripts/run_sql_temp.mjs
+scripts/seed_menu_direct.mjs
+scripts/inspect_original.mjs
+scripts/migrate_original_to_temp.mjs

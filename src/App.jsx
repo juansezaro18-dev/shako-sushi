@@ -1986,19 +1986,37 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     }
   }, []);
 
+  // Poll liviano: solo pedidos activos (~5KB vs 155KB del historial completo).
+  // Fallback por si realtime pierde un pedido nuevo; el refresh completo corre cada 10 min.
+  const pollActiveOrders = useCallback(async () => {
+    const { data, error } = await supabase.from("orders").select("*")
+      .in("status", ["nuevo","preparando","listo","pendiente_pago"])
+      .order("created_at", {ascending:false})
+      .limit(100);
+    if (error || !data) return;
+    const overrides = repartidorOverrides.current;
+    const fresh = data.map(o => overrides[o.id] !== undefined ? {...o, repartidor: overrides[o.id]} : o);
+    setOrders(prev => {
+      const freshIds = new Set(fresh.map(o=>o.id));
+      const rest = prev.filter(o => !freshIds.has(o.id));
+      return [...fresh, ...rest].sort((a,b)=>b.created_at-a.created_at);
+    });
+  }, []);
+
   useEffect(() => {
     loadOrders();
     loadCaja().then(() => loadHistorialCaja());
     supabase.from("mesas").select("id,session_num,estado").then(({data})=>setMesasData(data||[]));
 
-    // Polling cada 60 segundos como fallback (realtime avisa al instante; polling frecuente quemaba el egress de Supabase)
-    const iv = setInterval(loadOrders, 60000);
+    // Polling cada 60s SOLO activos + refresh completo cada 10 min (polling 5s del historial completo quemaba el egress de Supabase)
+    const iv = setInterval(pollActiveOrders, 60000);
+    const ivFull = setInterval(loadOrders, 600000);
     // Realtime
     const channel = supabase.channel("orders-rt")
       .on("postgres_changes", {event:"*", schema:"public", table:"orders"}, () => loadOrders())
       .subscribe();
-    return () => { clearInterval(iv); supabase.removeChannel(channel); };
-  }, [loadOrders]);
+    return () => { clearInterval(iv); clearInterval(ivFull); supabase.removeChannel(channel); };
+  }, [loadOrders, pollActiveOrders]);
 
   const updateStatus = async (order, ns) => {
     setOrders(p => p.map(o => o.id===order.id ? {...o,status:ns} : o));
