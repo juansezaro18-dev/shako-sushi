@@ -1975,7 +1975,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     const { data, error } = await supabase.from("orders").select("*")
       .or(`status.in.(nuevo,preparando,listo),created_at.gte.${since90.getTime()}`)
       .order("created_at", {ascending:false})
-      .limit(500);
+      .limit(1000);
     if (!error && data) {
       // Apply any pending repartidor overrides (survive polling)
       const overrides = repartidorOverrides.current;
