@@ -247,6 +247,23 @@ const isOpen = (cfg=CONFIG) => {
   return mins >= abre && mins < cierra;
 };
 
+// ¿Hay caja abierta ahora mismo? Devuelve "abierta" | "cerrada" | null.
+// null = no se pudo determinar (red caída / error) → en ese caso NO se bloquea al cliente,
+// porque si Supabase no responde el insert del pedido tampoco va a andar.
+// Misma lógica que loadCaja() del admin: cuenta la caja del día de negocio actual y también
+// cualquier caja reabierta manualmente (que puede tener fecha de un día anterior).
+const fetchCajaStatus = async () => {
+  try {
+    const hoy = fechaNegocio();
+    const {data, error} = await supabase.from("caja")
+      .select("fecha,notas_cierre").eq("estado","abierta").limit(10);
+    if (error) return null;
+    const hayAbierta = (data||[]).some(c =>
+      c.fecha === hoy || (c.notas_cierre||"").includes("Reabierta"));
+    return hayAbierta ? "abierta" : "cerrada";
+  } catch { return null; }
+};
+
 const GS = () => (
   <style>{`
     @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap');
@@ -370,19 +387,24 @@ export default function App() {
       });
     // Check caja status - initial load
     const checkCaja = () => {
-      const hoy = fechaNegocio();
-      supabase.from("caja").select("estado").eq("fecha", hoy).eq("estado","abierta").limit(1)
-        .then(({data}) => setCajaStatus(data && data.length > 0 ? "abierta" : "cerrada"))
-        .catch(() => setCajaStatus("cerrada"));
+      fetchCajaStatus().then(st => { if (st) setCajaStatus(st); }); // null = error → conservar último estado conocido
     };
     checkCaja();
-    // Poll every 30 seconds so page updates when caja opens/closes
-    const iv = setInterval(checkCaja, 30000);
+    // Poll de respaldo cada 2 min. Los cambios reales llegan por realtime; esto sólo cubre
+    // el caso de que se caiga el websocket (y a 30s multiplicaba el egress por cada cliente).
+    const iv = setInterval(checkCaja, 120000);
+    // Al volver a la pestaña, revalidar (el móvil suspende timers y sockets en background)
+    const onVis = () => { if (document.visibilityState === "visible") checkCaja(); };
+    document.addEventListener("visibilitychange", onVis);
     // Also realtime
     const ch = supabase.channel("caja-status")
       .on("postgres_changes", {event:"*", schema:"public", table:"caja"}, checkCaja)
       .subscribe();
-    return () => { clearInterval(iv); supabase.removeChannel(ch); };
+    return () => {
+      clearInterval(iv);
+      document.removeEventListener("visibilitychange", onVis);
+      supabase.removeChannel(ch);
+    };
   }, []);
 
   const saveMenu = async (m) => {
@@ -811,6 +833,13 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
       alert("Lo sentimos, el local ya no está tomando pedidos en este momento.");
       return;
     }
+    // Revalidar la caja contra Supabase, no contra el estado polleado: el cliente puede tener
+    // la pantalla abierta desde hace rato y la caja haberse cerrado mientras tanto.
+    const cajaAhora = await fetchCajaStatus();
+    if (cajaAhora === "cerrada") {
+      alert("Lo sentimos, el local ya cerró la caja y no está tomando más pedidos por hoy.");
+      return;
+    }
     setLoading(true);
     const {entreCalle, horaEntrega, ...formRest} = form;
     const notasCliente = [horaEntrega?`⏰ ${horaEntrega}`:"", formRest.notas].filter(Boolean).join(" | ");
@@ -878,8 +907,18 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
   if (appConfig.tarjetaHabilitada) PAGOS_BASE.push({v:"tarjeta", l:"💳 Tarjeta / MP", desc:`+${(appConfig.recargoMP*100).toFixed(2)}% recargo`});
   const PAGOS = PAGOS_BASE;
 
-  // Caja cerrada — mostrar pantalla de local cerrado
-  if ((!appConfig.webHabilitada || !isOpen(appConfig)) && !verMenuCerrado) return (
+  // Local cerrado = web deshabilitada, fuera de horario, o caja cerrada.
+  // cajaStatus null (todavía cargando o error de red) no bloquea: placeOrder revalida igual.
+  const localCerrado = !appConfig.webHabilitada || !isOpen(appConfig) || cajaStatus === "cerrada";
+
+  // Si el local vuelve a abrir mientras el cliente está en modo "sólo ver menú",
+  // sacarlo de ese modo para que pueda pedir sin tener que recargar la página.
+  useEffect(() => { if (!localCerrado) setVerMenuCerrado(false); }, [localCerrado]);
+
+  // Caja cerrada — mostrar pantalla de local cerrado.
+  // No se aplica si el cliente ya envió el pedido (confirm/transferencia/mp_loading): si la caja
+  // cierra justo en ese momento no hay que borrarle la pantalla de confirmación.
+  if (localCerrado && !verMenuCerrado && !["confirm","transferencia","mp_loading"].includes(step)) return (
     <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:28,textAlign:"center",background:"var(--bg2)"}}>
       <img src={LOGO_SRC} alt="Shako Sushi" style={{width:90,height:90,borderRadius:"50%",objectFit:"cover",marginBottom:20,opacity:.7}}/>
       <div className="sh" style={{fontSize:30,color:"var(--text)",marginBottom:8}}>Estamos cerrados</div>
@@ -1193,7 +1232,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
           )}
         </div>
         {(()=>{
-          const open=isOpen(appConfig);
+          const open=!localCerrado;
           return(
             <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
               <div style={{width:7,height:7,borderRadius:"50%",background:open?"#4ADE80":"#FF4757",boxShadow:open?"0 0 6px #4ADE80":"0 0 6px #FF4757"}}/>
