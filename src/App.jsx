@@ -33,6 +33,60 @@ const rangoNegocio = (fechaStr) => {
   const fin = new Date(y, mo-1, d+1, BUSINESS_DAY_CUTOFF_HOUR, 0, 0).getTime();
   return [ini, fin];
 };
+// "2026-10-02" → "viernes 2/10"
+const fechaCorta = (f) => { const d = new Date(f+"T12:00:00"); return d.toLocaleDateString("es-AR",{weekday:"long"})+" "+d.getDate()+"/"+(d.getMonth()+1); };
+// Estados de un pedido que todavía no terminó
+const ESTADOS_ACTIVOS = ["pendiente_pago","nuevo","preparando","listo"];
+// "HH:MM" de ahora
+const horaAhora = () => { const n = new Date(); return n.getHours().toString().padStart(2,"0")+":"+n.getMinutes().toString().padStart(2,"0"); };
+
+// ── Cálculos de caja (los usan el panel, el cierre y el historial: así todos dan lo mismo) ──
+// Monto de un pedido cobrado con un método. Soporta pago mixto (pago_detalle).
+const montoPorMetodo = (o, metodo) => {
+  if (Array.isArray(o.pago_detalle) && o.pago_detalle.length) {
+    const d = o.pago_detalle.find(d => d.metodo === metodo);
+    return d ? Number(d.monto) : 0;
+  }
+  return o.pago === metodo ? Number(o.total||0) : 0;
+};
+// Un pedido de mesa recién se cobra cuando se cierra la cuenta (la mesa pasa a la sesión siguiente).
+const sesionMesaCerrada = (o, mesas) => {
+  if (!o.mesa_id) return true;
+  const m = mesas.find(x => x.id === o.mesa_id);
+  return m ? (m.session_num||1) > (o.mesa_session||1) : true;
+};
+// Pedidos cobrados dentro de la ventana [ini, fin): entregados y, si son de mesa, con la cuenta cerrada.
+const pedidosCobrados = (orders, mesas, [ini, fin]) => orders.filter(o => {
+  const ts = Number(o.created_at);
+  return ts >= ini && ts < fin && o.status === "entregado" && sesionMesaCerrada(o, mesas);
+});
+// Pedidos del día que todavía no entraron a la caja (sin entregar o mesa sin cobrar).
+const pedidosSinCobrar = (orders, mesas, [ini, fin]) => orders.filter(o => {
+  const ts = Number(o.created_at);
+  if (ts < ini || ts >= fin || o.status === "eliminado") return false;
+  return o.status !== "entregado" || !sesionMesaCerrada(o, mesas);
+});
+const resumenVentas = (cobrados) => ({
+  total:         cobrados.reduce((s,o)=>s+Number(o.total||0),0),
+  efectivo:      cobrados.reduce((s,o)=>s+montoPorMetodo(o,"efectivo"),0),
+  transferencia: cobrados.reduce((s,o)=>s+montoPorMetodo(o,"transferencia"),0),
+  tarjeta:       cobrados.reduce((s,o)=>s+montoPorMetodo(o,"tarjeta"),0),
+});
+const totalMovimientos = (movs, tipo) => (movs||[]).filter(m=>m.tipo===tipo).reduce((s,m)=>s+Number(m.monto||0),0);
+// Efectivo que tendría que haber en la caja: inicial + ventas en efectivo + entradas - retiros.
+const efectivoEsperado = (caja, ventasEfectivo) =>
+  Number(caja?.monto_apertura||0) + ventasEfectivo + totalMovimientos(caja?.movimientos,"entrada") - totalMovimientos(caja?.movimientos,"salida");
+const COLS_CAJA_ORDERS = "id,created_at,status,pago,pago_detalle,total,mesa_id,mesa_session";
+// Calcula las ventas de un día de negocio directo desde Supabase (no depende de lo que tenga cargado la pantalla).
+const ventasDelDiaDB = async (fecha) => {
+  const rango = rangoNegocio(fecha);
+  const [{data:ords, error:e1}, {data:mesas, error:e2}] = await Promise.all([
+    supabase.from("orders").select(COLS_CAJA_ORDERS).gte("created_at", rango[0]).lt("created_at", rango[1]).limit(2000),
+    supabase.from("mesas").select("id,session_num"),
+  ]);
+  if (e1 || e2) throw new Error((e1||e2).message);
+  return { ventas: resumenVentas(pedidosCobrados(ords||[], mesas||[], rango)), sinCobrar: pedidosSinCobrar(ords||[], mesas||[], rango) };
+};
 
 const CONFIG = {
   nombre: "Shako Sushi", adminPin: "1234",
@@ -233,7 +287,8 @@ const parseDireccion = (dir) => {
 
 
 const ESTADOS = {
-  nuevo:     {label:"Nuevo",      next:"preparando", nextLabel:"Empezar preparación",  color:"#CC1F1F", bg:"rgba(204,31,31,.1)",   ring:"#CC1F1F"},
+  pendiente_pago:{label:"Pend. pago", next:"nuevo",   nextLabel:"✓ Confirmar pago",      color:"#D97706", bg:"rgba(217,119,6,.1)",   ring:"#D97706"},
+  nuevo:    {label:"Nuevo",      next:"preparando", nextLabel:"Empezar preparación",  color:"#CC1F1F", bg:"rgba(204,31,31,.1)",   ring:"#CC1F1F"},
   preparando:{label:"Preparando", next:"listo",      nextLabel:"Marcar como listo ✓",  color:"#D97706", bg:"rgba(217,119,6,.1)",   ring:"#D97706"},
   listo:     {label:"Listo ✓",   next:"entregado",  nextLabel:"Entregar / Despachar",  color:"#16A34A", bg:"rgba(22,163,74,.1)",   ring:"#16A34A"},
   entregado: {label:"Entregado",  next:null,         nextLabel:null,                    color:"#9CA3AF", bg:"rgba(156,163,175,.1)", ring:"#9CA3AF"},
@@ -250,16 +305,15 @@ const isOpen = (cfg=CONFIG) => {
 // ¿Hay caja abierta ahora mismo? Devuelve "abierta" | "cerrada" | null.
 // null = no se pudo determinar (red caída / error) → en ese caso NO se bloquea al cliente,
 // porque si Supabase no responde el insert del pedido tampoco va a andar.
-// Misma lógica que loadCaja() del admin: cuenta la caja del día de negocio actual y también
-// cualquier caja reabierta manualmente (que puede tener fecha de un día anterior).
+// Solo cuenta la caja del día de negocio actual. Una caja de otro día reabierta para corregir
+// algo NO habilita pedidos de clientes (antes quedaba la web abierta todos los días).
 const fetchCajaStatus = async () => {
   try {
     const hoy = fechaNegocio();
     const {data, error} = await supabase.from("caja")
-      .select("fecha,notas_cierre").eq("estado","abierta").limit(10);
+      .select("fecha").eq("estado","abierta").limit(10);
     if (error) return null;
-    const hayAbierta = (data||[]).some(c =>
-      c.fecha === hoy || (c.notas_cierre||"").includes("Reabierta"));
+    const hayAbierta = (data||[]).some(c => c.fecha === hoy);
     return hayAbierta ? "abierta" : "cerrada";
   } catch { return null; }
 };
@@ -1005,7 +1059,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         <div style={{color:"var(--text3)",fontSize:15,marginBottom:28,lineHeight:1.7}}>Tu pedido fue recibido en Shako Sushi.<br/>En breve comenzamos a prepararlo.</div>
         <div style={{display:"inline-flex",alignItems:"center",gap:10,background:"var(--red-light)",border:"1px solid var(--red-border)",borderRadius:40,padding:"10px 22px",marginBottom:36}}>
           <span style={{color:"var(--text3)",fontSize:13}}>Pedido</span>
-          <span style={{color:"var(--red)",fontFamily:"monospace",fontSize:15,fontWeight:700}}>#{orderId?.slice(-6).toUpperCase()}</span>
+          <span style={{color:"var(--red)",fontFamily:"monospace",fontSize:15,fontWeight:700}}>#{orderId?.slice(-5).toUpperCase()}</span>
           <span style={{color:"var(--text4)"}}>·</span>
           <span style={{color:"var(--text2)",fontSize:13}}>{fmt(orderTotal)}</span>
         </div><br/>
@@ -1883,38 +1937,48 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const [mesasData, setMesasData] = useState([]);
   const [editOrderId, setEditOrderId] = useState(null);
   const repartidorOverrides = useRef({}); // persists through polling cycles
+  const ordersRef = useRef([]); // copia de orders para el poll (que corre fuera del render)
 
   const [caja,         setCaja]         = useState(null);
   const [cajaLoading,  setCajaLoading]  = useState(false);
   const [historialCaja,setHistorialCaja] = useState([]);
   const [cajaVista,    setCajaVista]     = useState("hoy"); // 'hoy' | 'semana' | 'mes'
 
+  // Cierra sola una caja de un día anterior que quedó abierta. Igual guarda sus ventas.
+  // Si nunca se hizo el arqueo, no se calcula diferencia (no se sabe cuánto efectivo había).
+  // Si era una caja reabierta, conserva el monto contado en el cierre original.
+  const autoCerrarCaja = async (c) => {
+    let extra = {};
+    const montoCierre = c.monto_cierre != null ? Number(c.monto_cierre) : null;
+    try {
+      const { ventas } = await ventasDelDiaDB(c.fecha);
+      const esperado = efectivoEsperado(c, ventas.efectivo);
+      extra = {
+        total_ventas: ventas.total, ventas_efectivo: ventas.efectivo,
+        ventas_transferencia: ventas.transferencia, ventas_tarjeta: ventas.tarjeta,
+        esperado, diferencia: montoCierre != null ? montoCierre - esperado : null,
+      };
+    } catch { /* sin conexión: se cierra igual, sin totales */ }
+    const nota = montoCierre != null ? "Re-cerrada automáticamente (había quedado reabierta)" : "Cerrada automáticamente por cambio de día (sin arqueo)";
+    await supabase.from("caja").update({
+      estado: "cerrada", ...extra,
+      notas_cierre: (c.notas_cierre ? c.notas_cierre+"\n" : "") + nota,
+    }).eq("id", c.id).eq("estado", "abierta");
+  };
+
   const loadCaja = useCallback(async () => {
     // "hoy" = día de negocio (corte 06:00 AM), así la caja sigue activa aunque sean las 00:30.
     const hoy = fechaNegocio();
-    // Fix cajas with future dates caused by UTC timezone bug (created after 21:00 local = next day in UTC)
-    const {data: cajasFuturas} = await supabase.from("caja").select("id,fecha").gt("fecha", hoy);
-    if (cajasFuturas && cajasFuturas.length > 0) {
-      await Promise.all(cajasFuturas.map(c =>
-        supabase.from("caja").update({fecha: hoy}).eq("id", c.id)
-      ));
-    }
-    // Auto-close any open cajas from previous business days (but skip manually reopened ones)
-    const {data: cajasViejas} = await supabase.from("caja").select("id,fecha,notas_cierre").eq("estado","abierta").neq("fecha",hoy);
-    const paraCerrar = (cajasViejas||[]).filter(c => !(c.notas_cierre||"").includes("Reabierta"));
-    if (paraCerrar.length > 0) {
-      await Promise.all(paraCerrar.map(c =>
-        supabase.from("caja").update({estado:"cerrada", notas_cierre: (c.notas_cierre?c.notas_cierre+"\n":"")+"Cerrada automáticamente por cambio de día"}).eq("id", c.id)
-      ));
-    }
-    // Prefer open caja of today
-    const {data: abierta} = await supabase.from("caja").select("*").eq("fecha", hoy).eq("estado","abierta").limit(1);
-    if (abierta && abierta.length > 0) { setCaja(abierta[0]); return; }
-    // Fallback: any manually reopened caja (from previous days) — takes priority over closed today
-    const {data: reabierta} = await supabase.from("caja").select("*").eq("estado","abierta").ilike("notas_cierre","%Reabierta%").order("created_at",{ascending:false}).limit(1);
-    if (reabierta && reabierta.length > 0) { setCaja(reabierta[0]); return; }
-    // Fallback: most recent of today (closed)
-    const {data: reciente} = await supabase.from("caja").select("*").eq("fecha", hoy).order("created_at",{ascending:false}).limit(1);
+    const {data: abiertas, error} = await supabase.from("caja").select("*").eq("estado","abierta").order("id",{ascending:false});
+    if (error) return; // sin conexión: se mantiene lo que se está viendo
+    // Las de días anteriores se cierran solas. Excepción: una caja reabierta HOY para corregir algo.
+    const viejas = (abiertas||[]).filter(c => c.fecha < hoy && !(c.reabierta_el && c.reabierta_el >= hoy));
+    for (const c of viejas) await autoCerrarCaja(c);
+    const vigentes = (abiertas||[]).filter(c => !viejas.includes(c));
+    const deHoy = vigentes.find(c => c.fecha === hoy);
+    if (deHoy) { setCaja(deHoy); return; }
+    if (vigentes.length) { setCaja(vigentes[0]); return; } // caja de otro día reabierta para corregir
+    const {data: reciente} = await supabase.from("caja").select("*").eq("fecha", hoy).order("id",{ascending:false}).limit(1);
     setCaja(reciente && reciente.length > 0 ? reciente[0] : null);
   }, []);
 
@@ -1922,29 +1986,58 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     // Último mes de caja
     const hace30 = new Date();
     hace30.setDate(hace30.getDate()-30);
-    const desde = fechaLocal(hace30);
-    const {data} = await supabase.from("caja").select("*").gte("fecha", desde).order("fecha", {ascending:false});
-    setHistorialCaja(data || []);
+    const {data, error} = await supabase.from("caja").select("*").gte("fecha", fechaLocal(hace30))
+      .order("fecha", {ascending:false}).order("id", {ascending:false});
+    if (!error) setHistorialCaja(data || []);
   }, []);
 
   const abrirCaja = async (monto, notas) => {
     setCajaLoading(true);
-    const hoy = fechaNegocio();
-    const now = new Date(); const hora = now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
-    const {data} = await supabase.from("caja").insert({fecha:hoy, estado:"abierta", hora_apertura:hora, monto_apertura:Number(monto), notas_apertura:notas}).select().single();
-    setCaja(data);
-    setCajaLoading(false);
+    try {
+      const hoy = fechaNegocio();
+      await loadCaja(); // si la de ayer quedó abierta, se cierra sola acá
+      const {data: abiertas, error: e1} = await supabase.from("caja").select("id,fecha").eq("estado","abierta");
+      if (e1) throw e1;
+      if ((abiertas||[]).length > 0) {
+        const a = abiertas[0];
+        alert(a.fecha === hoy
+          ? "Ya hay una caja abierta hoy (la abrieron desde otro dispositivo). Te la muestro."
+          : `Todavía está abierta la caja del ${fechaCorta(a.fecha)}, que se reabrió para corregir algo.\n\nCerrala primero y después abrí la de hoy.`);
+        await loadCaja();
+        return { ok:false };
+      }
+      // Una sola caja por día: si ya se cerró hoy, se reabre esa (abrir otra duplica las ventas del día)
+      const {data: cerradaHoy} = await supabase.from("caja").select("id,hora_cierre").eq("fecha", hoy).eq("estado","cerrada").order("id",{ascending:false}).limit(1);
+      if (cerradaHoy && cerradaHoy.length > 0) {
+        if (window.confirm(`La caja de hoy ya se cerró${cerradaHoy[0].hora_cierre?" a las "+cerradaHoy[0].hora_cierre:""}.\n\nNo se puede abrir otra caja el mismo día porque se duplicarían las ventas.\n\n¿Querés REABRIR la caja de hoy? (te va a pedir el PIN)`)) {
+          await reabrirCaja(cerradaHoy[0].id);
+        }
+        return { ok:false };
+      }
+      const {data, error} = await supabase.from("caja").insert({
+        fecha:hoy, estado:"abierta", hora_apertura:horaAhora(), monto_apertura:Number(monto),
+        notas_apertura:notas, movimientos:[], created_at:Date.now(),
+      }).select().single();
+      if (error) throw error;
+      setCaja(data);
+      await loadHistorialCaja();
+      return { ok:true };
+    } catch (e) {
+      if (e?.code === "23505") { alert("Ya hay otra caja abierta (la abrieron desde otro dispositivo). Te la muestro."); await loadCaja(); return { ok:false }; }
+      alert("❌ No se pudo abrir la caja: " + (e?.message || "error de conexión") + "\n\nRevisá internet e intentá de nuevo.");
+      return { ok:false };
+    } finally {
+      setCajaLoading(false);
+    }
   };
 
   const agregarMovimiento = async (tipo, monto, descripcion) => {
     if (!caja) return { ok:false, error:"No hay caja abierta" };
-    const now = new Date();
-    const hora = now.getHours().toString().padStart(2,"0")+":"+now.getMinutes().toString().padStart(2,"0");
-    const mov = { tipo, monto: Number(monto), descripcion: descripcion.trim() || (tipo==="salida"?"Retiro de efectivo":"Entrada de efectivo"), hora };
+    const mov = { tipo, monto: Number(monto), descripcion: descripcion.trim() || (tipo==="salida"?"Retiro de efectivo":"Entrada de efectivo"), hora: horaAhora() };
     // Re-fetch latest movimientos from DB to avoid clobbering concurrent writes / stale local state
     const { data: fresh, error: fetchErr } = await supabase.from("caja").select("movimientos,estado").eq("id", caja.id).single();
     if (fetchErr) return { ok:false, error:"No se pudo leer la caja: "+fetchErr.message };
-    if (fresh?.estado !== "abierta") return { ok:false, error:"La caja ya no está abierta" };
+    if (fresh?.estado !== "abierta") { await loadCaja(); return { ok:false, error:"La caja ya no está abierta" }; }
     const nuevos = [...(fresh?.movimientos || []), mov];
     const { data, error } = await supabase.from("caja").update({ movimientos: nuevos }).eq("id", caja.id).select().single();
     if (error) return { ok:false, error:error.message };
@@ -1953,30 +2046,49 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     return { ok:true };
   };
 
-  const cerrarCaja = async (monto, notas) => {
-    if (!caja) return;
+  // Antes de mostrar el formulario de cierre: traer todo fresco de Supabase para que el esperado sea el real.
+  const prepararCierre = async () => {
+    await Promise.all([loadOrders(), loadMesas(), loadCaja()]);
+  };
+
+  const cerrarCaja = async (monto, notas, esperadoMostrado) => {
+    if (!caja) return { ok:false };
     setCajaLoading(true);
-    const now2 = new Date(); const hora = now2.getHours().toString().padStart(2,"0")+":"+now2.getMinutes().toString().padStart(2,"0");
-    // Ventana por día de negocio (06:00 del día hasta 06:00 del siguiente) — incluye pedidos post-medianoche.
-    const [inicioDia, finDia] = rangoNegocio(caja.fecha || fechaNegocio());
-    const ordersDelDia = orders.filter(o=>{
-      const ts = Number(o.created_at);
-      return ts >= inicioDia && ts < finDia && o.status !== "eliminado";
-    });
-    // Get current mesas session data
-    const {data:mesasNow} = await supabase.from("mesas").select("id,session_num");
-    const mesasMap = {};
-    (mesasNow||[]).forEach(m=>mesasMap[m.id]=m.session_num||1);
-    // Only count mesa orders whose session is closed
-    const totalVentas = ordersDelDia.filter(o=>o.status==="entregado"&&(!o.mesa_id||(mesasMap[o.mesa_id]||1)>(o.mesa_session||1))).reduce((s,o)=>s+Number(o.total),0);
-    // Preserve audit trail: if caja was reopened, append new notas instead of overwriting
-    const notasFinales = (caja.notas_cierre||"").includes("Reabierta")
-      ? `${caja.notas_cierre}\n${notas||"(re-cerrada)"}`.trim()
-      : notas;
-    const {data} = await supabase.from("caja").update({estado:"cerrada", hora_cierre:hora, monto_cierre:Number(monto), notas_cierre:notasFinales, total_ventas:totalVentas}).eq("id",caja.id).select().single();
-    setCaja(data);
-    await loadHistorialCaja();
-    setCajaLoading(false);
+    try {
+      const {data: fresca, error: e1} = await supabase.from("caja").select("*").eq("id", caja.id).single();
+      if (e1) throw e1;
+      if (fresca.estado !== "abierta") {
+        alert("Esta caja ya estaba cerrada (la cerraron desde otro dispositivo).");
+        setCaja(fresca); await loadHistorialCaja();
+        return { ok:true };
+      }
+      // Los números se calculan directo de Supabase, no de lo que tenga cargado la pantalla
+      const { ventas } = await ventasDelDiaDB(fresca.fecha);
+      const esperado = efectivoEsperado(fresca, ventas.efectivo);
+      const montoCierre = Number(monto);
+      if (esperadoMostrado != null && esperado !== esperadoMostrado) {
+        const ok = window.confirm(`Mientras cerrabas cambió algo (un pedido o un movimiento).\n\nEfectivo esperado actualizado: ${fmt(esperado)} (antes decía ${fmt(esperadoMostrado)}).\nContaste: ${fmt(montoCierre)} → diferencia ${montoCierre-esperado>0?"+":""}${fmt(montoCierre-esperado)}.\n\n¿Cerrar igual?`);
+        if (!ok) { await prepararCierre(); return { ok:false }; }
+      }
+      const notasFinales = (fresca.notas_cierre||"").includes("Reabierta")
+        ? `${fresca.notas_cierre}\n${notas||"(re-cerrada)"}`.trim()
+        : notas;
+      const {data, error} = await supabase.from("caja").update({
+        estado:"cerrada", hora_cierre:horaAhora(), monto_cierre:montoCierre, notas_cierre:notasFinales,
+        total_ventas:ventas.total, ventas_efectivo:ventas.efectivo,
+        ventas_transferencia:ventas.transferencia, ventas_tarjeta:ventas.tarjeta,
+        esperado, diferencia: montoCierre - esperado,
+      }).eq("id", fresca.id).select().single();
+      if (error) throw error;
+      setCaja(data);
+      await loadHistorialCaja();
+      return { ok:true };
+    } catch (e) {
+      alert("❌ No se pudo cerrar la caja: " + (e?.message || "error de conexión") + "\n\nNo se guardó nada. Revisá internet e intentá de nuevo.");
+      return { ok:false };
+    } finally {
+      setCajaLoading(false);
+    }
   };
 
   const reabrirCaja = async (id) => {
@@ -1984,35 +2096,39 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     if (pin === null) return;
     if (pin !== "2706") { alert("PIN incorrecto"); return; }
     if (!window.confirm("¿Reabrir esta caja?\nVas a poder agregar movimientos y volver a cerrarla.")) return;
-    const {data: target} = await supabase.from("caja").select("*").eq("id", id).single();
-    if (!target) { alert("Caja no encontrada"); return; }
-    // Guard: no other open caja (only one abierta allowed at a time to avoid ambiguity)
-    const {data: yaAbierta} = await supabase.from("caja").select("id,fecha").eq("estado","abierta").neq("id", id);
-    if (yaAbierta && yaAbierta.length > 0) {
-      alert(`Ya hay otra caja abierta (fecha ${yaAbierta[0].fecha}). Cerrala primero antes de reabrir esta.`);
-      return;
+    try {
+      const {data: target, error: e1} = await supabase.from("caja").select("*").eq("id", id).single();
+      if (e1 || !target) throw (e1 || new Error("Caja no encontrada"));
+      // Solo una caja abierta a la vez
+      const {data: yaAbierta, error: e2} = await supabase.from("caja").select("id,fecha").eq("estado","abierta").neq("id", id);
+      if (e2) throw e2;
+      if (yaAbierta && yaAbierta.length > 0) {
+        alert(`Ya hay otra caja abierta (del ${fechaCorta(yaAbierta[0].fecha)}). Cerrala primero antes de reabrir esta.`);
+        return;
+      }
+      const ahora = new Date().toLocaleString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
+      const marca = `⚠️ Reabierta ${ahora}`;
+      const notasNuevas = target.notas_cierre ? `${target.notas_cierre}\n${marca}` : marca;
+      // monto_cierre se conserva: si nadie la vuelve a cerrar, al día siguiente se cierra sola con ese arqueo
+      const {error} = await supabase.from("caja").update({
+        estado: "abierta", reabierta_el: fechaNegocio(), notas_cierre: notasNuevas,
+        total_ventas: null, ventas_efectivo: null, ventas_transferencia: null, ventas_tarjeta: null, esperado: null, diferencia: null,
+      }).eq("id", id);
+      if (error) throw error;
+      await loadCaja();
+      await loadHistorialCaja();
+      setCajaVista("hoy");
+      alert("Caja reabierta. Ya podés agregar movimientos y volver a cerrarla desde la vista Hoy.");
+    } catch (e) {
+      alert("❌ No se pudo reabrir la caja: " + (e?.message || "error de conexión"));
     }
-    const ahora = new Date().toLocaleString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
-    const marca = `⚠️ Reabierta ${ahora}`;
-    const notasNuevas = target.notas_cierre ? `${target.notas_cierre}\n${marca}` : marca;
-    await supabase.from("caja").update({
-      estado: "abierta",
-      monto_cierre: null,
-      hora_cierre: null,
-      total_ventas: null,
-      notas_cierre: notasNuevas,
-    }).eq("id", id);
-    await loadCaja();
-    await loadHistorialCaja();
-    setCajaVista("hoy");
-    alert("Caja reabierta. Ya podés agregar movimientos y volver a cerrarla desde la vista Hoy.");
   };
 
   const loadOrders = useCallback(async () => {
     // Load active orders + last 90 days of history
     const since90 = new Date(); since90.setDate(since90.getDate()-90);
     const { data, error } = await supabase.from("orders").select("*")
-      .or(`status.in.(nuevo,preparando,listo),created_at.gte.${since90.getTime()}`)
+      .or(`status.in.(pendiente_pago,nuevo,preparando,listo),created_at.gte.${since90.getTime()}`)
       .order("created_at", {ascending:false})
       .limit(1000);
     if (!error && data) {
@@ -2025,37 +2141,74 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     }
   }, []);
 
+  const loadMesas = useCallback(async () => {
+    const { data, error } = await supabase.from("mesas").select("id,session_num,estado");
+    if (!error && data) setMesasData(data);
+  }, []);
+
+  // Realtime: cuando cambia un pedido se trae SOLO ese pedido (antes se recargaban hasta 1000 en cada cambio).
+  const refreshOrder = useCallback(async (id) => {
+    const { data, error } = await supabase.from("orders").select("*").eq("id", id).maybeSingle();
+    if (error) return;
+    setOrders(prev => {
+      if (!data) return prev.filter(o => o.id !== id);
+      const ov = repartidorOverrides.current[id];
+      const row = ov !== undefined ? {...data, repartidor: ov} : data;
+      const i = prev.findIndex(o => o.id === id);
+      if (i === -1) return [row, ...prev].sort((a,b)=>b.created_at-a.created_at);
+      const n = [...prev]; n[i] = row; return n;
+    });
+  }, []);
+
   // Poll liviano: solo pedidos activos (~5KB vs 155KB del historial completo).
   // Fallback por si realtime pierde un pedido nuevo; el refresh completo corre cada 10 min.
   const pollActiveOrders = useCallback(async () => {
     const { data, error } = await supabase.from("orders").select("*")
-      .in("status", ["nuevo","preparando","listo","pendiente_pago"])
+      .in("status", ESTADOS_ACTIVOS)
       .order("created_at", {ascending:false})
       .limit(100);
     if (error || !data) return;
+    const freshIds = new Set(data.map(o=>o.id));
+    // Un pedido que acá figuraba activo y ya no vino: lo entregaron o borraron desde otro dispositivo → recarga completa
+    if (ordersRef.current.some(o => ESTADOS_ACTIVOS.includes(o.status) && !freshIds.has(o.id))) { loadOrders(); return; }
     const overrides = repartidorOverrides.current;
     const fresh = data.map(o => overrides[o.id] !== undefined ? {...o, repartidor: overrides[o.id]} : o);
     setOrders(prev => {
-      const freshIds = new Set(fresh.map(o=>o.id));
       const rest = prev.filter(o => !freshIds.has(o.id));
       return [...fresh, ...rest].sort((a,b)=>b.created_at-a.created_at);
     });
-  }, []);
+  }, [loadOrders]);
+
+  useEffect(() => { ordersRef.current = orders; }, [orders]);
 
   useEffect(() => {
     loadOrders();
+    loadMesas();
     loadCaja().then(() => loadHistorialCaja());
-    supabase.from("mesas").select("id,session_num,estado").then(({data})=>setMesasData(data||[]));
 
     // Polling cada 60s SOLO activos + refresh completo cada 10 min (polling 5s del historial completo quemaba el egress de Supabase)
-    const iv = setInterval(pollActiveOrders, 60000);
+    const iv = setInterval(() => { pollActiveOrders(); loadMesas(); }, 60000);
     const ivFull = setInterval(loadOrders, 600000);
+    // La caja se revisa cada 2 min: si la tablet quedó prendida de un día para otro, se entera del cambio de día
+    const ivCaja = setInterval(loadCaja, 120000);
+    // Al volver a la pantalla (tablet que se durmió) actualizar todo
+    const onVis = () => { if (document.visibilityState === "visible") { pollActiveOrders(); loadMesas(); loadCaja(); } };
+    document.addEventListener("visibilitychange", onVis);
     // Realtime
-    const channel = supabase.channel("orders-rt")
-      .on("postgres_changes", {event:"*", schema:"public", table:"orders"}, () => loadOrders())
+    const channel = supabase.channel("admin-rt")
+      .on("postgres_changes", {event:"*", schema:"public", table:"orders"}, (p) => {
+        const id = p.new?.id || p.old?.id;
+        if (id) refreshOrder(id); else loadOrders();
+      })
+      .on("postgres_changes", {event:"*", schema:"public", table:"mesas"}, () => loadMesas())
+      .on("postgres_changes", {event:"*", schema:"public", table:"caja"}, () => { loadCaja(); loadHistorialCaja(); })
       .subscribe();
-    return () => { clearInterval(iv); clearInterval(ivFull); supabase.removeChannel(channel); };
-  }, [loadOrders, pollActiveOrders]);
+    return () => {
+      clearInterval(iv); clearInterval(ivFull); clearInterval(ivCaja);
+      document.removeEventListener("visibilitychange", onVis);
+      supabase.removeChannel(channel);
+    };
+  }, [loadOrders, loadMesas, loadCaja, loadHistorialCaja, pollActiveOrders, refreshOrder]);
 
   const updateStatus = async (order, ns) => {
     setOrders(p => p.map(o => o.id===order.id ? {...o,status:ns} : o));
@@ -2064,9 +2217,10 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const updatePago = async (order, pago) => {
     // Only recalculate total for customer-placed orders (admin orders never have recargo)
     let nuevoTotal = order.total;
-    if (order.source === "customer") {
-      const base = order.subtotal || order.total; // fallback for old orders without subtotal
-      nuevoTotal = pago === "tarjeta" ? Math.round(base * (1 + appConfig.recargoMP)) : base;
+    if (order.source === "customer" && order.subtotal != null) {
+      // El recargo va sobre los productos; el envío se suma aparte (antes se perdía al cambiar el pago)
+      const sub = Number(order.subtotal), envio = Number(order.envio||0);
+      nuevoTotal = (pago === "tarjeta" ? Math.round(sub * (1 + appConfig.recargoMP)) : sub) + envio;
     }
     setOrders(p => p.map(o => o.id===order.id ? {...o, pago, total:nuevoTotal, pago_detalle:null} : o));
     await supabase.from("orders").update({pago, total:nuevoTotal, pago_detalle:null}).eq("id", order.id);
@@ -2105,80 +2259,57 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   };
 
   // "Hoy" = día de negocio actual. Si hay una caja abierta, alineamos a su fecha (caso: caja reabierta de otro día).
-  const [hoyTs, hoyFin] = caja && caja.estado === "abierta"
-    ? rangoNegocio(caja.fecha)
-    : [inicioNegocio(), inicioNegocio() + 24*60*60*1000];
+  const rangoHoy = caja && caja.estado === "abierta" ? rangoNegocio(caja.fecha) : rangoNegocio(fechaNegocio());
+  const [hoyTs, hoyFin] = rangoHoy;
   const ordersHoy = orders.filter(o => {
     const ts = Number(o.created_at);
     return ts >= hoyTs && ts < hoyFin && o.status !== "eliminado";
   });
-  const entH   = ordersHoy.filter(o => o.status === "entregado" && !o.mesa_id);
-  // For mesa orders: count once per session (deduplicated by mesa+session key)
-  // Only count mesa orders whose session is closed (mesa.session_num > order.mesa_session)
+  // Cobrados = entregados (y si son de mesa, con la cuenta ya cerrada). Misma cuenta que usa el cierre de caja.
+  const cobradosHoy = pedidosCobrados(orders, mesasData, rangoHoy);
+  const ventasHoy   = resumenVentas(cobradosHoy);
+  const entH        = cobradosHoy.filter(o => !o.mesa_id);
+  // Una mesa cuenta como un solo cobro (todos los pedidos de esa sesión juntos)
   const mesaSessions = {};
-  ordersHoy.filter(o=>o.status==="entregado"&&o.mesa_id).forEach(o=>{
-    const mesa = mesasData.find(m=>m.id===o.mesa_id);
-    const sessionClosed = mesa ? (mesa.session_num||1) > (o.mesa_session||1) : true;
-    if (!sessionClosed) return; // skip open sessions
+  cobradosHoy.filter(o => o.mesa_id).forEach(o => {
     const key = o.mesa_id+"-"+(o.mesa_session||1);
-    if (!mesaSessions[key]) mesaSessions[key]={total:0,pago:o.pago,tipo:"mesa",pago_detalle:null};
+    if (!mesaSessions[key]) mesaSessions[key] = {total:0};
     mesaSessions[key].total += Number(o.total);
-    if (o.pago) mesaSessions[key].pago = o.pago;
-    if (o.pago_detalle) mesaSessions[key].pago_detalle = o.pago_detalle;
   });
   const mesaSessionList = Object.values(mesaSessions);
-  const entHAll = [...entH, ...mesaSessionList.map(s=>({...s,status:"entregado"}))];
-  const totDia = entH.reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.reduce((s,m)=>s+m.total,0);
-  // Helper: monto por método de pago, soporta pago_detalle (mixto)
-  const montoByPago = (o, metodo) => {
-    if (o.pago_detalle && Array.isArray(o.pago_detalle)) {
-      const d = o.pago_detalle.find(d => d.metodo === metodo);
-      return d ? Number(d.monto) : 0;
-    }
-    return o.pago === metodo ? Number(o.total) : 0;
-  };
-  const totEf  = entH.reduce((s,o)=>s+montoByPago(o,"efectivo"),0) + mesaSessionList.reduce((s,m)=>s+montoByPago(m,"efectivo"),0);
-  const totTr  = entH.reduce((s,o)=>s+montoByPago(o,"transferencia"),0) + mesaSessionList.reduce((s,m)=>s+montoByPago(m,"transferencia"),0);
-  const totTj  = entH.reduce((s,o)=>s+montoByPago(o,"tarjeta"),0) + mesaSessionList.reduce((s,m)=>s+montoByPago(m,"tarjeta"),0);
+  const cantCobros = entH.length + mesaSessionList.length;
+  const totDia = ventasHoy.total;
+  const totEf  = ventasHoy.efectivo;
+  const totTr  = ventasHoy.transferencia;
+  const totTj  = ventasHoy.tarjeta;
   const totDel = entH.filter(o=>o.tipo==="delivery").reduce((s,o)=>s+Number(o.total),0);
   const totRet = entH.filter(o=>o.tipo==="retiro").reduce((s,o)=>s+Number(o.total),0);
   const totMesa = mesaSessionList.reduce((s,m)=>s+m.total,0);
-  const proyect = ordersHoy.filter(o=>!o.mesa_id).reduce((s,o)=>s+Number(o.total),0) + mesaSessionList.reduce((s,m)=>s+m.total,0);
-  // Open mesa sessions (still active) - not counted in stats
-  const openMesaTotals = (() => {
-    const open = {};
-    ordersHoy.filter(o=>o.mesa_id).forEach(o=>{
-      const mesa = mesasData.find(m=>m.id===o.mesa_id);
-      const sessionClosed = mesa ? (mesa.session_num||1) > (o.mesa_session||1) : true;
-      if (sessionClosed) return;
-      const key = o.mesa_id+"-"+(o.mesa_session||1);
-      if (!open[key]) open[key]={total:0};
-      open[key].total += Number(o.total);
-    });
-    return Object.values(open);
-  })();
+  // En curso = pedidos de hoy que todavía no entraron a la caja (sin contar los que esperan confirmación de pago)
+  const sinCobrarHoy = pedidosSinCobrar(orders, mesasData, rangoHoy);
+  const proyect = totDia + sinCobrarHoy.filter(o=>o.status!=="pendiente_pago").reduce((s,o)=>s+Number(o.total),0);
+  const pedidosHoyCount = ordersHoy.filter(o=>!o.mesa_id&&o.status!=="pendiente_pago").length
+    + new Set(ordersHoy.filter(o=>o.mesa_id).map(o=>o.mesa_id+"-"+(o.mesa_session||1))).size;
   const prodMap = {};
   // Use orders from current week for the ranking (more meaningful than just today)
-  const inicioSemana = new Date(); inicioSemana.setDate(inicioSemana.getDate() - inicioSemana.getDay() + 1); inicioSemana.setHours(0,0,0,0);
+  const inicioSemana = new Date(); inicioSemana.setDate(inicioSemana.getDate() - ((inicioSemana.getDay()+6)%7)); inicioSemana.setHours(0,0,0,0);
   const ordersSemanaProd = orders.filter(o=>o.status==="entregado"&&Number(o.created_at)>=inicioSemana.getTime());
   ordersSemanaProd.forEach(o => o.items?.forEach(c => {
+    if (!c.item) return;
     if (!prodMap[c.item.nombre]) prodMap[c.item.nombre]={nombre:c.item.nombre,qty:0,total:0};
     prodMap[c.item.nombre].qty   += c.qty;
-    prodMap[c.item.nombre].total += c.item.precio*c.qty;
+    prodMap[c.item.nombre].total += (c.precioUnitario??c.item.precio)*c.qty;
   }));
   const topProds = Object.values(prodMap).sort((a,b)=>b.qty-a.qty).slice(0,8);
   const todayStr = new Date().toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
-  const isMesaClosed = (o) => { if (!o.mesa_id) return true; const m=mesasData.find(x=>x.id===o.mesa_id); return m?(m.session_num||1)>(o.mesa_session||1):true; };
   const filtered = (() => {
-    if (filter==="activos") return orders.filter(o=>["nuevo","preparando","listo"].includes(o.status));
+    if (filter==="activos") return orders.filter(o=>ESTADOS_ACTIVOS.includes(o.status));
     if (filter==="entregados") {
       // Individual orders (no mesa)
       const indiv = orders.filter(o=>o.status==="entregado"&&!o.mesa_id);
       // Closed mesa sessions - one synthetic row per session
       const sesMap = {};
-      orders.filter(o=>o.status==="entregado"&&o.mesa_id).forEach(o=>{
-        const m=mesasData.find(x=>x.id===o.mesa_id);
-        if (!m||(m.session_num||1)<=(o.mesa_session||1)) return;
+      orders.filter(o=>o.status==="entregado"&&o.mesa_id&&sesionMesaCerrada(o,mesasData)).forEach(o=>{
         const key=o.mesa_id+"-"+(o.mesa_session||1);
         if (!sesMap[key]) sesMap[key]={_mesaSession:true,id:key,mesa_id:o.mesa_id,mesa_session:o.mesa_session||1,orders:[],total:0,pago:o.pago,created_at:o.created_at,status:"entregado"};
         sesMap[key].orders.push(o);
@@ -2194,15 +2325,15 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     nuevo:     orders.filter(o=>o.status==="nuevo").length,
     preparando:orders.filter(o=>o.status==="preparando").length,
     listo:     orders.filter(o=>o.status==="listo").length,
-    entregado: orders.filter(o=>o.status==="entregado").length,
   };
   const TABS = [
-    {key:"activos",     label:"Activos",   val:counts.nuevo+counts.preparando+counts.listo, color:"var(--text)"},
-    {key:"pendiente_pago", label:"💳 Pendientes", val:counts.pendiente_pago||0, color:"#D97706"},
+    {key:"activos",     label:"Activos",   val:counts.pendiente_pago+counts.nuevo+counts.preparando+counts.listo, color:"var(--text)"},
+    {key:"pendiente_pago", label:"💳 Pendientes", val:counts.pendiente_pago, color:"#D97706"},
     {key:"nuevo",       label:"🔴 Nuevos", val:counts.nuevo,       color:"#CC1F1F"},
     {key:"preparando",  label:"🟡 Prep.",  val:counts.preparando,  color:"#D97706"},
     {key:"listo",       label:"🟢 Listos", val:counts.listo,       color:"#16A34A"},
-    {key:"entregados",  label:"Historial", val:(()=>{ const indiv=orders.filter(o=>o.status==="entregado"&&!o.mesa_id).length; const sesMap={}; orders.filter(o=>o.status==="entregado"&&o.mesa_id).forEach(o=>{const m=mesasData.find(x=>x.id===o.mesa_id);if(m&&(m.session_num||1)>(o.mesa_session||1)){sesMap[o.mesa_id+"-"+(o.mesa_session||1)]=1;}}); return indiv+Object.keys(sesMap).length; })(), color:"var(--text3)"},
+    // El número es lo entregado HOY (antes contaba 90 días y se quedaba clavado / bajaba solo)
+    {key:"entregados",  label:"Historial", val:cantCobros,         color:"var(--text3)"},
     {key:"facturacion", label:"Caja",      val:null,               color:"#D97706"},
     {key:"editor",      label:"Menú",      val:null,               color:"#7C3AED"},
     {key:"nuevo_pedido", label:"Pedido",    val:null,               color:"#16A34A"},
@@ -2261,7 +2392,8 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       {filter==="facturacion" && (
         <div className="fade-in" style={{padding:14,paddingBottom:40}}>
           {/* ── ESTADO DE CAJA ── */}
-          <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja} onAgregarMovimiento={agregarMovimiento} totEf={totEf} lastCierre={historialCaja.find(c=>c.estado==="cerrada"&&c.fecha!==fechaNegocio())?.monto_cierre}/>
+          <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja} onPrepararCierre={prepararCierre} onAgregarMovimiento={agregarMovimiento} totEf={totEf} sinCobrar={sinCobrarHoy}
+            ultimoCierre={historialCaja.find(c=>c.estado==="cerrada"&&c.monto_cierre!=null)} ultimaCaja={historialCaja.find(c=>c.estado==="cerrada")}/>
           {/* ── TABS HOY / SEMANA / MES ── */}
           <div style={{display:"flex",gap:6,marginBottom:16,background:"var(--surface2)",borderRadius:12,padding:4}}>
             {[{k:"hoy",l:"Hoy"},{k:"semana",l:"Esta semana"},{k:"mes",l:"Este mes"},{k:"historial",l:"Historial"}].map(t=>(
@@ -2278,7 +2410,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
             </div>
             <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"6px 14px",textAlign:"center"}}>
               <div style={{fontSize:10,color:"#92400E",letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>PEDIDOS HOY</div>
-              <div className="sh" style={{fontSize:26,color:"#D97706"}}>{ordersHoy.filter(o=>!o.mesa_id).length + mesaSessionList.length}</div>
+              <div className="sh" style={{fontSize:26,color:"#D97706"}}>{pedidosHoyCount}</div>
             </div>
           </div>
           <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:16,padding:"20px 20px 16px",marginBottom:12}}>
@@ -2292,9 +2424,9 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
           <Card style={{marginBottom:12}}>
             <Label>DESGLOSE POR PAGO</Label>
             {[
-              {label:"💵 Efectivo",     total:totEf, count:entH.filter(o=>o.pago==="efectivo").length,     color:"#16A34A",bg:"#F0FDF4",border:"#BBF7D0"},
-              {label:"📲 Transferencia",total:totTr, count:entH.filter(o=>o.pago==="transferencia").length,color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
-              {label:"💳 Tarjeta",      total:totTj, count:entH.filter(o=>o.pago==="tarjeta").length,      color:"#2563EB",bg:"#EFF6FF",border:"#BFDBFE"},
+              {label:"💵 Efectivo",     total:totEf, count:cobradosHoy.filter(o=>montoPorMetodo(o,"efectivo")>0).length,     color:"#16A34A",bg:"#F0FDF4",border:"#BBF7D0"},
+              {label:"📲 Transferencia",total:totTr, count:cobradosHoy.filter(o=>montoPorMetodo(o,"transferencia")>0).length,color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
+              {label:"💳 Tarjeta",      total:totTj, count:cobradosHoy.filter(o=>montoPorMetodo(o,"tarjeta")>0).length,      color:"#2563EB",bg:"#EFF6FF",border:"#BFDBFE"},
             ].map(p=>(
               <div key={p.label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",borderRadius:12,background:p.bg,border:`1px solid ${p.border}`,marginBottom:8}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
@@ -2328,7 +2460,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
           <Card style={{marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
               <div style={{fontSize:11,color:"var(--text3)",letterSpacing:1.5,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>TICKET PROMEDIO</div>
-              <div className="sh" style={{fontSize:26,color:"var(--red)"}}>{entH.length>0?fmt(Math.round(totDia/entH.length)):"—"}</div>
+              <div className="sh" style={{fontSize:26,color:"var(--red)"}}>{cantCobros>0?fmt(Math.round(totDia/cantCobros)):"—"}</div>
             </div>
             <div style={{width:1,height:40,background:"var(--border)"}}/>
             <div style={{textAlign:"right"}}>
@@ -2425,8 +2557,8 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
           </Card>
           </>}
 
-          {(cajaVista==="semana"||cajaVista==="mes")&&<HistorialCajaResumen historial={historialCaja} vista={cajaVista} orders={orders}/>}
-          {cajaVista==="historial"&&<HistorialCajaTabla historial={historialCaja} onReload={loadHistorialCaja} orders={orders} onReabrir={reabrirCaja}/>}
+          {(cajaVista==="semana"||cajaVista==="mes")&&<HistorialCajaResumen historial={historialCaja} vista={cajaVista} orders={orders} mesas={mesasData}/>}
+          {cajaVista==="historial"&&<HistorialCajaTabla historial={historialCaja} onReload={loadHistorialCaja} orders={orders} mesas={mesasData} onReabrir={reabrirCaja}/>}
         </div>
       )}
 
@@ -2510,7 +2642,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                   <div style={{width:10,height:10,borderRadius:"50%",background:est.ring,boxShadow:`0 0 6px ${est.ring}`,flexShrink:0}}/>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span className="sh" style={{fontSize:15,color:"var(--text)"}}>#{order.id.slice(-6).toUpperCase()}</span>
+                      <span className="sh" style={{fontSize:15,color:"var(--text)"}}>#{order.id.slice(-5).toUpperCase()}</span>
                       <span style={{fontSize:12,fontWeight:700,color:est.color,background:est.bg,padding:"2px 8px",borderRadius:20}}>{est.label}</span>
                       {order.tipo==="delivery"&&<span style={{fontSize:11,color:"#D97706",background:"#FFFBEB",padding:"2px 6px",borderRadius:20,fontWeight:600}}>🛵 Delivery</span>}
                       {order.repartidor&&<span style={{fontSize:11,color:"#7C3AED",background:"#FAF5FF",padding:"2px 6px",borderRadius:20,fontWeight:600,border:"1px solid #E9D5FF"}}>🏍️ {order.repartidor}</span>}
@@ -3053,7 +3185,11 @@ function MenuEditor({ menu, saveMenu }) {
 }
 
 /* ══ CAJA WIDGET ══════════════════════════════════════════════ */
-function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento, totEf=0, lastCierre }) {
+function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onPrepararCierre, onAgregarMovimiento, totEf=0, sinCobrar=[], ultimoCierre, ultimaCaja }) {
+  const lastCierre = ultimoCierre?.monto_cierre != null ? Number(ultimoCierre.monto_cierre) : null;
+  // La última caja se cerró sola (nadie hizo el arqueo): el efectivo inicial hay que contarlo
+  const ultimaSinArqueo = ultimaCaja && ultimaCaja.monto_cierre == null;
+  const [preparando, setPreparando] = useState(false);
   const [showForm,    setShowForm]    = useState(false);
   const [monto,       setMonto]       = useState("");
   const [notas,       setNotas]       = useState("");
@@ -3077,20 +3213,50 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
   const montoReal      = monto !== "" ? Number(monto) : null;
   const diferencia     = montoReal !== null ? montoReal - esperado : null;
 
-  const toggleForm = () => {
+  const toggleForm = async () => {
     if (!showForm) {
-      // Pre-fill: apertura con cierre anterior, cierre con 0
-      if (!abierta && lastCierre != null) setMonto(String(lastCierre));
+      // Pre-fill: apertura con cierre anterior, cierre vacío (hay que contar)
+      if (!abierta && lastCierre != null && !ultimaSinArqueo) setMonto(String(lastCierre));
       else setMonto("");
       setNotas("");
       setArqueo(Object.fromEntries(BILLETES.map(b=>[b,0])));
+      // Al cerrar, traer pedidos y caja frescos para que el esperado sea el real
+      if (abierta && onPrepararCierre) { setPreparando(true); try { await onPrepararCierre(); } finally { setPreparando(false); } }
     }
     setShowForm(!showForm);
   };
 
   const handleSubmit = async () => {
-    if (abierta) await onCerrar(monto, notas);
-    else         await onAbrir(monto, notas);
+    if (monto === "" || isNaN(Number(monto)) || Number(monto) < 0) {
+      alert(abierta ? "Escribí cuánto efectivo contaste en la caja (si no hay nada, poné 0)." : "Escribí con cuánto efectivo arranca la caja (si no hay nada, poné 0).");
+      return;
+    }
+    const m = Number(monto);
+    if (abierta) {
+      const sinEntregar = sinCobrar.filter(o=>o.status!=="pendiente_pago");
+      if (sinEntregar.length > 0 && !window.confirm(`⚠️ Hay ${sinEntregar.length} pedido${sinEntregar.length!==1?"s":""} de hoy sin marcar como entregado (o mesas sin cobrar).
+
+Esa plata NO está sumada en el esperado. Lo mejor es marcarlos como entregados antes de cerrar.
+
+¿Cerrar la caja igual?`)) return;
+      if (m === 0 && esperado > 0 && !window.confirm(`Pusiste $0 de efectivo contado, pero se esperaban ${fmt(esperado)}.
+
+¿Seguro que en la caja no queda nada?`)) return;
+      const dif = m - esperado;
+      if (Math.abs(dif) >= 1000 && !window.confirm(`La caja da una diferencia de ${dif>0?"+":""}${fmt(dif)} (${dif>0?"sobra":"falta"} plata).
+
+Esperado: ${fmt(esperado)}
+Contado: ${fmt(m)}
+
+¿Revisaste los retiros y los pedidos? ¿Cerrar igual?`)) return;
+      const r = await onCerrar(monto, notas, esperado);
+      if (r && r.ok === false) return; // se queda el formulario abierto para corregir
+    } else {
+      if (lastCierre != null && !ultimaSinArqueo && m !== lastCierre && !window.confirm(`El cierre anterior (${fechaCorta(ultimoCierre.fecha)}) dejó ${fmt(lastCierre)} en la caja y estás abriendo con ${fmt(m)}.
+
+¿Es correcto?`)) return;
+      await onAbrir(monto, notas); // si falla ya avisa con un cartel
+    }
     setShowForm(false); setMonto(""); setNotas("");
     setArqueo(Object.fromEntries(BILLETES.map(b=>[b,0])));
   };
@@ -3121,11 +3287,18 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
             </div>}
           </div>
         </div>
-        <button className="btn" onClick={toggleForm}
+        <button className="btn" onClick={toggleForm} disabled={preparando}
           style={{padding:"9px 18px",borderRadius:12,background:abierta?"rgba(220,38,38,.1)":"rgba(22,163,74,.1)",border:`1px solid ${abierta?"#DC2626":"#16A34A"}`,color:abierta?"#DC2626":"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
-          {abierta?"CERRAR CAJA":"ABRIR CAJA"}
+          {preparando?"Actualizando...":abierta?"CERRAR CAJA":"ABRIR CAJA"}
         </button>
       </div>
+
+      {/* Caja de otro día que se reabrió para corregir: hay que cerrarla para poder abrir la de hoy */}
+      {abierta&&caja.fecha!==fechaNegocio()&&(
+        <div style={{marginTop:8,background:"#FFF7ED",border:"2px solid #FED7AA",borderRadius:12,padding:"10px 14px",fontSize:13,color:"#9A3412",lineHeight:1.4}}>
+          ⚠️ Esta es la caja del <strong>{fechaCorta(caja.fecha)}</strong>, que se reabrió para corregir algo. Cuando termines, cerrala para poder abrir la caja de hoy. Mientras tanto la web no toma pedidos.
+        </div>
+      )}
 
       {/* ── Movimientos de efectivo (solo cuando está abierta) ── */}
       {abierta&&(
@@ -3203,6 +3376,19 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
         <div className="slide-up" style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:16,marginTop:8}}>
           <div className="sh" style={{fontSize:16,color:"var(--text)",marginBottom:14}}>{abierta?"CERRAR CAJA":"ABRIR CAJA"}</div>
 
+          {/* Pedidos de hoy que todavía no entraron a la caja */}
+          {abierta&&sinCobrar.filter(o=>o.status!=="pendiente_pago").length>0&&(
+            <div style={{background:"#FFF7ED",border:"2px solid #FED7AA",borderRadius:12,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#9A3412",lineHeight:1.45}}>
+              <div style={{fontWeight:700,marginBottom:4}}>⚠️ Hay pedidos de hoy sin marcar como entregados</div>
+              Su plata NO está sumada en el esperado. Marcalos como entregados (o cobrá la mesa) antes de cerrar:
+              <div style={{marginTop:6}}>
+                {sinCobrar.filter(o=>o.status!=="pendiente_pago").slice(0,8).map(o=>(
+                  <div key={o.id}>• {o.mesa_id?"Mesa "+o.mesa_id.replace("mv","V").replace("m",""):(o.nombre||"Sin nombre")} — {fmt(o.total)} ({o.status==="entregado"?"mesa sin cobrar":(ESTADOS[o.status]?.label||o.status)})</div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Arqueo de billetes (solo al cerrar) */}
           {abierta&&(
             <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:14}}>
@@ -3263,8 +3449,11 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onAgregarMovimiento,
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>
               {abierta?"EFECTIVO REAL EN CAJA ($)":"EFECTIVO INICIAL EN CAJA ($)"}
             </div>
-            {!abierta&&lastCierre!=null&&lastCierre>0&&monto===String(lastCierre)&&(
+            {!abierta&&lastCierre!=null&&!ultimaSinArqueo&&monto===String(lastCierre)&&(
               <div style={{fontSize:10,color:"#2563EB",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif"}}>Pre-cargado del cierre anterior ({fmt(lastCierre)})</div>
+            )}
+            {!abierta&&ultimaSinArqueo&&(
+              <div style={{fontSize:11,color:"#9A3412",marginBottom:6,lineHeight:1.4}}>⚠️ La caja del {fechaCorta(ultimaCaja.fecha)} no se cerró a mano (se cerró sola, sin contar la plata). Contá el efectivo que hay ahora y escribilo acá.</div>
             )}
             <input type="number" min="0" value={monto} onChange={e=>setMonto(e.target.value)} placeholder="0"
               style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:18,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
@@ -3623,7 +3812,12 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
       : "";
     const notasAdmin = [he2?`⏰ ${he2}`:"", descLabel, form.notas].filter(Boolean).join(" | ");
     const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", notas:notasAdmin, items:cart, subtotal:subtotalCart, total:total+envioAdmin, envio:envioAdmin, source:"admin", status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
-    await supabase.from("orders").insert(order);
+    const { error: insErr } = await supabase.from("orders").insert(order);
+    if (insErr) {
+      setLoading(false);
+      alert("❌ No se pudo guardar el pedido: " + insErr.message + "\n\nRevisá internet e intentá de nuevo.");
+      return;
+    }
     // Mark mesa as ocupada
     if (mesaId) await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesaId);
     // Guardar / actualizar customer para que el próximo lookup por teléfono traiga la dirección
@@ -3947,7 +4141,12 @@ function ModificarPedidoAdmin({ order, menu, appConfig=CONFIG, onClose, onOrderS
 
   const subtotal = cart.reduce((s,c)=>s+(c.precioUnitario??c.item.precio)*c.qty,0);
   const envio = Number(order?.envio)||0;
-  const total = subtotal + envio;
+  // Mantener el recargo de tarjeta (pedidos web) o el descuento (pedidos del local) que ya tenía el pedido
+  const subOriginal = Number(order?.subtotal ?? 0);
+  const ajusteOriginal = order ? Number(order.total||0) - subOriginal - envio : 0;
+  const total = order?.source==="customer" && order?.pago==="tarjeta"
+    ? Math.round(subtotal*(1+appConfig.recargoMP)) + envio
+    : Math.max(0, subtotal + (order?.subtotal!=null ? ajusteOriginal : 0)) + envio;
 
   const menuFiltered = search.trim()
     ? menuVis.map(c=>({...c,items:c.items.filter(i=>i.nombre.toLowerCase().includes(search.toLowerCase()))})).filter(c=>c.items.length>0)
@@ -3956,9 +4155,14 @@ function ModificarPedidoAdmin({ order, menu, appConfig=CONFIG, onClose, onOrderS
   const saveChanges = async () => {
     if (!cart.length) return;
     setLoading(true);
-    await supabase.from("orders").update({ items: cart, subtotal, total }).eq("id", order.id);
-    onOrderSaved();
+    // Si era pago mixto y cambió el total, el desglose viejo ya no suma: se borra para que lo vuelvan a cargar
+    const cambioTotal = total !== Number(order.total);
+    const extra = order.pago==="mixto" && cambioTotal ? { pago_detalle:null, pago:"efectivo" } : {};
+    const { error } = await supabase.from("orders").update({ items: cart, subtotal, total, ...extra }).eq("id", order.id);
     setLoading(false);
+    if (error) { alert("❌ No se pudo guardar el cambio: " + error.message); return; }
+    if (extra.pago) alert("El total cambió y el pedido era pago mixto: volvé a cargar el desglose del pago.");
+    onOrderSaved();
   };
 
   if (!order) return null;
@@ -3968,7 +4172,7 @@ function ModificarPedidoAdmin({ order, menu, appConfig=CONFIG, onClose, onOrderS
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
         <div>
           <div className="sh" style={{fontSize:22,color:"var(--text)"}}>MODIFICAR PEDIDO</div>
-          <div style={{fontSize:12,color:"var(--text3)"}}>#{order.id.slice(-6).toUpperCase()} — {order.nombre}</div>
+          <div style={{fontSize:12,color:"var(--text3)"}}>#{order.id.slice(-5).toUpperCase()} — {order.nombre}</div>
         </div>
         <button className="btn" onClick={onClose} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"7px 16px",color:"var(--text3)",fontSize:13,fontWeight:600}}>← Volver</button>
       </div>
@@ -4047,52 +4251,40 @@ function ModificarPedidoAdmin({ order, menu, appConfig=CONFIG, onClose, onOrderS
 }
 
 /* ══ HISTORIAL CAJA RESUMEN (SEMANA / MES) ════════════════════ */
-function HistorialCajaResumen({ historial, vista, orders }) {
-  const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
-  const now = new Date();
+function HistorialCajaResumen({ historial, vista, orders, mesas=[] }) {
+  const fmt = (n) => `${Number(n||0).toLocaleString("es-AR")}`;
+  // Se compara por texto "YYYY-MM-DD" (new Date("YYYY-MM-DD") es UTC y corría las fechas un día)
+  const hoyStr = fechaNegocio();
+  const hoyD = new Date(hoyStr+"T12:00:00");
+  const lunesD = new Date(hoyD); lunesD.setDate(hoyD.getDate() - ((hoyD.getDay()+6)%7));
+  const lunesStr = fechaLocal(lunesD);
 
-  const filtrado = historial.filter(c => {
-    const d = new Date(c.fecha);
-    if (vista === "semana") {
-      const lunes = new Date(now);
-      lunes.setDate(now.getDate() - now.getDay() + 1);
-      lunes.setHours(0,0,0,0);
-      return d >= lunes;
-    } else {
-      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-    }
-  });
+  const filtrado = historial.filter(c => vista === "semana"
+    ? c.fecha >= lunesStr && c.fecha <= hoyStr
+    : c.fecha.slice(0,7) === hoyStr.slice(0,7));
 
-  const dias          = filtrado.length;
-  // For open cajas, calculate real total from orders
+  // Total del día: el guardado al cerrar; si no hay (caja abierta o cerrada sola sin datos), se calcula de los pedidos
   const getTotalCaja = (c) => {
-    if (c.estado === "cerrada") return Number(c.total_ventas||0);
-    const aperturaTs = c.hora_apertura ? new Date(c.fecha+"T"+c.hora_apertura+":00").getTime() : new Date(c.fecha+"T00:00:00").getTime();
-    return orders.filter(o=>o.status==="entregado"&&Number(o.created_at)>=aperturaTs&&(!o.mesa_id)).reduce((s,o)=>s+Number(o.total),0);
+    if (c.estado === "cerrada" && c.total_ventas != null) return Number(c.total_ventas);
+    return resumenVentas(pedidosCobrados(orders, mesas, rangoNegocio(c.fecha))).total;
   };
   // Group by day for accurate stats
   const byDay = {};
   filtrado.forEach(c=>{
     if (!byDay[c.fecha]) byDay[c.fecha]={fecha:c.fecha,total:0,hasClosed:false,hasOpen:false};
-    byDay[c.fecha].total += getTotalCaja(c);
+    // Si hubo dos cajas el mismo día, cada una guardó el total del día entero: se toma uno solo (no se suman)
+    byDay[c.fecha].total = Math.max(byDay[c.fecha].total, getTotalCaja(c));
     if (c.estado==="cerrada") byDay[c.fecha].hasClosed=true;
     else byDay[c.fecha].hasOpen=true;
   });
   const dayList = Object.values(byDay).sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const totalVentas   = dayList.reduce((s,d)=>s+d.total,0);
-  const diasAbiertos  = dayList.filter(d=>d.hasClosed).length;
+  const diasAbiertos  = dayList.length;
   const promDiario    = diasAbiertos>0 ? totalVentas/diasAbiertos : 0;
   const maxDiaObj     = dayList.reduce((max,d)=>d.total>max.total?d:max, dayList[0]||{total:0});
   const maxDia        = maxDiaObj; // used for display
   // Days elapsed in period
-  const diasDelPeriodo = (() => {
-    const n = new Date();
-    if (vista === "semana") {
-      const lunes = new Date(n); lunes.setDate(n.getDate() - (n.getDay()||7) + 1); lunes.setHours(0,0,0,0);
-      return Math.min(7, Math.floor((n - lunes) / 86400000) + 1);
-    }
-    return n.getDate();
-  })();
+  const diasDelPeriodo = vista === "semana" ? ((hoyD.getDay()+6)%7) + 1 : hoyD.getDate();
 
   // Bar chart data - already grouped in dayList
   const barDays = dayList;
@@ -4160,27 +4352,18 @@ function HistorialCajaResumen({ historial, vista, orders }) {
 }
 
 /* ══ HISTORIAL CAJA TABLA ═════════════════════════════════════ */
-function HistorialCajaTabla({ historial, onReload, orders=[], onReabrir }) {
+function HistorialCajaTabla({ historial, onReload, orders=[], mesas=[], onReabrir }) {
   const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
   const [expandedId,      setExpandedId]      = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
 
   useEffect(() => { onReload(); }, []);
 
-  const parseHora = (h) => { if (!h) return null; const m = h.match(/(\d{1,2}):(\d{2})/); if (!m) return null; let hh=parseInt(m[1]); const mm=m[2]; if (h.toLowerCase().includes("p") && hh<12) hh+=12; if (h.toLowerCase().includes("a") && hh===12) hh=0; return hh.toString().padStart(2,"0")+":"+mm; };
-
+  // Pedidos del día de negocio de la caja (06:00 a 06:00): la misma ventana que usa el cierre
   const getPedidosCaja = (c) => {
-    const aperturaHora = parseHora(c.hora_apertura);
-    const cierreHora   = parseHora(c.hora_cierre);
-    const [y,mo,d] = c.fecha.split("-").map(Number);
-    const [ah=0,am=0] = (aperturaHora||"00:00").split(":").map(Number);
-    const [ch=23,cm=59] = (cierreHora||"23:59").split(":").map(Number);
-    const inicio = new Date(y, mo-1, d, ah, am, 0).getTime();
-    // Si la hora de cierre es menor que la de apertura (ej: abrió 17:00, cerró 00:30), el cierre fue al día siguiente.
-    const cerrarSiguiente = (ch*60+cm) < (ah*60+am);
-    const fin = new Date(y, mo-1, d + (cerrarSiguiente?1:0), ch, cm, 59).getTime();
+    const [inicio, fin] = rangoNegocio(c.fecha);
     return orders
-      .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts <= fin && o.status !== "eliminado"; })
+      .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts < fin && o.status !== "eliminado"; })
       .sort((a,b) => Number(a.created_at) - Number(b.created_at));
   };
 
@@ -4214,7 +4397,9 @@ function HistorialCajaTabla({ historial, onReload, orders=[], onReabrir }) {
         const abierta = c.estado === "abierta";
         const fecha   = new Date(c.fecha+"T12:00:00").toLocaleDateString("es-AR",{weekday:"long",day:"numeric",month:"long"});
         const pedidos = getPedidosCaja(c);
-        const totalVentasLive = pedidos.filter(o=>o.status==="entregado").reduce((s,o)=>s+Number(o.total),0);
+        const ventasLive = resumenVentas(pedidosCobrados(pedidos, mesas, rangoNegocio(c.fecha)));
+        // Al cerrar se guardan los números: se muestran esos (los mismos que se vieron al cerrar)
+        const totalVentas = !abierta && c.total_ventas != null ? Number(c.total_ventas) : ventasLive.total;
         return (
           <div key={c.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--red-border)":"var(--border)"}`,borderRadius:14,marginBottom:8,overflow:"hidden",boxShadow:"0 1px 3px rgba(0,0,0,.04)"}}>
             {/* Header del día */}
@@ -4229,7 +4414,7 @@ function HistorialCajaTabla({ historial, onReload, orders=[], onReabrir }) {
               </div>
               <div style={{textAlign:"right"}}>
                 <div className="sh" style={{fontSize:17,color:abierta?"#D97706":"#16A34A"}}>
-                  {fmt(totalVentasLive)}
+                  {fmt(totalVentas)}
                 </div>
                 <div style={{fontSize:10,color:"var(--text4)",marginTop:1,fontWeight:600}}>{abierta?"EN CURSO":"CERRADA"}</div>
               </div>
@@ -4242,17 +4427,18 @@ function HistorialCajaTabla({ historial, onReload, orders=[], onReabrir }) {
                 {/* KPIs del día */}
                 <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:12,marginBottom:14}}>
                   {(()=>{
-                    const movs = c.movimientos||[];
-                    const hEntradas = movs.filter(m=>m.tipo==="entrada").reduce((s,m)=>s+Number(m.monto),0);
-                    const hSalidas  = movs.filter(m=>m.tipo==="salida").reduce((s,m)=>s+Number(m.monto),0);
-                    const ventasEf  = pedidos.filter(o=>o.status==="entregado"&&o.pago==="efectivo").reduce((s,o)=>s+Number(o.total),0);
-                    const hEsperado = Number(c.monto_apertura||0) + ventasEf + hEntradas - hSalidas;
-                    const hDif      = abierta?null:Number(c.monto_cierre||0) - hEsperado;
+                    const guardado  = !abierta && c.esperado != null;
+                    const ventasEf  = guardado && c.ventas_efectivo != null ? Number(c.ventas_efectivo) : ventasLive.efectivo;
+                    const hEsperado = guardado ? Number(c.esperado) : efectivoEsperado(c, ventasEf);
+                    const sinArqueo = !abierta && c.monto_cierre == null;
+                    const hDif      = abierta || sinArqueo ? null : (c.diferencia != null ? Number(c.diferencia) : Number(c.monto_cierre) - hEsperado);
                     return [
                       {l:"Efectivo apertura", v:fmt(c.monto_apertura),                                          col:"#2563EB"},
-                      {l:"Efectivo cierre",   v:abierta?"—":fmt(c.monto_cierre),                               col:abierta?"var(--text4)":"#16A34A"},
-                      {l:"Total ventas",      v:fmt(totalVentasLive||c.total_ventas||0), col:"var(--red)"},
-                      {l:"Diferencia caja",   v:abierta?"—":(hDif===0?"$0":(hDif>0?"+":"")+fmt(hDif)), col:abierta?"var(--text4)":hDif===0?"#16A34A":hDif>0?"#D97706":"#DC2626"},
+                      {l:"Efectivo cierre",   v:abierta?"—":sinArqueo?"Sin contar":fmt(c.monto_cierre),          col:abierta||sinArqueo?"var(--text4)":"#16A34A"},
+                      {l:"Total ventas",      v:fmt(totalVentas), col:"var(--red)"},
+                      {l:"Ventas efectivo",   v:fmt(ventasEf),    col:"#16A34A"},
+                      {l:"Esperado en caja",  v:fmt(hEsperado),   col:"var(--text2)"},
+                      {l:"Diferencia caja",   v:abierta?"—":sinArqueo?"Sin arqueo":(hDif===0?"$0":(hDif>0?"+":"")+fmt(hDif)), col:hDif==null?"var(--text4)":hDif===0?"#16A34A":hDif>0?"#D97706":"#DC2626"},
                     ];
                   })().map(k=>(
                     <div key={k.l} style={{background:"var(--bg2)",borderRadius:10,padding:"10px 12px",border:"1px solid var(--border)"}}>
@@ -4482,43 +4668,79 @@ function MesasView({ onNewOrder }) {
     return orders.filter(o => o.mesa_id === mesaId && (o.mesa_session||1) === currentSession);
   };
   const getMesaActiveOrders = (mesaId) => orders.filter(o => o.mesa_id === mesaId && ["nuevo","preparando","listo"].includes(o.status));
-  const getMesaTotal  = (mesaId) => getMesaActiveOrders(mesaId).reduce((s,o)=>s+Number(o.total),0);
+  // Total de la cuenta = todos los pedidos de la sesión actual (también los ya llevados a la mesa)
+  const getMesaTotal  = (mesaId) => getMesaOrders(mesaId).filter(o=>o.status!=="eliminado").reduce((s,o)=>s+Number(o.total),0);
+
+  // Pedidos de la sesión actual de una mesa, directo de Supabase (sin el límite de 48h de la pantalla)
+  const pedidosSesionDB = async (mesaId) => {
+    const {data:mesaActual, error:e1} = await supabase.from("mesas").select("session_num").eq("id",mesaId).maybeSingle();
+    if (e1) throw e1;
+    const ses = mesaActual?.session_num || 1;
+    let q = supabase.from("orders").select("*").eq("mesa_id", mesaId).neq("status","eliminado");
+    q = ses === 1 ? q.or("mesa_session.eq.1,mesa_session.is.null") : q.eq("mesa_session", ses);
+    const {data, error} = await q.order("created_at");
+    if (error) throw error;
+    return { ses, ords: data||[] };
+  };
 
   const setEstado = async (mesaId, estado) => {
+    if (estado === "libre" && getMesaOrders(mesaId).length > 0) {
+      alert("Esta mesa tiene pedidos. Para liberarla cobrá la cuenta con los botones 💵 Efectivo / 📲 Transf. / 💳 Tarjeta, así la plata entra a la caja.");
+      return;
+    }
     await supabase.from("mesas").update({estado}).eq("id", mesaId);
     setMesas(p => p.map(m => m.id===mesaId ? {...m,estado} : m));
   };
 
   const liberarMesa = async (mesaId, pago="efectivo") => {
     if (!window.confirm("¿Cerrar la cuenta y liberar la mesa?")) return;
-    const mesaOrds = orders.filter(o=>o.mesa_id===mesaId&&["nuevo","preparando","listo"].includes(o.status));
     const mesaNombre = mesas.find(m=>m.id===mesaId)?.nombre||mesaId;
-    const totalMesa = mesaOrds.reduce((s,o)=>s+Number(o.total),0);
-    // First close account in DB
-    await supabase.from("orders").update({status:"entregado", pago})
-      .eq("mesa_id", mesaId).in("status",["nuevo","preparando","listo"]);
-    const {data:mesaActual} = await supabase.from("mesas").select("session_num").eq("id",mesaId).maybeSingle();
-    const nextSession = (mesaActual?.session_num || 1) + 1;
-    await supabase.from("mesas").update({estado:"libre", pedidos_ids:[], session_num: nextSession}).eq("id", mesaId);
-    setSelectedMesa(null);
-    load();
-    // Print ticket after closing
-    if (mesaOrds.length > 0) {
-      printTicket({
-        ...mesaOrds[0],
-        nombre: mesaNombre,
-        items: mesaOrds.flatMap(o=>o.items||[]),
-        total: totalMesa,
-        notas: mesaOrds.map(o=>o.notas).filter(Boolean).join(" | "),
-      });
+    try {
+      const { ses, ords: mesaOrds } = await pedidosSesionDB(mesaId);
+      const totalMesa = mesaOrds.reduce((s,o)=>s+Number(o.total),0);
+      // Toda la sesión queda entregada y con el medio de pago con que se cobró (también lo ya llevado a la mesa)
+      if (mesaOrds.length > 0) {
+        const {error} = await supabase.from("orders").update({status:"entregado", pago, pago_detalle:null}).in("id", mesaOrds.map(o=>o.id));
+        if (error) throw error;
+      }
+      const {error: e2} = await supabase.from("mesas").update({estado:"libre", pedidos_ids:[], session_num: ses + 1}).eq("id", mesaId);
+      if (e2) throw e2;
+      setSelectedMesa(null);
+      load();
+      // Print ticket after closing
+      if (mesaOrds.length > 0) {
+        printTicket({
+          ...mesaOrds[0],
+          pago,
+          nombre: mesaNombre,
+          items: mesaOrds.flatMap(o=>o.items||[]),
+          subtotal: totalMesa,
+          envio: 0,
+          total: totalMesa,
+          notas: mesaOrds.map(o=>o.notas).filter(Boolean).join(" | "),
+        });
+      }
+    } catch (e) {
+      alert("❌ No se pudo cerrar la cuenta: " + (e?.message || "error de conexión") + "\n\nRevisá internet e intentá de nuevo.");
+      load();
     }
   };
 
   const unirMesas = async (mesa1Id, mesa2Id) => {
-    // Mark mesa2 orders as belonging to mesa1
-    await supabase.from("orders").update({mesa_id: mesa1Id})
-      .eq("mesa_id", mesa2Id).in("status",["nuevo","preparando","listo"]);
-    await supabase.from("mesas").update({estado:"libre", pedidos_ids:[]}).eq("id", mesa2Id);
+    try {
+      // Los pedidos de la mesa 2 pasan a la sesión ACTUAL de la mesa 1 (si no, nunca entraban a la caja)
+      const {data:m1, error:e1} = await supabase.from("mesas").select("session_num").eq("id",mesa1Id).maybeSingle();
+      if (e1) throw e1;
+      const { ses: ses2, ords } = await pedidosSesionDB(mesa2Id);
+      if (ords.length > 0) {
+        const {error} = await supabase.from("orders").update({mesa_id: mesa1Id, mesa_session: m1?.session_num || 1}).in("id", ords.map(o=>o.id));
+        if (error) throw error;
+      }
+      await supabase.from("mesas").update({estado:"libre", pedidos_ids:[], session_num: ses2 + 1}).eq("id", mesa2Id);
+      await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesa1Id);
+    } catch (e) {
+      alert("❌ No se pudieron unir las mesas: " + (e?.message || "error de conexión"));
+    }
     setUnirMode(false); setUnirTarget(null);
     load();
     setSelectedMesa(mesa1Id);
@@ -4686,6 +4908,8 @@ function MesasView({ onNewOrder }) {
                       ...mesaOrders[0],
                       nombre: mesaSeleccionada.nombre,
                       items: mesaOrders.flatMap(o=>o.items||[]),
+                      subtotal: getMesaTotal(mesaSeleccionada.id),
+                      envio: 0,
                       total: getMesaTotal(mesaSeleccionada.id),
                       notas: mesaOrders.map(o=>o.notas).filter(Boolean).join(" | "),
                     })}
