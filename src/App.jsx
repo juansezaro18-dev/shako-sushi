@@ -2741,7 +2741,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
               const nItems = order.orders.reduce((s,o)=>s+(o.items?.reduce((a,c)=>a+c.qty,0)||0),0);
               const fmt2 = (n)=>`$${Number(n||0).toLocaleString("es-AR")}`;
               return(
-                <div key={order.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--border2)":"var(--border)"}`,borderLeft:"4px solid #A1A1AA",borderRadius:12,marginBottom:8,overflow:"hidden",boxShadow:isExp?"0 4px 14px rgba(0,0,0,.06)":"none"}}>
+                <div key={order.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--border2)":"var(--border)"}`,borderRadius:12,marginBottom:8,overflow:"hidden",boxShadow:isExp?"0 4px 14px rgba(0,0,0,.06)":"none"}}>
                   <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:order.id)}>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -2783,7 +2783,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
             const est=ESTADOS[order.status]||ESTADOS.nuevo; const isExp=expandedId===order.id;
             return(
               <div key={order.id} className={order.status==="nuevo"?"pulse-new":""}
-                style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--border2)":"var(--border)"}`,borderLeft:`4px solid ${order.status==="entregado"?"#A1A1AA":est.ring}`,borderRadius:12,marginBottom:8,overflow:"hidden",transition:"all .2s",boxShadow:isExp?"0 4px 14px rgba(0,0,0,.06)":"none"}}>
+                style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--border2)":"var(--border)"}`,borderRadius:12,marginBottom:8,overflow:"hidden",transition:"all .2s",boxShadow:isExp?"0 4px 14px rgba(0,0,0,.06)":"none"}}>
                 <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:order.id)}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
@@ -4763,9 +4763,10 @@ function MesasView({ onNewOrder }) {
 
   const SECTORES = ["Salón","Vereda","Barra"];
   const ESTADOS_COLOR = {
-    libre:   {bg:"#F0FDF4", border:"#BBF7D0", text:"#16A34A", dot:"#16A34A"},
-    ocupada: {bg:"#FFF7ED", border:"#FED7AA", text:"#EA580C", dot:"#EA580C"},
-    cuenta:  {bg:"#FEF3C7", border:"#FDE68A", text:"#D97706", dot:"#D97706"},
+    // Libre = blanca; ocupada = oscura; pidiendo la cuenta = ámbar. Se distinguen de un vistazo sin colores pastel.
+    libre:   {bg:"#FFFFFF", border:"#E4E4E7", text:"#18181B", sub:"#A1A1AA", dot:"#FFFFFF"},
+    ocupada: {bg:"#18181B", border:"#18181B", text:"#FFFFFF", sub:"#A1A1AA", dot:"#18181B"},
+    cuenta:  {bg:"#B45309", border:"#B45309", text:"#FFFFFF", sub:"#FDE68A", dot:"#B45309"},
   };
 
   const load = useCallback(async () => {
@@ -4905,19 +4906,19 @@ function MesasView({ onNewOrder }) {
     <div className="fade-in" style={{padding:14,paddingBottom:40}}>
       {/* Header */}
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
-        <div className="sh" style={{fontSize:24,color:"var(--text)"}}>MESAS</div>
+        <div style={{fontSize:20,fontWeight:700,color:"var(--text)"}}>Mesas</div>
         <div style={{display:"flex",gap:8}}>
           <button className="btn" onClick={()=>{setUnirMode(!unirMode);setUnirTarget(null);}}
-            style={{padding:"8px 14px",borderRadius:10,background:unirMode?"#FEF3C7":"var(--bg2)",border:`1px solid ${unirMode?"#FDE68A":"var(--border)"}`,color:unirMode?"#D97706":"var(--text3)",fontSize:13,fontWeight:600}}>
-            {unirMode?"✕ Cancelar unir":"⊕ Unir mesas"}
+            style={{padding:"8px 14px",borderRadius:10,background:unirMode?"#18181B":"var(--surface)",border:`1px solid ${unirMode?"#18181B":"var(--border2)"}`,color:unirMode?"#fff":"var(--text2)",fontSize:13,fontWeight:600}}>
+            {unirMode?"Cancelar":"Unir mesas"}
           </button>
-          <button className="btn" onClick={load}
-            style={{padding:"8px 12px",borderRadius:10,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:13}}>↻</button>
+          <button className="btn" onClick={load} title="Actualizar"
+            style={{padding:"8px 10px",borderRadius:10,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",display:"flex"}}><Icon name="refrescar" size={16}/></button>
         </div>
       </div>
 
       {unirMode && (
-        <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:12,padding:"10px 14px",marginBottom:14,fontSize:13,color:"#92400E"}}>
+        <div style={{background:"var(--surface)",border:"1px solid var(--border2)",borderRadius:10,padding:"10px 14px",marginBottom:14,fontSize:13,color:"var(--text2)"}}>
           {!unirTarget
             ? "Tocá la mesa ORIGEN (la que va a absorber los pedidos)"
             : `Mesa ${mesas.find(m=>m.id===unirTarget)?.nombre} seleccionada. Ahora tocá la mesa que querés UNIR a ella.`}
@@ -4928,7 +4929,7 @@ function MesasView({ onNewOrder }) {
       <div style={{display:"flex",gap:12,marginBottom:16,flexWrap:"wrap"}}>
         {[{e:"libre",l:"Libre"},{e:"ocupada",l:"Ocupada"},{e:"cuenta",l:"Pidiendo cuenta"}].map(x=>(
           <div key={x.e} style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"var(--text3)"}}>
-            <div style={{width:10,height:10,borderRadius:"50%",background:ESTADOS_COLOR[x.e].dot}}/>
+            <div style={{width:12,height:12,borderRadius:4,background:ESTADOS_COLOR[x.e].bg,border:`1px solid ${ESTADOS_COLOR[x.e].border}`}}/>
             {x.l}
           </div>
         ))}
@@ -4941,7 +4942,7 @@ function MesasView({ onNewOrder }) {
         return (
           <div key={sector} style={{marginBottom:20}}>
             <div style={{fontSize:11,fontWeight:700,color:"var(--text4)",letterSpacing:2,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:10}}>{sector.toUpperCase()}</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:10}}>
+            <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fill,minmax(84px,1fr))",gap:8}}>
               {mesasSector.map(mesa => {
                 const ec = ESTADOS_COLOR[mesa.estado] || ESTADOS_COLOR.libre;
                 const total = getMesaTotal(mesa.id);
@@ -4961,21 +4962,19 @@ function MesasView({ onNewOrder }) {
                 return (
                   <div key={mesa.id} onClick={handleClick}
                     style={{
-                      width:90, minHeight:80, borderRadius:14, padding:"10px 8px",
-                      background:isUnirTarget?"#FEF3C7":isSelected?"var(--red-light)":ec.bg,
-                      border:`2px solid ${isUnirTarget?"#D97706":isSelected?"var(--red)":ec.border}`,
-                      cursor:"pointer", transition:"all .2s", textAlign:"center",
-                      boxShadow: mesa.estado!=="libre"?"0 2px 8px rgba(0,0,0,.08)":"none",
-                      position:"relative",
+                      minHeight:76, borderRadius:10, padding:"12px 8px",
+                      background:ec.bg,
+                      border:`1px solid ${ec.border}`,
+                      outline:isUnirTarget?"2px solid #B45309":isSelected?"2px solid var(--red)":"none", outlineOffset:2,
+                      cursor:"pointer", transition:"all .15s", textAlign:"center",
+                      display:"flex",flexDirection:"column",justifyContent:"center",
                     }}>
-                    {/* Estado dot */}
-                    <div style={{position:"absolute",top:6,right:6,width:8,height:8,borderRadius:"50%",background:ec.dot}}/>
-                    <div className="sh" style={{fontSize:16,color:isSelected?"var(--red)":ec.text,marginBottom:4}}>{mesa.nombre}</div>
+                    <div style={{fontSize:15,fontWeight:700,color:ec.text}}>{mesa.nombre.replace(/^Mesas*/i,"")}</div>
                     {mesa.estado === "libre"
-                      ? <div style={{fontSize:10,color:"var(--text4)"}}>Libre</div>
+                      ? <div style={{fontSize:11,color:ec.sub,marginTop:2}}>Libre</div>
                       : <>
-                          <div style={{fontSize:10,color:ec.text,fontWeight:600}}>{nOrders} pedido{nOrders!==1?"s":""}</div>
-                          {total>0&&<div className="sh" style={{fontSize:13,color:ec.text,marginTop:2}}>{fmt(total)}</div>}
+                          <div style={{fontSize:11,color:ec.sub,marginTop:2}}>{mesa.estado==="cuenta"?"Pide la cuenta":`${nOrders} pedido${nOrders!==1?"s":""}`}</div>
+                          {total>0&&<div style={{fontSize:13,fontWeight:700,color:ec.text,marginTop:2}}>{fmt(total)}</div>}
                         </>
                     }
                   </div>
@@ -4988,7 +4987,7 @@ function MesasView({ onNewOrder }) {
 
       {/* Panel de mesa seleccionada */}
       {mesaSeleccionada && (
-        <div className="slide-up" style={{background:"var(--surface)",border:"2px solid var(--red-border)",borderRadius:16,padding:16,marginTop:8}}>
+        <div className="slide-up" style={{background:"var(--surface)",border:"1px solid var(--border2)",borderRadius:12,padding:16,marginTop:12,boxShadow:"0 6px 20px rgba(0,0,0,.06)"}}>
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
             <div className="sh" style={{fontSize:20,color:"var(--text)"}}>{mesaSeleccionada.nombre}</div>
             <div style={{display:"flex",gap:8}}>
