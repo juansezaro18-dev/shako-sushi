@@ -2200,9 +2200,10 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   };
 
   const loadOrders = useCallback(async () => {
-    // Pedidos activos + últimos 40 días (alcanza para la caja, el mes y el ranking).
+    // Pedidos activos + últimos 8 días (caja de hoy y ranking semanal). Los días anteriores usan los totales
+    // guardados en cada cierre, y el historial pide cada día recién cuando se abre (cuidar el egress de Supabase).
     // El historial completo se pide por páginas en la pestaña Historial (antes se bajaban 90 días cada vez).
-    const desde = new Date(); desde.setDate(desde.getDate()-40);
+    const desde = new Date(); desde.setDate(desde.getDate()-8);
     const { data, error } = await supabase.from("orders").select("*")
       .or(`status.in.(pendiente_pago,nuevo,preparando,listo),created_at.gte.${desde.getTime()}`)
       .order("created_at", {ascending:false})
@@ -2293,10 +2294,12 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     loadCaja().then(() => loadHistorialCaja());
 
     // Polling cada 60s SOLO activos + refresh completo cada 10 min (polling 5s del historial completo quemaba el egress de Supabase)
-    const iv = setInterval(() => { pollActiveOrders(); loadMesas(); }, 60000);
-    const ivFull = setInterval(loadOrders, 600000);
+    // Con la pantalla apagada o en otra pestaña no se consulta nada; al volver se actualiza (onVis)
+    const visible = () => document.visibilityState === "visible";
+    const iv = setInterval(() => { if (visible()) { pollActiveOrders(); loadMesas(); } }, 60000);
+    const ivFull = setInterval(() => { if (visible()) loadOrders(); }, 1800000);
     // La caja se revisa cada 2 min: si la tablet quedó prendida de un día para otro, se entera del cambio de día
-    const ivCaja = setInterval(loadCaja, 120000);
+    const ivCaja = setInterval(() => { if (visible()) loadCaja(); }, 120000);
     // Al volver a la pantalla (tablet que se durmió) actualizar todo
     const onVis = () => { if (document.visibilityState === "visible") { pollActiveOrders(); loadMesas(); loadCaja(); contarEntregados(); } };
     document.addEventListener("visibilitychange", onVis);
@@ -4497,18 +4500,26 @@ function HistorialCajaTabla({ historial, onReload, orders=[], mesas=[], onReabri
   const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
   const [expandedId,      setExpandedId]      = useState(null);
   const [expandedOrderId, setExpandedOrderId] = useState(null);
+  // Pedidos de días viejos: se piden a Supabase recién al abrir ese día (el panel solo tiene los últimos 8 días)
+  const [pedidosDia, setPedidosDia] = useState({});
+  const cargarDia = async (c) => {
+    if (pedidosDia[c.fecha]) return;
+    const [ini, fin] = rangoNegocio(c.fecha);
+    const { data, error } = await supabase.from("orders").select("*").gte("created_at", ini).lt("created_at", fin).limit(500);
+    if (!error) setPedidosDia(p => ({...p, [c.fecha]: data||[]}));
+  };
 
   useEffect(() => { onReload(); }, []);
 
   // Pedidos del día de negocio de la caja (06:00 a 06:00): la misma ventana que usa el cierre
   const getPedidosCaja = (c) => {
     const [inicio, fin] = rangoNegocio(c.fecha);
-    return orders
+    return (pedidosDia[c.fecha] || orders)
       .filter(o => { const ts = Number(o.created_at); return ts >= inicio && ts < fin && o.status !== "eliminado"; })
       .sort((a,b) => Number(a.created_at) - Number(b.created_at));
   };
 
-  const toggleDia = (c) => setExpandedId(p => p === c.id ? null : c.id);
+  const toggleDia = (c) => { if (expandedId !== c.id) cargarDia(c); setExpandedId(p => p === c.id ? null : c.id); };
 
   const ESTADOS = {
     pendiente_pago: {label:"Pend. pago", color:"#D97706", bg:"rgba(217,119,6,.1)", ring:"#D97706", next:"nuevo", nextLabel:"✓ Confirmar pago"},
@@ -4795,7 +4806,7 @@ function MesasView({ onNewOrder }) {
   useEffect(() => {
     load();
     // 60s como fallback — realtime avisa al instante; polling cada 5s quemaba el egress de Supabase
-    const iv = setInterval(load, 60000);
+    const iv = setInterval(() => { if (document.visibilityState === "visible") load(); }, 60000);
     const ch = supabase.channel("mesas-rt")
       .on("postgres_changes",{event:"*",schema:"public",table:"mesas"},()=>load())
       .on("postgres_changes",{event:"*",schema:"public",table:"orders"},()=>load())
