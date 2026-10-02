@@ -1936,6 +1936,12 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const [nuevoPedidoMesaId, setNuevoPedidoMesaId] = useState(null);
   const [mesasData, setMesasData] = useState([]);
   const [totalEntregados, setTotalEntregados] = useState(null); // total histórico, contado en Supabase
+  // Pestaña Historial: se pide a Supabase de a 50 (con buscador), así se puede ver todo sin bajar todo
+  const [histOrders,  setHistOrders]  = useState([]);
+  const [histHasMore, setHistHasMore] = useState(false);
+  const [histLoading, setHistLoading] = useState(false);
+  const [histSearch,  setHistSearch]  = useState("");
+  const histReq = useRef(0);
   const [editOrderId, setEditOrderId] = useState(null);
   const repartidorOverrides = useRef({}); // persists through polling cycles
   const ordersRef = useRef([]); // copia de orders para el poll (que corre fuera del render)
@@ -2126,10 +2132,11 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   };
 
   const loadOrders = useCallback(async () => {
-    // Load active orders + last 90 days of history
-    const since90 = new Date(); since90.setDate(since90.getDate()-90);
+    // Pedidos activos + últimos 40 días (alcanza para la caja, el mes y el ranking).
+    // El historial completo se pide por páginas en la pestaña Historial (antes se bajaban 90 días cada vez).
+    const desde = new Date(); desde.setDate(desde.getDate()-40);
     const { data, error } = await supabase.from("orders").select("*")
-      .or(`status.in.(pendiente_pago,nuevo,preparando,listo),created_at.gte.${since90.getTime()}`)
+      .or(`status.in.(pendiente_pago,nuevo,preparando,listo),created_at.gte.${desde.getTime()}`)
       .order("created_at", {ascending:false})
       .limit(1000);
     if (!error && data) {
@@ -2146,6 +2153,22 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const contarEntregados = useCallback(async () => {
     const { count, error } = await supabase.from("orders").select("id", { count:"exact", head:true }).eq("status","entregado");
     if (!error && count != null) setTotalEntregados(count);
+  }, []);
+
+  const HIST_PAGE = 50;
+  const loadHistorial = useCallback(async (desdeCero, busqueda, yaCargados=0) => {
+    const req = ++histReq.current;
+    setHistLoading(true);
+    let q = supabase.from("orders").select("*").eq("status","entregado");
+    const term = (busqueda||"").replace(/[,()%*]/g," ").trim();
+    if (term) q = q.or(`nombre.ilike.%${term}%,telefono.ilike.%${term}%`);
+    const desde = desdeCero ? 0 : yaCargados;
+    const { data, error } = await q.order("created_at",{ascending:false}).range(desde, desde + HIST_PAGE - 1);
+    if (req !== histReq.current) return; // llegó tarde: ya se pidió otra búsqueda
+    setHistLoading(false);
+    if (error) { alert("No se pudo cargar el historial: " + error.message); return; }
+    setHistOrders(prev => desdeCero ? (data||[]) : [...prev, ...(data||[]).filter(o => !prev.some(x => x.id === o.id))]);
+    setHistHasMore((data||[]).length === HIST_PAGE);
   }, []);
 
   const loadMesas = useCallback(async () => {
@@ -2187,6 +2210,13 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   }, [loadOrders]);
 
   useEffect(() => { ordersRef.current = orders; }, [orders]);
+
+  // Pestaña Historial: primera página al entrar, y de nuevo al buscar (con una pausa para no pedir en cada letra)
+  useEffect(() => {
+    if (filter !== "entregados") return;
+    const t = setTimeout(() => loadHistorial(true, histSearch), histSearch ? 400 : 0);
+    return () => clearTimeout(t);
+  }, [filter, histSearch, loadHistorial]);
 
   useEffect(() => {
     loadOrders();
@@ -2264,6 +2294,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const deleteOrder = async (id) => {
     if (!window.confirm("¿Eliminar este pedido? Esta acción no se puede deshacer.")) return;
     setOrders(p => p.filter(o => o.id !== id));
+    setHistOrders(p => p.filter(o => o.id !== id));
     await supabase.from("orders").delete().eq("id", id);
   };
 
@@ -2314,11 +2345,18 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const filtered = (() => {
     if (filter==="activos") return orders.filter(o=>ESTADOS_ACTIVOS.includes(o.status));
     if (filter==="entregados") {
+      // Los pedidos de la página de historial, con la versión más nueva si también están en memoria
+      const byId = {}; orders.forEach(o => { byId[o.id] = o; });
+      const histIds = new Set(histOrders.map(o => o.id));
+      // Los que se entregaron recién (llegan por realtime) también se muestran sin recargar
+      const minTs = histOrders.length ? Math.min(...histOrders.map(o=>Number(o.created_at))) : 0;
+      const recientes = histSearch.trim() ? [] : orders.filter(o => o.status==="entregado" && !histIds.has(o.id) && (!histHasMore || Number(o.created_at) >= minTs));
+      const hist = [...histOrders.map(o => byId[o.id] || o), ...recientes].filter(o => o.status === "entregado");
       // Individual orders (no mesa)
-      const indiv = orders.filter(o=>o.status==="entregado"&&!o.mesa_id);
+      const indiv = hist.filter(o=>!o.mesa_id);
       // Closed mesa sessions - one synthetic row per session
       const sesMap = {};
-      orders.filter(o=>o.status==="entregado"&&o.mesa_id&&sesionMesaCerrada(o,mesasData)).forEach(o=>{
+      hist.filter(o=>o.mesa_id&&sesionMesaCerrada(o,mesasData)).forEach(o=>{
         const key=o.mesa_id+"-"+(o.mesa_session||1);
         if (!sesMap[key]) sesMap[key]={_mesaSession:true,id:key,mesa_id:o.mesa_id,mesa_session:o.mesa_session||1,orders:[],total:0,pago:o.pago,created_at:o.created_at,status:"entregado"};
         sesMap[key].orders.push(o);
@@ -2586,9 +2624,19 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
         </div>
       )}
 
-      {!["editor","facturacion","config"].includes(filter)&&(
+      {!["editor","facturacion","config","mesas","nuevo_pedido"].includes(filter)&&(
         <div style={{padding:"12px 12px 40px"}}>
-          {filtered.length===0&&(
+          {filter==="entregados"&&(
+            <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
+              <input value={histSearch} onChange={e=>setHistSearch(e.target.value)} placeholder="🔎 Buscar por nombre o teléfono"
+                style={{flex:1,padding:"11px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,fontSize:16,color:"var(--text)"}}/>
+              {totalEntregados!=null&&!histSearch&&<span style={{fontSize:12,color:"var(--text3)",whiteSpace:"nowrap"}}>{totalEntregados.toLocaleString("es-AR")} en total</span>}
+            </div>
+          )}
+          {filter==="entregados"&&histLoading&&filtered.length===0&&(
+            <div style={{textAlign:"center",padding:"32px 0",color:"var(--text4)",fontSize:13}}>Cargando historial...</div>
+          )}
+          {filtered.length===0&&!(filter==="entregados"&&histLoading)&&(
             <div style={{textAlign:"center",padding:"48px 20px",color:"var(--text3)"}}>
               <img src={LOGO_SRC} alt="" style={{width:60,height:60,borderRadius:"50%",objectFit:"cover",opacity:.3,marginBottom:12}}/>
               <div className="sh" style={{fontSize:18,marginBottom:4,color:"var(--text2)"}}>Sin pedidos</div>
@@ -2845,6 +2893,12 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
               </div>
             );
           })}
+          {filter==="entregados"&&histHasMore&&(
+            <button className="btn" onClick={()=>loadHistorial(false, histSearch, histOrders.length)} disabled={histLoading}
+              style={{width:"100%",padding:"13px 0",marginTop:4,borderRadius:12,background:"var(--surface)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
+              {histLoading?"Cargando...":"CARGAR 50 PEDIDOS MÁS"}
+            </button>
+          )}
         </div>
       )}
     </div>
