@@ -1935,6 +1935,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [nuevoPedidoMesaId, setNuevoPedidoMesaId] = useState(null);
   const [mesasData, setMesasData] = useState([]);
+  const [totalEntregados, setTotalEntregados] = useState(null); // total histórico, contado en Supabase
   const [editOrderId, setEditOrderId] = useState(null);
   const repartidorOverrides = useRef({}); // persists through polling cycles
   const ordersRef = useRef([]); // copia de orders para el poll (que corre fuera del render)
@@ -2141,6 +2142,12 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     }
   }, []);
 
+  // Cuenta en Supabase todos los pedidos entregados (sin bajar las filas: no tiene tope ni gasta egress)
+  const contarEntregados = useCallback(async () => {
+    const { count, error } = await supabase.from("orders").select("id", { count:"exact", head:true }).eq("status","entregado");
+    if (!error && count != null) setTotalEntregados(count);
+  }, []);
+
   const loadMesas = useCallback(async () => {
     const { data, error } = await supabase.from("mesas").select("id,session_num,estado");
     if (!error && data) setMesasData(data);
@@ -2184,6 +2191,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   useEffect(() => {
     loadOrders();
     loadMesas();
+    contarEntregados();
     loadCaja().then(() => loadHistorialCaja());
 
     // Polling cada 60s SOLO activos + refresh completo cada 10 min (polling 5s del historial completo quemaba el egress de Supabase)
@@ -2192,13 +2200,14 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     // La caja se revisa cada 2 min: si la tablet quedó prendida de un día para otro, se entera del cambio de día
     const ivCaja = setInterval(loadCaja, 120000);
     // Al volver a la pantalla (tablet que se durmió) actualizar todo
-    const onVis = () => { if (document.visibilityState === "visible") { pollActiveOrders(); loadMesas(); loadCaja(); } };
+    const onVis = () => { if (document.visibilityState === "visible") { pollActiveOrders(); loadMesas(); loadCaja(); contarEntregados(); } };
     document.addEventListener("visibilitychange", onVis);
     // Realtime
     const channel = supabase.channel("admin-rt")
       .on("postgres_changes", {event:"*", schema:"public", table:"orders"}, (p) => {
         const id = p.new?.id || p.old?.id;
         if (id) refreshOrder(id); else loadOrders();
+        contarEntregados();
       })
       .on("postgres_changes", {event:"*", schema:"public", table:"mesas"}, () => loadMesas())
       .on("postgres_changes", {event:"*", schema:"public", table:"caja"}, () => { loadCaja(); loadHistorialCaja(); })
@@ -2208,7 +2217,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       document.removeEventListener("visibilitychange", onVis);
       supabase.removeChannel(channel);
     };
-  }, [loadOrders, loadMesas, loadCaja, loadHistorialCaja, pollActiveOrders, refreshOrder]);
+  }, [loadOrders, loadMesas, loadCaja, loadHistorialCaja, pollActiveOrders, refreshOrder, contarEntregados]);
 
   const updateStatus = async (order, ns) => {
     setOrders(p => p.map(o => o.id===order.id ? {...o,status:ns} : o));
@@ -2332,8 +2341,8 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     {key:"nuevo",       label:"🔴 Nuevos", val:counts.nuevo,       color:"#CC1F1F"},
     {key:"preparando",  label:"🟡 Prep.",  val:counts.preparando,  color:"#D97706"},
     {key:"listo",       label:"🟢 Listos", val:counts.listo,       color:"#16A34A"},
-    // El número es lo entregado HOY (antes contaba 90 días y se quedaba clavado / bajaba solo)
-    {key:"entregados",  label:"Historial", val:cantCobros,         color:"var(--text3)"},
+    // Total histórico de entregados, contado en Supabase (antes contaba lo cargado en pantalla, con tope de 1000, y se clavaba)
+    {key:"entregados",  label:"Historial", val:totalEntregados ?? 0,         color:"var(--text3)"},
     {key:"facturacion", label:"Caja",      val:null,               color:"#D97706"},
     {key:"editor",      label:"Menú",      val:null,               color:"#7C3AED"},
     {key:"nuevo_pedido", label:"Pedido",    val:null,               color:"#16A34A"},
