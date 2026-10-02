@@ -346,6 +346,9 @@ const GS = () => (
     .upload-btn{cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;border:1.5px dashed var(--border2);border-radius:10px;background:transparent;color:var(--text3);font-size:13px;padding:10px;width:100%;transition:all .2s;font-family:'Barlow',sans-serif;}
     .upload-btn:hover{border-color:var(--red);color:var(--red);}
     .sh{font-family:'Barlow Condensed',sans-serif;font-weight:800;}
+    /* Panel admin: tipografía sobria (sin la letra angosta de la web de clientes) */
+    .adm .sh{font-family:'Barlow',sans-serif!important;font-weight:700!important;letter-spacing:-.01em;}
+    .adm [style*="Barlow Condensed"]{font-family:'Barlow',sans-serif!important;}
     .leaflet-container { font-family: 'Barlow', sans-serif !important; }
     @media print {
       * { margin:0; padding:0; box-sizing:border-box; }
@@ -378,8 +381,73 @@ const GS = () => (
 const Card  = ({children, style={}}) => (
   <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14,boxShadow:"0 1px 4px rgba(0,0,0,.04)",...style}}>{children}</div>
 );
-const Label = ({children}) => (
-  <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:12,fontFamily:"'Barlow Condensed',sans-serif"}}>{children}</div>
+// muted = estilo sobrio del panel admin (gris); sin muted = rojo de la web de clientes
+const Label = ({children, muted}) => (
+  <div style={{fontSize:11,fontWeight:700,color:muted?"var(--text3)":"var(--red)",letterSpacing:muted?1.5:2,marginBottom:12,fontFamily:"'Barlow Condensed',sans-serif",display:"flex",alignItems:"center",gap:6}}>{children}</div>
+);
+
+// ── Íconos de línea (trazos de Lucide, licencia ISC) — reemplazan a los emojis del panel ──
+const ICON_PATHS = {
+  efectivo:  ["M2 6h20v12H2z","M12 12m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0","M6 12h.01M18 12h.01"],
+  transferencia: ["M8 3 4 7l4 4","M4 7h16","m16 21 4-4-4-4","M20 17H4"],
+  tarjeta:   ["M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z","M2 10h20"],
+  mixto:     ["m18 14 4 4-4 4","m18 2 4 4-4 4","M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22","M2 6h1.9c1.5 0 2.9.9 3.6 2.2","M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"],
+  delivery:  ["M5.5 17.5m-3.5 0a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0","M18.5 17.5m-3.5 0a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0-7 0","M15 5m-1 0a1 1 0 1 0 2 0a1 1 0 1 0-2 0","M12 17.5V14l-3-3 4-3 2 3h2"],
+  retiro:    ["M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4Z","M3 6h18","M16 10a4 4 0 0 1-8 0"],
+  mesa:      ["M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2","M7 2v20","M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"],
+  imprimir:  ["M6 9V2h12v7","M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2","M6 14h12v8H6z"],
+  editar:    ["M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z","m15 5 4 4"],
+  borrar:    ["M3 6h18","M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6","M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2"],
+  telefono:  ["M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"],
+  nota:      ["M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"],
+  alerta:    ["m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z","M12 9v4","M12 17h.01"],
+  reloj:     ["M12 12m-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0","M12 6v6l4 2"],
+  buscar:    ["M11 11m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0","m21 21-4.3-4.3"],
+  premio:    ["M12 8m-6 0a6 6 0 1 0 12 0a6 6 0 1 0-12 0","M15.477 12.89 17 22l-5-3-5 3 1.523-9.11"],
+  grafico:   ["M3 3v18h18","M18 17V9","M13 17V5","M8 17v-3"],
+  subir:     ["M22 7 13.5 15.5 8.5 10.5 2 17","M16 7h6v6"],
+  candado:   ["M5 11h14a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2z","M7 11V7a5 5 0 0 1 9.9-1"],
+  usuario:   ["M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2","M12 7m-4 0a4 4 0 1 0 8 0a4 4 0 1 0-8 0"],
+  imagen:    ["M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z","M9 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0","m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"],
+  cargar:    ["M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4","M17 8l-5-5-5 5","M12 3v12"],
+  balanza:   ["m16 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z","m2 16 3-8 3 8c-.87.65-1.92 1-3 1s-2.13-.35-3-1Z","M7 21h10","M12 3v18","M3 7h2c2 0 5-1 7-2 2 1 5 2 7 2h2"],
+  prohibido: ["M12 12m-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0","m4.9 4.9 14.2 14.2"],
+  web:       ["M12 12m-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0","M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20","M2 12h20"],
+  etiqueta:  ["M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z","M7.5 7.5h.01"],
+  caja:      ["M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1","M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"],
+  pedidos:   ["M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z","M8 8h8","M8 12h8","M8 16h5"],
+  nuevo:     ["M12 12m-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0","M8 12h8","M12 8v8"],
+  menu:      ["M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z","M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"],
+  config:    ["M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z","M12 12m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0"],
+  salir:     ["M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4","m16 17 5-5-5-5","M21 12H9"],
+  check:     ["M20 6 9 17l-5-5"],
+  flecha:    ["M5 12h14","m12 5 7 7-7 7"],
+  archivo:   ["M22 12h-6l-2 3h-4l-2-3H2","M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"],
+  moto:      ["M5 17m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0","M19 17m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0","M7.5 14h5l4-4H13l-2-3H8","M16 10l3 7"],
+  refrescar: ["M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8","M21 3v5h-5","M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16","M8 16H3v5"],
+};
+const Icon = ({name, size=16, color="currentColor", stroke=2, style={}}) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={stroke} strokeLinecap="round" strokeLinejoin="round"
+    style={{flexShrink:0,display:"inline-block",verticalAlign:"middle",...style}} aria-hidden="true">
+    {(ICON_PATHS[name]||[]).map((d,i)=><path key={i} d={d}/>)}
+  </svg>
+);
+// Medios de pago y tipos de pedido: un solo lugar para nombre, ícono y color
+const PAGO_INFO = {
+  efectivo:      {label:"Efectivo",      icon:"efectivo",      color:"#15803D"},
+  transferencia: {label:"Transferencia", icon:"transferencia", color:"#B45309"},
+  tarjeta:       {label:"Tarjeta",       icon:"tarjeta",       color:"#1D4ED8"},
+  mixto:         {label:"Mixto",         icon:"mixto",         color:"#7E22CE"},
+};
+const PagoTag = ({pago, size=12, showLabel=true}) => {
+  const p = PAGO_INFO[pago]; if (!p) return null;
+  return <span style={{display:"inline-flex",alignItems:"center",gap:4,color:p.color,fontWeight:600}}><Icon name={p.icon} size={size} color={p.color}/>{showLabel&&p.label}</span>;
+};
+// Pastilla neutra con ícono (Delivery, Retiro, Mesa, repartidor...)
+const Tag = ({icon, children, color="var(--text2)", bg="var(--surface2)"}) => (
+  <span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:600,color,background:bg,padding:"3px 8px",borderRadius:6,whiteSpace:"nowrap"}}>
+    {icon&&<Icon name={icon} size={12} color={color}/>}{children}
+  </span>
 );
 
 // Load QZ Tray script
@@ -1613,15 +1681,15 @@ function TicketBtn({ order }) {
 
   if (!open) return (
     <button className="btn" onClick={()=>setOpen(true)}
-      style={{padding:"12px 14px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>
-      🖨️ Ticket
+      style={{flex:1,padding:"10px 14px",borderRadius:10,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+      <Icon name="imprimir" size={14}/>Ticket
     </button>
   );
 
   return (
     <div className="slide-up" style={{position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
       <div style={{background:"var(--surface)",borderRadius:20,padding:24,width:"100%",maxWidth:340,boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
-        <div className="sh" style={{fontSize:18,color:"var(--text)",marginBottom:4}}>🖨️ IMPRIMIR TICKET</div>
+        <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:4,display:"flex",alignItems:"center",gap:8}}><Icon name="imprimir" size={18}/>Imprimir ticket</div>
         <div style={{fontSize:12,color:"var(--text3)",marginBottom:20}}>Aplicá un descuento o adelanto antes de imprimir</div>
         <div style={{marginBottom:16}}>
           <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCUENTO / ADELANTO ($)</div>
@@ -1651,8 +1719,8 @@ function TicketBtn({ order }) {
             Cancelar
           </button>
           <button className="btn" onClick={()=>{printTicket(order,desc,autoDescuento);setOpen(false);setDescuento("");}}
-            style={{flex:2,padding:"12px 0",borderRadius:12,background:"var(--red)",color:"#fff",fontSize:14,fontWeight:800,fontFamily:"'Barlow Condensed',sans-serif",boxShadow:"0 4px 14px var(--red-glow)"}}>
-            🖨️ IMPRIMIR
+            style={{flex:2,padding:"12px 0",borderRadius:10,background:"#18181B",color:"#fff",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <Icon name="imprimir" size={15}/>Imprimir
           </button>
         </div>
       </div>
@@ -1862,12 +1930,12 @@ const printKitchenTickets = (order) => {
   const hasCatId = allItems.some(c => getCatId(c));
 
   if (!hasCatId) {
-    const html = buildKitchenHtml("COCINA", "👨‍🍳", allItems);
+    const html = buildKitchenHtml("COCINA", "", allItems);
     if (html) printWithFallback(html, buildKitchenEscPos("COCINA", allItems, order));
     return;
   }
 
-  [{titulo:"COCINA FRIA", emoji:"🍣", items:itemsFria},{titulo:"COCINA CALIENTE", emoji:"🔥", items:itemsCaliente}]
+  [{titulo:"COCINA FRIA", emoji:"", items:itemsFria},{titulo:"COCINA CALIENTE", emoji:"", items:itemsCaliente}]
     .filter(t => t.items.length > 0)
     .forEach(({titulo, emoji, items}, idx) => {
       setTimeout(() => {
@@ -2031,7 +2099,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       return { ok:true };
     } catch (e) {
       if (e?.code === "23505") { alert("Ya hay otra caja abierta (la abrieron desde otro dispositivo). Te la muestro."); await loadCaja(); return { ok:false }; }
-      alert("❌ No se pudo abrir la caja: " + (e?.message || "error de conexión") + "\n\nRevisá internet e intentá de nuevo.");
+      alert("No se pudo abrir la caja: " + (e?.message || "error de conexión") + "\n\nRevisá internet e intentá de nuevo.");
       return { ok:false };
     } finally {
       setCajaLoading(false);
@@ -2091,7 +2159,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       await loadHistorialCaja();
       return { ok:true };
     } catch (e) {
-      alert("❌ No se pudo cerrar la caja: " + (e?.message || "error de conexión") + "\n\nNo se guardó nada. Revisá internet e intentá de nuevo.");
+      alert("No se pudo cerrar la caja: " + (e?.message || "error de conexión") + "\n\nNo se guardó nada. Revisá internet e intentá de nuevo.");
       return { ok:false };
     } finally {
       setCajaLoading(false);
@@ -2114,7 +2182,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
         return;
       }
       const ahora = new Date().toLocaleString("es-AR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"});
-      const marca = `⚠️ Reabierta ${ahora}`;
+      const marca = `Reabierta ${ahora}`;
       const notasNuevas = target.notas_cierre ? `${target.notas_cierre}\n${marca}` : marca;
       // monto_cierre se conserva: si nadie la vuelve a cerrar, al día siguiente se cierra sola con ese arqueo
       const {error} = await supabase.from("caja").update({
@@ -2127,7 +2195,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       setCajaVista("hoy");
       alert("Caja reabierta. Ya podés agregar movimientos y volver a cerrarla desde la vista Hoy.");
     } catch (e) {
-      alert("❌ No se pudo reabrir la caja: " + (e?.message || "error de conexión"));
+      alert("No se pudo reabrir la caja: " + (e?.message || "error de conexión"));
     }
   };
 
@@ -2373,63 +2441,89 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     preparando:orders.filter(o=>o.status==="preparando").length,
     listo:     orders.filter(o=>o.status==="listo").length,
   };
-  const TABS = [
-    {key:"activos",     label:"Activos",   val:counts.pendiente_pago+counts.nuevo+counts.preparando+counts.listo, color:"var(--text)"},
-    {key:"pendiente_pago", label:"💳 Pendientes", val:counts.pendiente_pago, color:"#D97706"},
-    {key:"nuevo",       label:"🔴 Nuevos", val:counts.nuevo,       color:"#CC1F1F"},
-    {key:"preparando",  label:"🟡 Prep.",  val:counts.preparando,  color:"#D97706"},
-    {key:"listo",       label:"🟢 Listos", val:counts.listo,       color:"#16A34A"},
+  // Filtros de la sección Pedidos (con contador) y secciones principales del panel
+  const FILTROS_PEDIDOS = [
+    {key:"activos",        label:"Activos",        val:counts.pendiente_pago+counts.nuevo+counts.preparando+counts.listo, dot:"#18181B"},
+    {key:"pendiente_pago", label:"Pend. de pago",  val:counts.pendiente_pago, dot:"#D97706"},
+    {key:"nuevo",          label:"Nuevos",         val:counts.nuevo,          dot:"#CC1F1F"},
+    {key:"preparando",     label:"En preparación", val:counts.preparando,     dot:"#D97706"},
+    {key:"listo",          label:"Listos",         val:counts.listo,          dot:"#16A34A"},
     // Total histórico de entregados, contado en Supabase (antes contaba lo cargado en pantalla, con tope de 1000, y se clavaba)
-    {key:"entregados",  label:"Historial", val:totalEntregados ?? 0,         color:"var(--text3)"},
-    {key:"facturacion", label:"Caja",      val:null,               color:"#D97706"},
-    {key:"editor",      label:"Menú",      val:null,               color:"#7C3AED"},
-    {key:"nuevo_pedido", label:"Pedido",    val:null,               color:"#16A34A"},
-    {key:"mesas",        label:"Mesas",     val:null,               color:"#0EA5E9"},
-    {key:"config",        label:"Config",     val:null,               color:"#6B7280"},
+    {key:"entregados",     label:"Historial",      val:totalEntregados ?? 0,  dot:"#A1A1AA"},
+  ];
+  const enPedidos = FILTROS_PEDIDOS.some(f => f.key === filter);
+  const SECCIONES = [
+    {key:"pedidos",      label:"Pedidos",       icon:"pedidos", badge:FILTROS_PEDIDOS[0].val},
+    {key:"nuevo_pedido", label:"Nuevo",         icon:"nuevo"},
+    {key:"mesas",        label:"Mesas",         icon:"mesa"},
+    {key:"facturacion",  label:"Caja",          icon:"caja"},
+    {key:"editor",       label:"Menú",          icon:"menu"},
+    {key:"config",       label:"Ajustes",       icon:"config"},
   ];
 
   return (
-    <div style={{minHeight:"100vh",background:"var(--bg2)"}}>
-      <div style={{background:"var(--red)",padding:"12px 20px",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,zIndex:10}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <img src={LOGO_SRC} alt="Shako" style={{width:40,height:40,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,.4)"}}/>
-          <div>
-            <div className="sh" style={{fontSize:18,color:"#fff"}}>PANEL DE COCINA</div>
-            <div style={{fontSize:11,color:"rgba(255,255,255,.7)"}}>Shako Sushi</div>
+    <div className="adm" style={{minHeight:"100vh",background:"var(--bg2)"}}>
+      <div style={{position:"sticky",top:0,zIndex:10}}>
+        <div style={{background:"#18181B",padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <img src={LOGO_SRC} alt="Shako" style={{width:34,height:34,borderRadius:"50%",objectFit:"cover"}}/>
+            <div>
+              <div style={{fontSize:15,fontWeight:700,color:"#fff",lineHeight:1.1}}>Shako Sushi</div>
+              <div style={{fontSize:11,color:"#A1A1AA"}}>Panel de gestión</div>
+            </div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{fontSize:12,color:"#D4D4D8",display:"flex",alignItems:"center",gap:6}}>
+              <span style={{width:7,height:7,borderRadius:"50%",background:"#22C55E",display:"inline-block"}}/>En vivo
+            </div>
+            <button className="btn" onClick={onExit} style={{display:"flex",alignItems:"center",gap:6,background:"transparent",border:"1px solid #3F3F46",borderRadius:8,padding:"6px 12px",color:"#E4E4E7",fontSize:13,fontWeight:500}}>
+              <Icon name="salir" size={14}/>Salir
+            </button>
           </div>
         </div>
-        <div style={{display:"flex",alignItems:"center",gap:10}}>
-          <div style={{fontSize:12,color:"rgba(255,255,255,.8)",display:"flex",alignItems:"center",gap:5}}>
-            <span style={{width:6,height:6,borderRadius:"50%",background:"#4ADE80",display:"inline-block",boxShadow:"0 0 5px #4ADE80"}}/>En vivo
-          </div>
-          <button className="btn" onClick={onExit} style={{background:"rgba(255,255,255,.15)",border:"1px solid rgba(255,255,255,.3)",borderRadius:8,padding:"7px 16px",color:"#fff",fontSize:13,fontWeight:600}}>Salir</button>
+        <div style={{display:"flex",background:"var(--surface)",borderBottom:"1px solid var(--border)",overflowX:"auto"}}>
+          {SECCIONES.map(s=>{
+            const activa = s.key==="pedidos" ? enPedidos : filter===s.key;
+            return (
+              <button key={s.key} className="btn" onClick={()=>setFilter(s.key==="pedidos"?"activos":s.key)}
+                style={{flex:1,minWidth:56,padding:"9px 2px 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"transparent",
+                  borderBottom:activa?"2px solid var(--red)":"2px solid transparent",color:activa?"var(--red)":"var(--text3)",flexShrink:0,position:"relative"}}>
+                <Icon name={s.icon} size={20} stroke={activa?2.2:1.8}/>
+                <span style={{fontSize:11.5,fontWeight:activa?700:500,whiteSpace:"nowrap"}}>{s.label}</span>
+                {s.badge>0&&<span style={{position:"absolute",top:5,left:"calc(50% + 6px)",minWidth:18,height:18,padding:"0 5px",borderRadius:9,background:"var(--red)",color:"#fff",fontSize:11,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center"}}>{s.badge}</span>}
+              </button>
+            );
+          })}
         </div>
-      </div>
-      <div style={{display:"flex",background:"var(--surface)",borderBottom:"1px solid var(--border)",overflowX:"auto",boxShadow:"0 2px 8px rgba(0,0,0,.05)"}}>
-        {TABS.map(f=>(
-          <button key={f.key} className="btn" onClick={()=>setFilter(f.key)}
-            style={{flex:1,minWidth:48,padding:"12px 4px",textAlign:"center",borderBottom:filter===f.key?"3px solid var(--red)":"3px solid transparent",background:"transparent",transition:"all .2s",flexShrink:0}}>
-            {f.val!==null
-              ?<div className="sh" style={{fontSize:20,color:filter===f.key?"var(--red)":f.val>0?f.color:"var(--text4)"}}>{f.val}</div>
-              :<div style={{fontSize:18,color:filter===f.key?"var(--red)":"var(--text4)"}}>
-                {f.key==="facturacion"?"💰":f.key==="editor"?"✏️":f.key==="mesas"?"🍽️":f.key==="config"?"⚙️":"🛒"}
-              </div>}
-            <div style={{fontSize:10,color:filter===f.key?"var(--red)":"var(--text4)",marginTop:1,whiteSpace:"nowrap",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:600}}>{f.label}</div>
-          </button>
-        ))}
+        {enPedidos&&(
+          <div style={{display:"flex",gap:6,padding:"8px 12px",background:"var(--bg2)",borderBottom:"1px solid var(--border)",overflowX:"auto"}}>
+            {FILTROS_PEDIDOS.map(f=>{
+              const activo = filter===f.key;
+              return (
+                <button key={f.key} className="btn" onClick={()=>setFilter(f.key)}
+                  style={{display:"flex",alignItems:"center",gap:7,padding:"7px 12px",borderRadius:8,flexShrink:0,whiteSpace:"nowrap",fontSize:13,
+                    background:activo?"#18181B":"var(--surface)",color:activo?"#fff":"var(--text2)",border:`1px solid ${activo?"#18181B":"var(--border)"}`,fontWeight:activo?600:500}}>
+                  <span style={{width:7,height:7,borderRadius:"50%",background:f.dot}}/>
+                  {f.label}
+                  <span style={{fontWeight:700,color:activo?"#fff":f.val>0?"var(--text)":"var(--text4)"}}>{f.val.toLocaleString("es-AR")}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Banner caja cerrada */}
       {!["editor","nuevo_pedido"].includes(filter) && filter!=="facturacion" && (!caja || caja.estado==="cerrada") && (
-        <div style={{margin:"12px 12px 0",background:"#FFF7ED",border:"2px solid #FED7AA",borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:12}}>
-          <div style={{width:10,height:10,borderRadius:"50%",background:"#EA580C",flexShrink:0,boxShadow:"0 0 6px #EA580C"}}/>
+        <div style={{margin:"12px 12px 0",background:"#FFFBEB",border:"1px solid #FCD34D",borderRadius:12,padding:"12px 14px",display:"flex",alignItems:"center",gap:12}}>
+          <Icon name="alerta" size={20} color="#B45309"/>
           <div style={{flex:1}}>
-            <div className="sh" style={{fontSize:14,color:"#EA580C"}}>CAJA CERRADA</div>
-            <div style={{fontSize:12,color:"#9A3412",marginTop:2}}>Abrí la caja antes de empezar a tomar pedidos — andá a la tab 💰 Caja</div>
+            <div style={{fontSize:14,fontWeight:700,color:"#92400E"}}>La caja está cerrada</div>
+            <div style={{fontSize:12,color:"#92400E",marginTop:2}}>Abrila antes de empezar a tomar pedidos. Mientras esté cerrada, la web no recibe pedidos.</div>
           </div>
           <button className="btn" onClick={()=>setFilter("facturacion")}
-            style={{background:"#EA580C",borderRadius:10,padding:"7px 14px",color:"#fff",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",flexShrink:0}}>
-            ABRIR CAJA
+            style={{background:"#18181B",borderRadius:8,padding:"8px 14px",color:"#fff",fontSize:13,fontWeight:600,flexShrink:0}}>
+            Abrir caja
           </button>
         </div>
       )}
@@ -2442,82 +2536,76 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
           <CajaWidget caja={caja} cajaLoading={cajaLoading} onAbrir={abrirCaja} onCerrar={cerrarCaja} onPrepararCierre={prepararCierre} onAgregarMovimiento={agregarMovimiento} totEf={totEf} sinCobrar={sinCobrarHoy}
             ultimoCierre={historialCaja.find(c=>c.estado==="cerrada"&&c.monto_cierre!=null)} ultimaCaja={historialCaja.find(c=>c.estado==="cerrada")}/>
           {/* ── TABS HOY / SEMANA / MES ── */}
-          <div style={{display:"flex",gap:6,marginBottom:16,background:"var(--surface2)",borderRadius:12,padding:4}}>
+          <div style={{display:"flex",gap:4,marginBottom:16,background:"var(--surface2)",borderRadius:10,padding:4,border:"1px solid var(--border)"}}>
             {[{k:"hoy",l:"Hoy"},{k:"semana",l:"Esta semana"},{k:"mes",l:"Este mes"},{k:"historial",l:"Historial"}].map(t=>(
               <button key={t.k} className="btn" onClick={()=>setCajaVista(t.k)}
-                style={{flex:1,padding:"8px 0",borderRadius:9,fontSize:12,fontWeight:700,background:cajaVista===t.k?"var(--surface)":"transparent",color:cajaVista===t.k?"var(--red)":"var(--text4)",boxShadow:cajaVista===t.k?"0 1px 4px rgba(0,0,0,.08)":"none",transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.3}}>{t.l}</button>
+                style={{flex:1,padding:"8px 0",borderRadius:7,fontSize:13,fontWeight:cajaVista===t.k?600:500,background:cajaVista===t.k?"var(--surface)":"transparent",color:cajaVista===t.k?"var(--text)":"var(--text3)",boxShadow:cajaVista===t.k?"0 1px 3px rgba(0,0,0,.1)":"none",transition:"all .2s"}}>{t.l}</button>
             ))}
           </div>
 
           {cajaVista==="hoy"&&<>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:16}}>
+          <div style={{display:"flex",alignItems:"flex-end",justifyContent:"space-between",marginBottom:12}}>
             <div>
-              <div className="sh" style={{fontSize:24,color:"var(--text)"}}>FACTURACIÓN DEL DÍA</div>
-              <div style={{fontSize:12,color:"var(--text3)",marginTop:2,textTransform:"capitalize"}}>{todayStr}</div>
-            </div>
-            <div style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"6px 14px",textAlign:"center"}}>
-              <div style={{fontSize:10,color:"#92400E",letterSpacing:1,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>PEDIDOS HOY</div>
-              <div className="sh" style={{fontSize:26,color:"#D97706"}}>{pedidosHoyCount}</div>
+              <div style={{fontSize:20,fontWeight:700,color:"var(--text)"}}>Facturación del día</div>
+              <div style={{fontSize:13,color:"var(--text3)",marginTop:2,textTransform:"capitalize"}}>{todayStr}</div>
             </div>
           </div>
-          <div style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:16,padding:"20px 20px 16px",marginBottom:12}}>
-            <div style={{fontSize:11,color:"#16A34A",fontWeight:700,letterSpacing:2,marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif"}}>TOTAL COBRADO (ENTREGADOS)</div>
-            <div className="sh" style={{fontSize:36,color:"#16A34A"}}>{fmt(totDia)}</div>
-            <div style={{marginTop:8,fontSize:12,color:"var(--text3)",display:"flex",alignItems:"center",gap:6}}>
-              <span style={{color:"#D97706"}}>⏳</span><span>Proyectado con pedidos en curso:</span>
-              <span style={{color:"#D97706",fontWeight:700}}>{fmt(proyect)}</span>
-            </div>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:10,marginBottom:12}}>
+            {[
+              {l:"Total cobrado",   v:fmt(totDia),  sub:"Pedidos entregados", strong:true},
+              {l:"Proyectado",      v:fmt(proyect), sub:"Con pedidos en curso"},
+              {l:"Pedidos hoy",     v:pedidosHoyCount, sub:`${cantCobros} cobrado${cantCobros!==1?"s":""}`},
+              {l:"Ticket promedio", v:cantCobros>0?fmt(Math.round(totDia/cantCobros)):"—", sub:`${entH.reduce((s,o)=>s+(o.items?.reduce((a,c)=>a+c.qty,0)||0),0)} unidades vendidas`},
+            ].map(k=>(
+              <div key={k.l} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:"14px 16px"}}>
+                <div style={{fontSize:12,color:"var(--text3)",fontWeight:500}}>{k.l}</div>
+                <div style={{fontSize:k.strong?26:22,fontWeight:700,color:k.strong?"#15803D":"var(--text)",marginTop:4,letterSpacing:-.3}}>{k.v}</div>
+                <div style={{fontSize:11,color:"var(--text4)",marginTop:2}}>{k.sub}</div>
+              </div>
+            ))}
           </div>
           <Card style={{marginBottom:12}}>
-            <Label>DESGLOSE POR PAGO</Label>
+            <Label muted>DESGLOSE POR MEDIO DE PAGO</Label>
             {[
-              {label:"💵 Efectivo",     total:totEf, count:cobradosHoy.filter(o=>montoPorMetodo(o,"efectivo")>0).length,     color:"#16A34A",bg:"#F0FDF4",border:"#BBF7D0"},
-              {label:"📲 Transferencia",total:totTr, count:cobradosHoy.filter(o=>montoPorMetodo(o,"transferencia")>0).length,color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
-              {label:"💳 Tarjeta",      total:totTj, count:cobradosHoy.filter(o=>montoPorMetodo(o,"tarjeta")>0).length,      color:"#2563EB",bg:"#EFF6FF",border:"#BFDBFE"},
-            ].map(p=>(
-              <div key={p.label} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 14px",borderRadius:12,background:p.bg,border:`1px solid ${p.border}`,marginBottom:8}}>
+              {k:"efectivo",      total:totEf, count:cobradosHoy.filter(o=>montoPorMetodo(o,"efectivo")>0).length},
+              {k:"transferencia", total:totTr, count:cobradosHoy.filter(o=>montoPorMetodo(o,"transferencia")>0).length},
+              {k:"tarjeta",       total:totTj, count:cobradosHoy.filter(o=>montoPorMetodo(o,"tarjeta")>0).length},
+            ].map((p,i)=>(
+              <div key={p.k} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"11px 0",borderBottom:i<2?"1px solid var(--border)":"none"}}>
                 <div style={{display:"flex",alignItems:"center",gap:10}}>
-                  <span style={{fontSize:14,fontWeight:700,color:p.color,fontFamily:"'Barlow Condensed',sans-serif"}}>{p.label}</span>
-                  <span style={{fontSize:11,color:"var(--text3)",background:"var(--bg2)",padding:"2px 8px",borderRadius:20,border:"1px solid var(--border)"}}>{p.count} pedido{p.count!==1?"s":""}</span>
+                  <span style={{width:32,height:32,borderRadius:8,background:PAGO_INFO[p.k].color+"14",display:"flex",alignItems:"center",justifyContent:"center"}}><Icon name={PAGO_INFO[p.k].icon} size={17} color={PAGO_INFO[p.k].color}/></span>
+                  <div>
+                    <div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{PAGO_INFO[p.k].label}</div>
+                    <div style={{fontSize:12,color:"var(--text3)"}}>{p.count} pedido{p.count!==1?"s":""}</div>
+                  </div>
                 </div>
-                <span className="sh" style={{fontSize:18,color:p.color}}>{fmt(p.total)}</span>
+                <span style={{fontSize:17,fontWeight:700,color:"var(--text)"}}>{fmt(p.total)}</span>
               </div>
             ))}
             {totDia>0&&(
-              <div style={{marginTop:10,height:8,borderRadius:8,background:"var(--bg2)",overflow:"hidden",display:"flex",border:"1px solid var(--border)"}}>
-                {totEf>0&&<div style={{width:`${(totEf/totDia*100).toFixed(1)}%`,background:"#16A34A"}}/>}
-                {totTr>0&&<div style={{width:`${(totTr/totDia*100).toFixed(1)}%`,background:"#D97706"}}/>}
-                {totTj>0&&<div style={{width:`${(totTj/totDia*100).toFixed(1)}%`,background:"#2563EB"}}/>}
+              <div style={{marginTop:10,height:6,borderRadius:6,background:"var(--surface2)",overflow:"hidden",display:"flex"}}>
+                {totEf>0&&<div style={{width:`${(totEf/totDia*100).toFixed(1)}%`,background:PAGO_INFO.efectivo.color}}/>}
+                {totTr>0&&<div style={{width:`${(totTr/totDia*100).toFixed(1)}%`,background:PAGO_INFO.transferencia.color}}/>}
+                {totTj>0&&<div style={{width:`${(totTj/totDia*100).toFixed(1)}%`,background:PAGO_INFO.tarjeta.color}}/>}
               </div>
             )}
           </Card>
-          <div style={{display:"flex",gap:10,marginBottom:12}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:10,marginBottom:12}}>
             {[
-              {label:"🏃 Retiro",  total:totRet, count:entH.filter(o=>o.tipo==="retiro").length,   color:"#7C3AED",bg:"#FAF5FF",border:"#E9D5FF"},
-              {label:"🍽️ Mesas",   total:totMesa,count:mesaSessionList.length,                         color:"#EA580C",bg:"#FFF7ED",border:"#FED7AA"},
-              {label:"🛵 Delivery",total:totDel, count:entH.filter(o=>o.tipo==="delivery").length, color:"#D97706",bg:"#FFFBEB",border:"#FDE68A"},
+              {label:"Delivery", icon:"delivery", total:totDel, count:entH.filter(o=>o.tipo==="delivery").length},
+              {label:"Retiro",   icon:"retiro",   total:totRet, count:entH.filter(o=>o.tipo==="retiro").length},
+              {label:"Mesas",    icon:"mesa",     total:totMesa,count:mesaSessionList.length},
             ].map(t=>(
-              <div key={t.label} style={{flex:1,background:t.bg,border:`1px solid ${t.border}`,borderRadius:14,padding:"14px 16px"}}>
-                <div className="sh" style={{fontSize:14,color:t.color,marginBottom:4}}>{t.label}</div>
-                <div className="sh" style={{fontSize:22,color:t.color}}>{fmt(t.total)}</div>
-                <div style={{fontSize:12,color:"var(--text3)",marginTop:3}}>{t.count} pedido{t.count!==1?"s":""}</div>
+              <div key={t.label} style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:"12px 14px"}}>
+                <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"var(--text3)",fontWeight:500}}><Icon name={t.icon} size={14}/>{t.label}</div>
+                <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginTop:6}}>{fmt(t.total)}</div>
+                <div style={{fontSize:11,color:"var(--text4)",marginTop:1}}>{t.count} pedido{t.count!==1?"s":""}</div>
               </div>
             ))}
           </div>
-          <Card style={{marginBottom:12,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <div>
-              <div style={{fontSize:11,color:"var(--text3)",letterSpacing:1.5,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>TICKET PROMEDIO</div>
-              <div className="sh" style={{fontSize:26,color:"var(--red)"}}>{cantCobros>0?fmt(Math.round(totDia/cantCobros)):"—"}</div>
-            </div>
-            <div style={{width:1,height:40,background:"var(--border)"}}/>
-            <div style={{textAlign:"right"}}>
-              <div style={{fontSize:11,color:"var(--text3)",letterSpacing:1.5,marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>UNIDADES VENDIDAS</div>
-              <div className="sh" style={{fontSize:26,color:"var(--text2)"}}>{entH.reduce((s,o)=>s+(o.items?.reduce((a,c)=>a+c.qty,0)||0),0)}</div>
-            </div>
-          </Card>
           {topProds.length>0&&(
             <Card style={{marginBottom:12}}>
-              <Label>🏆 PRODUCTOS MÁS VENDIDOS (esta semana)</Label>
+              <Label muted><Icon name="premio" size={14}/>PRODUCTOS MÁS VENDIDOS · ESTA SEMANA</Label>
               {topProds.map((p,i)=>(
                 <div key={p.nombre} style={{display:"flex",alignItems:"center",gap:10,padding:"9px 0",borderBottom:i<topProds.length-1?"1px solid var(--border)":"none"}}>
                   <div style={{width:24,height:24,borderRadius:8,background:i===0?"#FEF3C7":i===1?"#F3F4F6":"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:i===0?"#D97706":i===1?"#6B7280":"var(--text4)",flexShrink:0,fontFamily:"'Barlow Condensed',sans-serif",border:"1px solid var(--border)"}}>{i+1}</div>
@@ -2533,7 +2621,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
             </Card>
           )}
           <Card>
-            <Label>TODOS LOS PEDIDOS DE HOY</Label>
+            <Label muted>TODOS LOS PEDIDOS DE HOY</Label>
             {(()=>{
               // Session-closed check
               const isClosed = (o) => { if (!o.mesa_id) return true; const m=mesasData.find(x=>x.id===o.mesa_id); return m?(m.session_num||1)>(o.mesa_session||1):true; };
@@ -2566,7 +2654,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                           </div>
                           <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
                             {hora} · {o.orders.length} pedido{o.orders.length!==1?"s":""} · {nItems} items
-                            {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":o.pago==="mixto"?"#9333EA":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":o.pago==="mixto"?"🔀":"💳"}</span>}
+                            {o.pago&&<span style={{marginLeft:6}}>· <PagoTag pago={o.pago} size={11}/></span>}
                           </div>
                         </div>
                         <span className="sh" style={{fontSize:15,color:"#16A34A",flexShrink:0}}>{fmt(o.total)}</span>
@@ -2582,11 +2670,11 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                           <span style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>{o.nombre}</span>
                           <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
                           <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.bg,padding:"1px 6px",borderRadius:20}}>{est.label}</span>
-                          {o.tipo==="delivery"&&<span style={{marginLeft:4,color:"#D97706"}}>🛵</span>}
+                          {o.tipo==="delivery"&&<Tag icon="delivery">Delivery</Tag>}
                         </div>
                         <div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
                           {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})} · {o.items?.reduce((s,c)=>s+c.qty,0)||0} items
-                          {o.pago&&<span style={{marginLeft:4,color:o.pago==="efectivo"?"#16A34A":o.pago==="transferencia"?"#D97706":o.pago==="mixto"?"#9333EA":"#2563EB"}}>· {o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":o.pago==="mixto"?"🔀":"💳"}</span>}
+                          {o.pago&&<span style={{marginLeft:6}}>· <PagoTag pago={o.pago} size={11}/></span>}
                         </div>
                       </div>
                       <span className="sh" style={{fontSize:15,color:o.status==="entregado"?"#16A34A":"var(--text3)",flexShrink:0}}>{fmt(o.total)}</span>
@@ -2628,8 +2716,11 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
         <div style={{padding:"12px 12px 40px"}}>
           {filter==="entregados"&&(
             <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:12}}>
-              <input value={histSearch} onChange={e=>setHistSearch(e.target.value)} placeholder="🔎 Buscar por nombre o teléfono"
-                style={{flex:1,padding:"11px 14px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,fontSize:16,color:"var(--text)"}}/>
+              <div style={{flex:1,display:"flex",alignItems:"center",gap:8,padding:"0 12px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:10}}>
+                <Icon name="buscar" size={16} color="var(--text4)"/>
+                <input value={histSearch} onChange={e=>setHistSearch(e.target.value)} placeholder="Buscar por nombre o teléfono"
+                  style={{flex:1,padding:"11px 0",fontSize:16,color:"var(--text)"}}/>
+              </div>
               {totalEntregados!=null&&!histSearch&&<span style={{fontSize:12,color:"var(--text3)",whiteSpace:"nowrap"}}>{totalEntregados.toLocaleString("es-AR")} en total</span>}
             </div>
           )}
@@ -2637,10 +2728,10 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
             <div style={{textAlign:"center",padding:"32px 0",color:"var(--text4)",fontSize:13}}>Cargando historial...</div>
           )}
           {filtered.length===0&&!(filter==="entregados"&&histLoading)&&(
-            <div style={{textAlign:"center",padding:"48px 20px",color:"var(--text3)"}}>
-              <img src={LOGO_SRC} alt="" style={{width:60,height:60,borderRadius:"50%",objectFit:"cover",opacity:.3,marginBottom:12}}/>
-              <div className="sh" style={{fontSize:18,marginBottom:4,color:"var(--text2)"}}>Sin pedidos</div>
-              <div style={{fontSize:13}}>No hay pedidos en esta categoría</div>
+            <div style={{textAlign:"center",padding:"56px 20px",color:"var(--text3)"}}>
+              <Icon name="archivo" size={36} color="var(--text4)" stroke={1.5}/>
+              <div style={{fontSize:16,fontWeight:600,margin:"12px 0 4px",color:"var(--text2)"}}>Sin pedidos</div>
+              <div style={{fontSize:13}}>{histSearch&&filter==="entregados"?"No se encontraron pedidos con esa búsqueda":"No hay pedidos en esta categoría"}</div>
             </div>
           )}
           {filtered.map(order=>{
@@ -2650,23 +2741,21 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
               const nItems = order.orders.reduce((s,o)=>s+(o.items?.reduce((a,c)=>a+c.qty,0)||0),0);
               const fmt2 = (n)=>`$${Number(n||0).toLocaleString("es-AR")}`;
               return(
-                <div key={order.id} style={{background:"var(--surface)",border:`2px solid ${isExp?"var(--red-border)":"var(--border)"}`,borderRadius:16,marginBottom:10,overflow:"hidden"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:order.id)}>
-                    <div style={{width:10,height:10,borderRadius:"50%",background:"#16A34A",boxShadow:"0 0 6px #16A34A",flexShrink:0}}/>
+                <div key={order.id} style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--border2)":"var(--border)"}`,borderLeft:"4px solid #A1A1AA",borderRadius:12,marginBottom:8,overflow:"hidden",boxShadow:isExp?"0 4px 14px rgba(0,0,0,.06)":"none"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:order.id)}>
                     <div style={{flex:1,minWidth:0}}>
-                      <div style={{display:"flex",alignItems:"center",gap:8}}>
-                        <span className="sh" style={{fontSize:15,color:"var(--text)"}}>Mesa {order.mesa_id.replace("mv","V").replace("m","")}</span>
-                        <span style={{fontSize:12,fontWeight:700,color:"#16A34A",background:"#F0FDF4",padding:"2px 8px",borderRadius:20}}>Entregado</span>
-                        <span style={{fontSize:11,color:"var(--text4)",background:"var(--bg2)",padding:"2px 6px",borderRadius:20}}>🍽️ Mesa</span>
+                      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                        <span style={{fontSize:15,fontWeight:700,color:"var(--text)"}}>Mesa {order.mesa_id.replace("mv","V").replace("m","")}</span>
+                        <Tag icon="mesa">Mesa</Tag>
                       </div>
-                      <div style={{fontSize:13,color:"var(--text3)",marginTop:3}}>
-                        {order.orders.length} pedido{order.orders.length!==1?"s":""} · {nItems} items · {timeAgo(order.created_at)}
-                        {order.pago&&<span style={{marginLeft:6,color:order.pago==="efectivo"?"#16A34A":order.pago==="transferencia"?"#D97706":order.pago==="mixto"?"#9333EA":"#2563EB"}}>{order.pago==="efectivo"?"💵":order.pago==="transferencia"?"📲":order.pago==="mixto"?"🔀":"💳"} {order.pago}</span>}
+                      <div style={{fontSize:12,color:"var(--text3)",marginTop:4,display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}>
+                        <span>{order.orders.length} pedido{order.orders.length!==1?"s":""} · {nItems} items · {timeAgo(order.created_at)}</span>
+                        {order.pago&&<span>· <PagoTag pago={order.pago} size={11}/></span>}
                       </div>
                     </div>
                     <div style={{textAlign:"right",flexShrink:0}}>
-                      <div className="sh" style={{fontSize:17,color:"#16A34A"}}>{fmt2(order.total)}</div>
-                      <div style={{fontSize:10,color:"var(--text4)",marginTop:2}}>{isExp?"▲":"▼"}</div>
+                      <div style={{fontSize:17,fontWeight:700,color:"var(--text)"}}>{fmt2(order.total)}</div>
+                      <div style={{fontSize:11,color:"var(--text4)",marginTop:1}}>Entregado</div>
                     </div>
                   </div>
                   {isExp&&(
@@ -2694,23 +2783,26 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
             const est=ESTADOS[order.status]||ESTADOS.nuevo; const isExp=expandedId===order.id;
             return(
               <div key={order.id} className={order.status==="nuevo"?"pulse-new":""}
-                style={{background:"var(--surface)",border:`2px solid ${isExp?est.ring:order.status==="nuevo"?"rgba(204,31,31,.3)":"var(--border)"}`,borderRadius:16,marginBottom:10,overflow:"hidden",transition:"all .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
-                <div style={{display:"flex",alignItems:"center",gap:12,padding:"13px 14px",cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:order.id)}>
-                  <div style={{width:10,height:10,borderRadius:"50%",background:est.ring,boxShadow:`0 0 6px ${est.ring}`,flexShrink:0}}/>
+                style={{background:"var(--surface)",border:`1px solid ${isExp?"var(--border2)":"var(--border)"}`,borderLeft:`4px solid ${order.status==="entregado"?"#A1A1AA":est.ring}`,borderRadius:12,marginBottom:8,overflow:"hidden",transition:"all .2s",boxShadow:isExp?"0 4px 14px rgba(0,0,0,.06)":"none"}}>
+                <div style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",cursor:"pointer"}} onClick={()=>setExpandedId(isExp?null:order.id)}>
                   <div style={{flex:1,minWidth:0}}>
-                    <div style={{display:"flex",alignItems:"center",gap:8}}>
-                      <span className="sh" style={{fontSize:15,color:"var(--text)"}}>#{order.id.slice(-5).toUpperCase()}</span>
-                      <span style={{fontSize:12,fontWeight:700,color:est.color,background:est.bg,padding:"2px 8px",borderRadius:20}}>{est.label}</span>
-                      {order.tipo==="delivery"&&<span style={{fontSize:11,color:"#D97706",background:"#FFFBEB",padding:"2px 6px",borderRadius:20,fontWeight:600}}>🛵 Delivery</span>}
-                      {order.repartidor&&<span style={{fontSize:11,color:"#7C3AED",background:"#FAF5FF",padding:"2px 6px",borderRadius:20,fontWeight:600,border:"1px solid #E9D5FF"}}>🏍️ {order.repartidor}</span>}
+                    <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                      <span style={{fontSize:15,fontWeight:700,color:"var(--text)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"60%"}}>{order.nombre||"Sin nombre"}</span>
+                      <span style={{fontSize:12,color:"var(--text4)",fontFamily:"ui-monospace,monospace"}}>#{order.id.slice(-5).toUpperCase()}</span>
                     </div>
-                    <div style={{fontSize:13,color:"var(--text3)",marginTop:3}}>{order.nombre} · {timeAgo(order.created_at)}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:6,marginTop:6,flexWrap:"wrap"}}>
+                      {order.status!=="entregado"&&<span style={{fontSize:11,fontWeight:700,color:est.color,background:est.bg,padding:"3px 8px",borderRadius:6}}>{est.label}</span>}
+                      {order.tipo==="delivery"&&<Tag icon="delivery">Delivery</Tag>}
+                      {order.tipo==="retiro"&&<Tag icon="retiro">Retiro</Tag>}
+                      {order.mesa_id&&<Tag icon="mesa">Mesa {order.mesa_id.replace("mv","V").replace("m","")}</Tag>}
+                      {order.repartidor&&<Tag icon="moto" color="#6D28D9" bg="#F5F3FF">{order.repartidor}</Tag>}
+                      <span style={{fontSize:12,color:"var(--text4)"}}>{timeAgo(order.created_at)}</span>
+                    </div>
                   </div>
-                  <div style={{textAlign:"right"}}>
-                    <div className="sh" style={{fontSize:17,color:"var(--red)"}}>{fmt(order.total)}</div>
-                    <div style={{fontSize:11,color:"var(--text4)",marginTop:1}}>{order.items?.reduce((s,c)=>s+c.qty,0)||0} items</div>
+                  <div style={{textAlign:"right",flexShrink:0}}>
+                    <div style={{fontSize:17,fontWeight:700,color:"var(--text)"}}>{fmt(order.total)}</div>
+                    <div style={{fontSize:11,color:"var(--text4)",marginTop:1}}>{order.items?.reduce((s,c)=>s+c.qty,0)||0} items{order.pago?<> · <PagoTag pago={order.pago} size={11} showLabel={false}/></>:null}</div>
                   </div>
-                  <span style={{color:"var(--text4)",fontSize:13}}>{isExp?"▲":"▼"}</span>
                 </div>
                 {isExp&&(
                   <div className="fade-in" style={{padding:"0 14px 14px",borderTop:"1px solid var(--border)"}}>
@@ -2727,64 +2819,61 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                     </div>
                     {order.telefono&&(
                       <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:10}}>
-                        <span style={{fontSize:13,color:"var(--text3)"}}>📞 {order.telefono}</span>
+                        <span style={{fontSize:13,color:"var(--text2)",display:"flex",alignItems:"center",gap:6}}><Icon name="telefono" size={14} color="var(--text3)"/>{order.telefono}</span>
                         <a href={`https://wa.me/54${order.telefono.replace(/\D/g,"")}`} target="_blank" rel="noreferrer"
-                          style={{color:"#16A34A",fontSize:12,textDecoration:"none",background:"#F0FDF4",border:"1px solid #BBF7D0",padding:"2px 8px",borderRadius:20,fontWeight:600}}>WhatsApp →</a>
+                          style={{color:"#15803D",fontSize:12,textDecoration:"none",border:"1px solid #BBF7D0",padding:"3px 10px",borderRadius:6,fontWeight:600,display:"flex",alignItems:"center",gap:4}}>WhatsApp<Icon name="flecha" size={12}/></a>
                       </div>
                     )}
                     {order.tipo==="delivery"&&order.calle&&(
-                      <div style={{fontSize:13,background:"#FFFBEB",borderRadius:10,padding:"9px 13px",marginBottom:10,border:"1px solid #FDE68A",display:"flex",gap:8}}>
-                        <span>🛵</span>
+                      <div style={{fontSize:13,background:"var(--bg2)",borderRadius:10,padding:"10px 13px",marginBottom:10,border:"1px solid var(--border)",display:"flex",gap:10}}>
+                        <Icon name="delivery" size={16} color="var(--text3)" style={{marginTop:2}}/>
                         <div>
-                          <div style={{color:"#D97706",fontSize:11,fontWeight:700,marginBottom:3,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:1}}>DIRECCIÓN DE ENTREGA</div>
+                          <div style={{color:"var(--text3)",fontSize:11,fontWeight:700,marginBottom:3,letterSpacing:.5}}>DIRECCIÓN DE ENTREGA</div>
                           <div style={{color:"var(--text2)"}}>{order.calle} {order.numero}{order.entrecalle?` e/ ${order.entrecalle}`:""}{order.piso?`, ${order.piso}`:""}</div>
                           {order.barrio&&<div style={{color:"var(--text3)",fontSize:12,marginTop:1}}>{order.barrio}</div>}
                         </div>
                       </div>
                     )}
                     {order.notas&&(
-                      <div style={{fontSize:13,color:"var(--text2)",background:"var(--bg2)",borderRadius:10,padding:"10px 14px",marginBottom:12,borderLeft:`3px solid ${est.ring}`,lineHeight:1.5}}>
-                        💬 <em>{order.notas}</em>
+                      <div style={{fontSize:13,color:"var(--text2)",background:"#FFFBEB",borderRadius:10,padding:"10px 13px",marginBottom:12,border:"1px solid #FDE68A",lineHeight:1.5,display:"flex",gap:10}}>
+                        <Icon name="nota" size={15} color="#B45309" style={{marginTop:2}}/><span>{order.notas}</span>
                       </div>
                     )}
                     {/* Asignar repartidor - solo cuando está listo para despachar */}
                     {order.tipo==="delivery"&&order.status==="listo"&&(
-                      <div style={{marginBottom:12,background:"#FAF5FF",borderRadius:12,padding:"10px 12px",border:"1px solid #E9D5FF"}}>
-                        <div style={{fontSize:10,color:"#7C3AED",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:8}}>🏍️ REPARTIDOR</div>
+                      <div style={{marginBottom:12}}>
+                        <div style={{fontSize:11,color:"var(--text3)",fontWeight:700,letterSpacing:.5,marginBottom:6,display:"flex",alignItems:"center",gap:5}}><Icon name="moto" size={13}/>REPARTIDOR</div>
                         <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
                           {appConfig.repartidores.map(r=>(
                             <button key={r} className="btn" onClick={()=>updateRepartidor(order,r)}
-                              style={{padding:"7px 12px",borderRadius:10,fontSize:12,fontWeight:700,
-                                background:order.repartidor===r?"#7C3AED":"var(--surface)",
-                                border:`2px solid ${order.repartidor===r?"#7C3AED":"#E9D5FF"}`,
-                                color:order.repartidor===r?"#fff":"#7C3AED",
-                                transition:"all .15s",fontFamily:"'Barlow Condensed',sans-serif"}}>
-                              {r}
+                              style={{padding:"8px 14px",borderRadius:8,fontSize:13,fontWeight:600,
+                                background:order.repartidor===r?"#18181B":"var(--surface)",
+                                border:`1px solid ${order.repartidor===r?"#18181B":"var(--border2)"}`,
+                                color:order.repartidor===r?"#fff":"var(--text2)",
+                                display:"flex",alignItems:"center",gap:5}}>
+                              {order.repartidor===r&&<Icon name="check" size={13}/>}{r}
                             </button>
                           ))}
                         </div>
-                        {order.repartidor&&(
-                          <div style={{marginTop:8,fontSize:12,color:"#7C3AED",fontWeight:600}}>
-                            ✓ Asignado a <strong>{order.repartidor}</strong>
-                          </div>
-                        )}
                       </div>
                     )}
                     {/* Cambio de método de pago - solo para pedidos sin mesa */}
                     {!order.mesa_id&&(
                     <div style={{marginTop:10,marginBottom:8}}>
-                      <div style={{fontSize:10,color:"var(--text4)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:6}}>MÉTODO DE PAGO</div>
+                      <div style={{fontSize:11,color:"var(--text3)",fontWeight:700,letterSpacing:.5,marginBottom:6}}>MEDIO DE PAGO</div>
                       <div style={{display:"flex",gap:6}}>
-                        {[{v:"efectivo",l:"💵 Efectivo"},{v:"transferencia",l:"📲 Transf."},{v:"tarjeta",l:"💳 Tarjeta"}].map(p=>(
-                          <button key={p.v} className="btn" onClick={()=>updatePago(order,p.v)}
-                            style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:11,fontWeight:700,
-                              background:order.pago===p.v?"var(--red-light)":"var(--bg2)",
-                              border:`2px solid ${order.pago===p.v?"var(--red)":"var(--border)"}`,
-                              color:order.pago===p.v?"var(--red)":"var(--text3)",
-                              transition:"all .2s",fontFamily:"'Barlow Condensed',sans-serif"}}>
-                            {p.l}
-                          </button>
-                        ))}
+                        {["efectivo","transferencia","tarjeta"].map(v=>{
+                          const sel = order.pago===v, info = PAGO_INFO[v];
+                          return (
+                            <button key={v} className="btn" onClick={()=>updatePago(order,v)}
+                              style={{flex:1,padding:"9px 0",borderRadius:8,fontSize:12,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:5,
+                                background:sel?info.color+"12":"var(--surface)",
+                                border:`1px solid ${sel?info.color:"var(--border2)"}`,
+                                color:sel?info.color:"var(--text3)"}}>
+                              <Icon name={info.icon} size={14}/>{v==="transferencia"?"Transf.":info.label}
+                            </button>
+                          );
+                        })}
                       </div>
                     </div>)}
                     {/* Detallar valores - pago mixto */}
@@ -2801,46 +2890,44 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                             setSplitAmounts({efectivo:order.pago==="efectivo"?String(order.total):"",transferencia:order.pago==="transferencia"?String(order.total):"",tarjeta:order.pago==="tarjeta"?String(order.total):""});
                           }
                         }}
-                          style={{width:"100%",padding:"8px 0",borderRadius:10,fontSize:11,fontWeight:700,
-                            background:order.pago==="mixto"?"#F3E8FF":"var(--bg2)",
-                            border:`2px solid ${order.pago==="mixto"?"#C084FC":"var(--border)"}`,
-                            color:order.pago==="mixto"?"#9333EA":"var(--text3)",
-                            fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
-                          {order.pago==="mixto"?"🔀 PAGO MIXTO — Editar desglose":"🔀 Detallar valores (pago mixto)"}
+                          style={{width:"100%",padding:"9px 0",borderRadius:8,fontSize:12,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+                            background:order.pago==="mixto"?PAGO_INFO.mixto.color+"12":"transparent",
+                            border:`1px ${order.pago==="mixto"?"solid":"dashed"} ${order.pago==="mixto"?PAGO_INFO.mixto.color:"var(--border2)"}`,
+                            color:order.pago==="mixto"?PAGO_INFO.mixto.color:"var(--text3)"}}>
+                          <Icon name="mixto" size={14}/>{order.pago==="mixto"?"Pago mixto · editar desglose":"Pago mixto (dividir entre medios)"}
                         </button>
                       ):(
-                        <div style={{background:"#FAF5FF",border:"2px solid #C084FC",borderRadius:12,padding:12}}>
-                          <div style={{fontSize:10,color:"#9333EA",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1,marginBottom:8}}>DETALLAR VALORES</div>
-                          {[{k:"efectivo",l:"💵 Efectivo",c:"#16A34A"},{k:"transferencia",l:"📲 Transferencia",c:"#D97706"},{k:"tarjeta",l:"💳 Tarjeta",c:"#2563EB"}].map(p=>(
-                            <div key={p.k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                              <span style={{fontSize:12,fontWeight:700,color:p.c,width:120,fontFamily:"'Barlow Condensed',sans-serif"}}>{p.l}</span>
+                        <div style={{background:"var(--bg2)",border:"1px solid var(--border2)",borderRadius:10,padding:12}}>
+                          <div style={{fontSize:11,color:"var(--text3)",fontWeight:700,letterSpacing:.5,marginBottom:8}}>DIVIDIR EL PAGO</div>
+                          {["efectivo","transferencia","tarjeta"].map(k=>(
+                            <div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+                              <span style={{fontSize:13,width:130}}><PagoTag pago={k} size={14}/></span>
                               <span style={{color:"var(--text3)",fontSize:14}}>$</span>
-                              <input type="number" min="0" value={splitAmounts[p.k]} placeholder="0"
-                                onChange={e=>setSplitAmounts(prev=>({...prev,[p.k]:e.target.value}))}
-                                style={{flex:1,padding:"6px 10px",borderRadius:8,border:"1px solid var(--border)",fontSize:14,fontWeight:700,
-                                  background:"var(--surface)",color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+                              <input type="number" min="0" value={splitAmounts[k]} placeholder="0"
+                                onChange={e=>setSplitAmounts(prev=>({...prev,[k]:e.target.value}))}
+                                style={{flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid var(--border)",fontSize:15,fontWeight:600,
+                                  background:"var(--surface)",color:"var(--text)"}}/>
                             </div>
                           ))}
                           {(()=>{
                             const sumSplit = (Number(splitAmounts.efectivo)||0)+(Number(splitAmounts.transferencia)||0)+(Number(splitAmounts.tarjeta)||0);
                             const diff = sumSplit - Number(order.total);
                             return(<>
-                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"6px 0",borderTop:"1px solid #E9D5FF",marginTop:4}}>
-                                <span style={{fontSize:11,color:"var(--text3)",fontWeight:600}}>Total pedido: <strong>${Number(order.total).toLocaleString("es-AR")}</strong></span>
-                                <span style={{fontSize:11,fontWeight:700,color:diff===0?"#16A34A":diff>0?"#D97706":"#DC2626"}}>
-                                  Suma: ${sumSplit.toLocaleString("es-AR")} {diff!==0&&`(${diff>0?"+":""}${diff.toLocaleString("es-AR")})`}
+                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0 2px",borderTop:"1px solid var(--border)",marginTop:4}}>
+                                <span style={{fontSize:12,color:"var(--text3)"}}>Total pedido: <strong style={{color:"var(--text)"}}>{fmt(order.total)}</strong></span>
+                                <span style={{fontSize:12,fontWeight:700,color:diff===0?"#15803D":diff>0?"#B45309":"#DC2626"}}>
+                                  Suma: {fmt(sumSplit)} {diff!==0&&`(${diff>0?"+":""}${diff.toLocaleString("es-AR")})`}
                                 </span>
                               </div>
                               <div style={{display:"flex",gap:6,marginTop:8}}>
                                 <button className="btn" onClick={()=>{setSplitPayId(null);setSplitAmounts({efectivo:"",transferencia:"",tarjeta:""});}}
-                                  style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif"}}>
+                                  style={{flex:1,padding:"9px 0",borderRadius:8,fontSize:13,fontWeight:600,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)"}}>
                                   Cancelar
                                 </button>
                                 <button className="btn" onClick={()=>updatePagoDetalle(order,splitAmounts)}
                                   disabled={sumSplit===0}
-                                  style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,
-                                    background:sumSplit>0?"#9333EA":"var(--border)",border:"none",color:"#fff",
-                                    fontFamily:"'Barlow Condensed',sans-serif",opacity:sumSplit===0?.5:1}}>
+                                  style={{flex:1,padding:"9px 0",borderRadius:8,fontSize:13,fontWeight:600,
+                                    background:"#18181B",border:"none",color:"#fff",opacity:sumSplit===0?.4:1}}>
                                   Guardar desglose
                                 </button>
                               </div>
@@ -2849,44 +2936,40 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                         </div>
                       )}
                       {order.pago==="mixto"&&order.pago_detalle&&splitPayId!==order.id&&(
-                        <div style={{marginTop:6,display:"flex",gap:6,flexWrap:"wrap"}}>
+                        <div style={{marginTop:6,display:"flex",gap:10,flexWrap:"wrap",fontSize:12}}>
                           {order.pago_detalle.map(d=>(
-                            <span key={d.metodo} style={{fontSize:11,fontWeight:700,padding:"3px 8px",borderRadius:20,
-                              background:d.metodo==="efectivo"?"#F0FDF4":d.metodo==="transferencia"?"#FFFBEB":"#EFF6FF",
-                              border:`1px solid ${d.metodo==="efectivo"?"#BBF7D0":d.metodo==="transferencia"?"#FDE68A":"#BFDBFE"}`,
-                              color:d.metodo==="efectivo"?"#16A34A":d.metodo==="transferencia"?"#D97706":"#2563EB",
-                              fontFamily:"'Barlow Condensed',sans-serif"}}>
-                              {d.metodo==="efectivo"?"💵":d.metodo==="transferencia"?"📲":"💳"} ${Number(d.monto).toLocaleString("es-AR")}
+                            <span key={d.metodo} style={{display:"inline-flex",alignItems:"center",gap:4}}>
+                              <PagoTag pago={d.metodo} size={12} showLabel={false}/><span style={{fontWeight:600,color:"var(--text2)"}}>{fmt(d.monto)}</span>
                             </span>
                           ))}
                         </div>
                       )}
                     </div>)}
-                    <div style={{display:"flex",gap:8,marginTop:6}}>
+                    <div style={{display:"flex",gap:8,marginTop:10,flexWrap:"wrap"}}>
                       {est.next&&(()=>{
                         const needsRep = est.next==="entregado" && order.tipo==="delivery" && !order.repartidor;
                         return(
                           <button className="btn"
                             onClick={()=>{ if(needsRep) return; updateStatus(order,est.next); if(est.next==="entregado") printTicket(order); if(est.next==="preparando") printKitchenTickets(order); }}
                             title={needsRep?"Asigná un repartidor antes de despachar":""}
-                            style={{flex:1,padding:"12px 0",borderRadius:12,
-                              background:needsRep?"var(--border)":est.bg,
-                              border:`1px solid ${needsRep?"var(--border2)":est.ring}`,
-                              color:needsRep?"var(--text4)":est.color,
-                              fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5,
-                              cursor:needsRep?"not-allowed":"pointer",opacity:needsRep?.6:1,transition:"all .2s"}}>
-                            {needsRep?"⚠ Elegí un repartidor primero":`${est.nextLabel} →`}
+                            style={{flex:"1 1 100%",padding:"12px 0",borderRadius:10,
+                              background:needsRep?"var(--surface2)":est.ring,
+                              border:"none",
+                              color:needsRep?"var(--text4)":"#fff",
+                              fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:6,
+                              cursor:needsRep?"not-allowed":"pointer",transition:"all .2s"}}>
+                            {needsRep?<><Icon name="alerta" size={15}/>Elegí un repartidor primero</>:<>{est.nextLabel.replace(/\s*[✓→]\s*/g," ").trim()}<Icon name="flecha" size={15}/></>}
                           </button>
                         );
                       })()}
                       <TicketBtn order={order}/>
                       {["preparando","listo"].includes(order.status)&&(
                         <button className="btn" onClick={()=>setEditOrderId(order.id)} title="Modificar pedido"
-                          style={{padding:"12px 16px",borderRadius:12,background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#2563EB",fontSize:13,fontWeight:600}}>
-                          ✏️ Modificar
+                          style={{flex:1,padding:"10px 14px",borderRadius:10,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                          <Icon name="editar" size={14}/>Modificar
                         </button>
                       )}
-                      <button className="btn" onClick={()=>deleteOrder(order.id)} title="Eliminar pedido" style={{padding:"12px 16px",borderRadius:12,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13,fontWeight:600}}>Eliminar</button>
+                      <button className="btn" onClick={()=>deleteOrder(order.id)} title="Eliminar pedido" style={{flex:1,padding:"10px 14px",borderRadius:10,background:"var(--surface)",border:"1px solid #FECACA",color:"#DC2626",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}><Icon name="borrar" size={14}/>Eliminar</button>
                     </div>
                   </div>
                 )}
@@ -2998,7 +3081,7 @@ function MenuEditor({ menu, saveMenu }) {
         </div>
         <div style={{display:"flex",gap:8,alignItems:"center"}}>
           {saved&&<span className="fade-in" style={{fontSize:12,color:"#16A34A",fontWeight:700}}>✓ Guardado</span>}
-          <button className="btn" onClick={()=>setShowBulk(true)} style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"8px 14px",color:"#B45309",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>📈 AUMENTAR %</button>
+          <button className="btn" onClick={()=>setShowBulk(true)} style={{background:"#FEF3C7",border:"1px solid #FDE68A",borderRadius:10,padding:"8px 14px",color:"#B45309",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}><span style={{display:"inline-flex",alignItems:"center",gap:5}}><Icon name="subir" size={14}/>AUMENTAR %</span></button>
           <button className="btn" onClick={flash} style={{background:"#F0FDF4",border:"1px solid #BBF7D0",borderRadius:10,padding:"8px 16px",color:"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>GUARDAR</button>
         </div>
       </div>
@@ -3006,7 +3089,7 @@ function MenuEditor({ menu, saveMenu }) {
         <div onClick={()=>setShowBulk(false)} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.5)",zIndex:9999,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
           <div onClick={e=>e.stopPropagation()} className="slide-up" style={{background:"var(--surface)",borderRadius:16,padding:20,maxWidth:420,width:"100%",boxShadow:"0 20px 50px rgba(0,0,0,.3)"}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
-              <div className="sh" style={{fontSize:20,color:"#B45309"}}>📈 AUMENTAR PRECIOS</div>
+              <div className="sh" style={{fontSize:20,color:"#B45309"}}>AUMENTAR PRECIOS</div>
               <button className="btn" onClick={()=>setShowBulk(false)} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text3)",fontSize:12,fontWeight:600}}>✕</button>
             </div>
             <div style={{fontSize:12,color:"var(--text3)",marginBottom:14,lineHeight:1.5}}>
@@ -3084,20 +3167,20 @@ function MenuEditor({ menu, saveMenu }) {
                       background:editId===`${cat.id}:${item.id}`?"#FAF5FF":"var(--surface)",
                       border:`1px solid ${editId===`${cat.id}:${item.id}`?"#E9D5FF":"var(--border)"}`,transition:"all .2s"}}>
                     <div style={{width:38,height:38,borderRadius:8,overflow:"hidden",flexShrink:0,background:"var(--bg2)",display:"flex",alignItems:"center",justifyContent:"center",border:"1px solid var(--border)"}}>
-                      {item.imagen?<img src={item.imagen} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>:<span style={{color:"var(--text4)",fontSize:16}}>📷</span>}
+                      {item.imagen?<img src={item.imagen} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>:<Icon name="imagen" size={16} color="var(--text4)"/>}
                     </div>
                     <div style={{flex:1,minWidth:0}}>
                       <div style={{fontSize:13,fontWeight:600,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",color:item.disponible===false?"var(--text4)":"var(--text)"}}>
-                        {item.disponible===false?"🚫 ":""}{item.soloAdmin?"👤 ":""}{item.nombre}
+                        {item.disponible===false&&<Icon name="prohibido" size={12} color="#DC2626" style={{marginRight:4}}/>}{item.soloAdmin&&<Icon name="usuario" size={12} color="var(--text3)" style={{marginRight:4}}/>}{item.nombre}
                       </div>
                       <div className="sh" style={{fontSize:13,color:"var(--red)",marginTop:1}}>{fmt(item.precio)}{item.opciones?.length?<span style={{fontSize:10,color:"var(--text4)",marginLeft:6,fontFamily:"'Barlow',sans-serif",fontWeight:400}}>{item.opciones.length} grupo{item.opciones.length!==1?"s":""} de opciones</span>:null}</div>
                     </div>
-                    <span style={{fontSize:12,color:"#7C3AED",flexShrink:0}}>✏️</span>
+                    <Icon name="editar" size={14} color="var(--text4)"/>
                   </div>
                   {editId===`${cat.id}:${item.id}`&&(
                     <div className="slide-up" style={{background:"var(--surface)",border:"2px solid #E9D5FF",borderRadius:12,padding:14,marginTop:4}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-                        <span className="sh" style={{fontSize:14,color:"#7C3AED"}}>✏️ {item.nombre}</span>
+                        <span className="sh" style={{fontSize:14,color:"#7C3AED"}}>{item.nombre}</span>
                         <button className="btn" onClick={e=>{e.stopPropagation();setEditId(null);}} style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:8,padding:"4px 10px",color:"var(--text3)",fontSize:12,fontWeight:600}}>✕ Cerrar</button>
                       </div>
                       {/* Imagen */}
@@ -3107,10 +3190,10 @@ function MenuEditor({ menu, saveMenu }) {
                           <div style={{width:60,height:60,borderRadius:8,overflow:"hidden",flexShrink:0,background:"var(--bg2)",border:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"center",position:"relative"}}>
                             {item.imagen?<><img src={item.imagen} alt="preview" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>
                               <button className="btn" onClick={e=>{e.stopPropagation();updItem(cat.id,item.id,{imagen:""});}} style={{position:"absolute",top:2,right:2,width:16,height:16,borderRadius:"50%",background:"rgba(0,0,0,.6)",color:"#fff",fontSize:9,display:"flex",alignItems:"center",justifyContent:"center"}}>✕</button>
-                            </>:<span style={{color:"var(--text4)",fontSize:20}}>📷</span>}
+                            </>:<Icon name="imagen" size={20} color="var(--text4)"/>}
                           </div>
                           <div style={{flex:1,display:"flex",flexDirection:"column",gap:5}}>
-                            <label className="upload-btn" style={{padding:"7px"}} onClick={e=>e.stopPropagation()}><input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(cat.id,item.id,e.target.files[0])}/>📤 Subir foto</label>
+                            <label className="upload-btn" style={{padding:"7px"}} onClick={e=>e.stopPropagation()}><input type="file" accept="image/*" style={{display:"none"}} onChange={e=>handleFile(cat.id,item.id,e.target.files[0])}/><Icon name="cargar" size={14}/>Subir foto</label>
                             <input value={item.imagen||""} onChange={e=>{e.stopPropagation();updItem(cat.id,item.id,{imagen:e.target.value});}} onClick={e=>e.stopPropagation()} placeholder="o pegá una URL..."
                               style={{width:"100%",padding:"6px 9px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:7,fontSize:11,color:"var(--text)"}}/>
                           </div>
@@ -3139,7 +3222,7 @@ function MenuEditor({ menu, saveMenu }) {
                       {/* Por kilo toggle */}
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 11px",background:"var(--bg2)",borderRadius:8,border:"1px solid var(--border)",marginBottom:6}} onClick={e=>e.stopPropagation()}>
                         <div>
-                          <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>⚖️ Venta por kilo</div>
+                          <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>Venta por kilo</div>
                           <div style={{fontSize:10,color:"var(--text3)"}}>El admin ingresa el peso en kg al agregar al pedido</div>
                         </div>
                         <div onClick={()=>updItem(cat.id,item.id,{porKilo:!item.porKilo})}
@@ -3158,7 +3241,7 @@ function MenuEditor({ menu, saveMenu }) {
                       {/* Solo Admin toggle */}
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 11px",background:"var(--bg2)",borderRadius:8,border:"1px solid var(--border)",marginBottom:10}} onClick={e=>e.stopPropagation()}>
                         <div>
-                          <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>👤 Solo admin</div>
+                          <div style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>Solo admin</div>
                           <div style={{fontSize:10,color:"var(--text3)"}}>Oculto en el menú de clientes, visible al hacer pedidos desde admin</div>
                         </div>
                         <div onClick={()=>updItem(cat.id,item.id,{soloAdmin:!item.soloAdmin})}
@@ -3221,7 +3304,7 @@ function MenuEditor({ menu, saveMenu }) {
                       {/* Eliminar */}
                       <button className="btn" onClick={e=>{e.stopPropagation();delItem(cat.id,item.id);}}
                         style={{width:"100%",padding:"8px 0",borderRadius:8,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                        🗑 ELIMINAR ESTE PRODUCTO
+                        ELIMINAR ESTE PRODUCTO
                       </button>
                     </div>
                   )}
@@ -3233,7 +3316,7 @@ function MenuEditor({ menu, saveMenu }) {
                   + AGREGAR PRODUCTO
                 </button>
                 <button className="btn" onClick={()=>delCat(cat.id)}
-                  style={{padding:"10px 14px",borderRadius:10,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13}}>🗑</button>
+                  style={{padding:"10px 14px",borderRadius:10,background:"#FFF1F2",border:"1px solid #FECDD3",color:"#CC1F1F",fontSize:13}}><Icon name="borrar" size={15}/></button>
               </div>
             </div>
           )}
@@ -3297,7 +3380,7 @@ function CajaWidget({ caja, cajaLoading, onAbrir, onCerrar, onPrepararCierre, on
     const m = Number(monto);
     if (abierta) {
       const sinEntregar = sinCobrar.filter(o=>o.status!=="pendiente_pago");
-      if (sinEntregar.length > 0 && !window.confirm(`⚠️ Hay ${sinEntregar.length} pedido${sinEntregar.length!==1?"s":""} de hoy sin marcar como entregado (o mesas sin cobrar).
+      if (sinEntregar.length > 0 && !window.confirm(`Hay ${sinEntregar.length} pedido${sinEntregar.length!==1?"s":""} de hoy sin marcar como entregado (o mesas sin cobrar).
 
 Esa plata NO está sumada en el esperado. Lo mejor es marcarlos como entregados antes de cerrar.
 
@@ -3330,121 +3413,119 @@ Contado: ${fmt(m)}
     const result = await onAgregarMovimiento(movTipo, movMonto, movDesc);
     setMovLoading(false);
     if (result && result.ok === false) {
-      alert("❌ No se pudo guardar el movimiento:\n" + (result.error||"error desconocido") + "\n\nIntentá de nuevo.");
+      alert("No se pudo guardar el movimiento:\n" + (result.error||"error desconocido") + "\n\nIntentá de nuevo.");
       return;
     }
     setShowMov(false); setMovMonto(""); setMovDesc(""); setMovTipo("salida");
   };
 
+  const btnSec = {padding:"10px 0",background:"var(--surface)",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text2)",fontSize:14,fontWeight:600};
+  const inputBase = {width:"100%",padding:"11px 13px",background:"var(--surface)",border:"1px solid var(--border2)",borderRadius:10,color:"var(--text)"};
+  const aviso = {background:"#FFFBEB",border:"1px solid #FCD34D",borderRadius:10,padding:"10px 13px",fontSize:13,color:"#92400E",lineHeight:1.45,display:"flex",gap:10};
+
   return (
     <div style={{marginBottom:16}}>
       {/* Estado actual */}
-      <div style={{background:abierta?"#F0FDF4":"#FFF1F2",border:`1px solid ${abierta?"#BBF7D0":"#FECDD3"}`,borderRadius:16,padding:"16px 18px",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-        <div style={{display:"flex",alignItems:"center",gap:12}}>
-          <div style={{width:12,height:12,borderRadius:"50%",background:abierta?"#16A34A":"#DC2626",boxShadow:`0 0 8px ${abierta?"#16A34A":"#DC2626"}`}}/>
+      <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:"14px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:12}}>
+        <div style={{display:"flex",alignItems:"center",gap:12,minWidth:0}}>
+          <span style={{width:38,height:38,borderRadius:10,background:abierta?"#DCFCE7":"var(--surface2)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0}}>
+            <Icon name="caja" size={19} color={abierta?"#15803D":"var(--text3)"}/>
+          </span>
           <div>
-            <div className="sh" style={{fontSize:18,color:abierta?"#16A34A":"#DC2626"}}>{caja?`CAJA ${abierta?"ABIERTA":"CERRADA"}`:"SIN CAJA HOY"}</div>
-            {caja&&<div style={{fontSize:11,color:"var(--text3)",marginTop:2}}>
-              {abierta?`Apertura: ${caja.hora_apertura}`:`Cierre: ${caja.hora_cierre}`}
-              {caja.monto_apertura>0&&` · Inicial: ${fmt(caja.monto_apertura)}`}
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:16,fontWeight:700,color:"var(--text)"}}>{caja?(abierta?"Caja abierta":"Caja cerrada"):"Sin caja hoy"}</span>
+              <span style={{width:8,height:8,borderRadius:"50%",background:abierta?"#22C55E":"#A1A1AA"}}/>
+            </div>
+            {caja&&<div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>
+              {abierta?`Abrió ${caja.hora_apertura}`:`Cerró ${caja.hora_cierre||"automáticamente"}`}
+              {` · Inicial ${fmt(caja.monto_apertura)}`}
             </div>}
           </div>
         </div>
         <button className="btn" onClick={toggleForm} disabled={preparando}
-          style={{padding:"9px 18px",borderRadius:12,background:abierta?"rgba(220,38,38,.1)":"rgba(22,163,74,.1)",border:`1px solid ${abierta?"#DC2626":"#16A34A"}`,color:abierta?"#DC2626":"#16A34A",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
-          {preparando?"Actualizando...":abierta?"CERRAR CAJA":"ABRIR CAJA"}
+          style={{padding:"9px 16px",borderRadius:10,background:abierta?"var(--surface)":"#18181B",border:abierta?"1px solid var(--border2)":"none",color:abierta?"var(--text)":"#fff",fontSize:13,fontWeight:600,whiteSpace:"nowrap",flexShrink:0}}>
+          {preparando?"Actualizando...":abierta?"Cerrar caja":"Abrir caja"}
         </button>
       </div>
 
       {/* Caja de otro día que se reabrió para corregir: hay que cerrarla para poder abrir la de hoy */}
       {abierta&&caja.fecha!==fechaNegocio()&&(
-        <div style={{marginTop:8,background:"#FFF7ED",border:"2px solid #FED7AA",borderRadius:12,padding:"10px 14px",fontSize:13,color:"#9A3412",lineHeight:1.4}}>
-          ⚠️ Esta es la caja del <strong>{fechaCorta(caja.fecha)}</strong>, que se reabrió para corregir algo. Cuando termines, cerrala para poder abrir la caja de hoy. Mientras tanto la web no toma pedidos.
+        <div style={{...aviso,marginTop:8}}>
+          <Icon name="alerta" size={16} color="#B45309" style={{marginTop:1}}/>
+          <span>Esta es la caja del <strong>{fechaCorta(caja.fecha)}</strong>, que se reabrió para corregir algo. Cuando termines, cerrala para poder abrir la caja de hoy. Mientras tanto la web no toma pedidos.</span>
         </div>
       )}
 
       {/* ── Movimientos de efectivo (solo cuando está abierta) ── */}
       {abierta&&(
-        <div style={{marginTop:10}}>
-          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:6}}>
-            <div style={{fontSize:11,color:"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>MOVIMIENTOS DE EFECTIVO</div>
+        <div style={{marginTop:10,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,overflow:"hidden"}}>
+          <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:(showMov||movimientos.length>0)?"1px solid var(--border)":"none"}}>
+            <div style={{fontSize:13,fontWeight:600,color:"var(--text2)"}}>Retiros y entradas de efectivo</div>
             <button className="btn" onClick={()=>setShowMov(!showMov)}
-              style={{fontSize:11,padding:"5px 12px",borderRadius:9,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-              + AGREGAR
+              style={{fontSize:12,padding:"6px 12px",borderRadius:8,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontWeight:600}}>
+              {showMov?"Cerrar":"+ Agregar"}
             </button>
           </div>
 
           {showMov&&(
-            <div className="slide-up" style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:8}}>
-              <div style={{display:"flex",gap:6,marginBottom:10}}>
-                {[{k:"salida",l:"↑ RETIRO / SALIDA"},{k:"entrada",l:"↓ ENTRADA"}].map(t=>(
+            <div className="fade-in" style={{padding:14,background:"var(--bg2)",borderBottom:movimientos.length>0?"1px solid var(--border)":"none"}}>
+              <div style={{display:"flex",gap:4,marginBottom:10,background:"var(--surface2)",padding:3,borderRadius:9}}>
+                {[{k:"salida",l:"Retiro / salida"},{k:"entrada",l:"Entrada"}].map(t=>(
                   <button key={t.k} className="btn" onClick={()=>setMovTipo(t.k)}
-                    style={{flex:1,padding:"8px 0",borderRadius:10,fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",
-                      background:movTipo===t.k?(t.k==="salida"?"#DC2626":"#16A34A"):"var(--bg2)",
-                      color:movTipo===t.k?"#fff":"var(--text3)",
-                      border:`1px solid ${movTipo===t.k?(t.k==="salida"?"#DC2626":"#16A34A"):"var(--border)"}`}}>
+                    style={{flex:1,padding:"8px 0",borderRadius:7,fontSize:13,fontWeight:600,
+                      background:movTipo===t.k?"var(--surface)":"transparent",
+                      color:movTipo===t.k?(t.k==="salida"?"#DC2626":"#15803D"):"var(--text3)",
+                      boxShadow:movTipo===t.k?"0 1px 3px rgba(0,0,0,.1)":"none"}}>
                     {t.l}
                   </button>
                 ))}
               </div>
               <input type="number" min="1" value={movMonto} onChange={e=>setMovMonto(e.target.value)} placeholder="Monto $"
-                style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:16,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:8}}/>
+                style={{...inputBase,fontSize:17,fontWeight:600,marginBottom:8}}/>
               <input value={movDesc} onChange={e=>setMovDesc(e.target.value)}
                 placeholder={movTipo==="salida"?"Descripción (ej: compra mercadería)":"Descripción (ej: fondo de caja extra)"}
-                style={{width:"100%",padding:"10px 12px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,color:"var(--text)",marginBottom:10}}/>
+                style={{...inputBase,fontSize:14,marginBottom:10}}/>
               <div style={{display:"flex",gap:8}}>
-                <button className="btn" onClick={()=>{setShowMov(false);setMovMonto("");setMovDesc("");}}
-                  style={{flex:1,padding:"10px 0",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,color:"var(--text3)",fontSize:13,fontWeight:600}}>Cancelar</button>
+                <button className="btn" onClick={()=>{setShowMov(false);setMovMonto("");setMovDesc("");}} style={{...btnSec,flex:1}}>Cancelar</button>
                 <button className="btn" onClick={handleAgregarMov} disabled={movLoading||!movMonto}
-                  style={{flex:2,padding:"10px 0",background:movTipo==="salida"?"#DC2626":"#16A34A",borderRadius:10,color:"#fff",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                  {movLoading?"...":(movTipo==="salida"?"CONFIRMAR RETIRO":"CONFIRMAR ENTRADA")}
+                  style={{flex:2,padding:"10px 0",background:"#18181B",borderRadius:10,color:"#fff",fontSize:14,fontWeight:600,opacity:!movMonto?.5:1}}>
+                  {movLoading?"Guardando...":(movTipo==="salida"?"Confirmar retiro":"Confirmar entrada")}
                 </button>
               </div>
             </div>
           )}
 
           {movimientos.length>0?(
-            <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,overflow:"hidden"}}>
+            <div>
               {movimientos.map((m,i)=>(
                 <div key={i} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:i<movimientos.length-1?"1px solid var(--border)":"none"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:8}}>
-                    <span style={{fontSize:16,lineHeight:1}}>{m.tipo==="salida"?"↑":"↓"}</span>
-                    <div>
-                      <div style={{fontSize:12,fontWeight:700,color:m.tipo==="salida"?"#DC2626":"#16A34A",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
-                        {m.tipo==="salida"?"RETIRO":"ENTRADA"}
-                      </div>
-                      <div style={{fontSize:11,color:"var(--text3)"}}>{m.hora} · {m.descripcion}</div>
-                    </div>
+                  <div>
+                    <div style={{fontSize:13,fontWeight:600,color:"var(--text)"}}>{m.tipo==="salida"?"Retiro":"Entrada"} · <span style={{fontWeight:400,color:"var(--text3)"}}>{m.descripcion}</span></div>
+                    <div style={{fontSize:11,color:"var(--text4)"}}>{m.hora}</div>
                   </div>
-                  <span className="sh" style={{fontSize:15,color:m.tipo==="salida"?"#DC2626":"#16A34A"}}>
-                    {m.tipo==="salida"?"-":"+"}{fmt(m.monto)}
+                  <span style={{fontSize:15,fontWeight:700,color:m.tipo==="salida"?"#DC2626":"#15803D"}}>
+                    {m.tipo==="salida"?"−":"+"}{fmt(m.monto)}
                   </span>
                 </div>
               ))}
-              {(totalSalidas>0||totalEntradas>0)&&(
-                <div style={{display:"flex",justifyContent:"space-between",padding:"8px 14px",background:"var(--bg2)",borderTop:"1px solid var(--border)"}}>
-                  {totalEntradas>0&&<span style={{fontSize:12,color:"#16A34A",fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>Entradas: +{fmt(totalEntradas)}</span>}
-                  {totalSalidas>0&&<span style={{fontSize:12,color:"#DC2626",fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>Retiros: -{fmt(totalSalidas)}</span>}
-                </div>
-              )}
             </div>
-          ):(
-            <div style={{textAlign:"center",padding:"10px 0",color:"var(--text4)",fontSize:12}}>Sin movimientos registrados hoy</div>
+          ):(!showMov&&
+            <div style={{padding:"0 14px 10px",color:"var(--text4)",fontSize:12}}>Sin movimientos registrados hoy</div>
           )}
         </div>
       )}
 
       {/* Formulario apertura/cierre */}
       {showForm&&(
-        <div className="slide-up" style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:14,padding:16,marginTop:8}}>
-          <div className="sh" style={{fontSize:16,color:"var(--text)",marginBottom:14}}>{abierta?"CERRAR CAJA":"ABRIR CAJA"}</div>
+        <div className="slide-up" style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:12,padding:16,marginTop:10,boxShadow:"0 6px 20px rgba(0,0,0,.06)"}}>
+          <div style={{fontSize:17,fontWeight:700,color:"var(--text)",marginBottom:14}}>{abierta?"Cerrar caja":"Abrir caja"}</div>
 
           {/* Pedidos de hoy que todavía no entraron a la caja */}
           {abierta&&sinCobrar.filter(o=>o.status!=="pendiente_pago").length>0&&(
-            <div style={{background:"#FFF7ED",border:"2px solid #FED7AA",borderRadius:12,padding:"10px 14px",marginBottom:12,fontSize:12,color:"#9A3412",lineHeight:1.45}}>
-              <div style={{fontWeight:700,marginBottom:4}}>⚠️ Hay pedidos de hoy sin marcar como entregados</div>
-              Su plata NO está sumada en el esperado. Marcalos como entregados (o cobrá la mesa) antes de cerrar:
-              <div style={{marginTop:6}}>
+            <div style={{...aviso,marginBottom:12,flexDirection:"column",gap:4}}>
+              <div style={{fontWeight:700,display:"flex",alignItems:"center",gap:6}}><Icon name="alerta" size={15} color="#B45309"/>Hay pedidos de hoy sin marcar como entregados</div>
+              <div>Su plata NO está sumada en el esperado. Marcalos como entregados (o cobrá la mesa) antes de cerrar:</div>
+              <div style={{marginTop:4}}>
                 {sinCobrar.filter(o=>o.status!=="pendiente_pago").slice(0,8).map(o=>(
                   <div key={o.id}>• {o.mesa_id?"Mesa "+o.mesa_id.replace("mv","V").replace("m",""):(o.nombre||"Sin nombre")} — {fmt(o.total)} ({o.status==="entregado"?"mesa sin cobrar":(ESTADOS[o.status]?.label||o.status)})</div>
                 ))}
@@ -3452,86 +3533,83 @@ Contado: ${fmt(m)}
             </div>
           )}
 
-          {/* Arqueo de billetes (solo al cerrar) */}
+          {/* Resumen esperado + arqueo de billetes (solo al cerrar) */}
           {abierta&&(
-            <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:12,padding:14,marginBottom:14}}>
-              <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:10}}>ARQUEO DE BILLETES</div>
-              <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:12}}>
-                {BILLETES.map(b=>(
-                  <div key={b} style={{display:"flex",alignItems:"center",gap:6,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:9,padding:"6px 10px"}}>
-                    <span style={{fontSize:12,fontWeight:700,color:"var(--text2)",fontFamily:"'Barlow Condensed',sans-serif",minWidth:52}}>${b.toLocaleString("es-AR")}</span>
-                    <span style={{color:"var(--text4)",fontSize:12}}>×</span>
-                    <input type="number" min="0" value={arqueo[b]||""} onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setArqueo(p=>({...p,[b]:v}));}}
-                      placeholder="0" style={{width:46,padding:"5px 6px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:7,fontSize:14,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif",textAlign:"center"}}/>
-                    <span style={{fontSize:11,color:"var(--text4)",flex:1,textAlign:"right",fontFamily:"'Barlow Condensed',sans-serif"}}>{arqueo[b]>0?fmt(b*arqueo[b]):""}</span>
-                  </div>
-                ))}
-              </div>
-              {arqueoTotal>0&&(
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 10px",background:"var(--surface)",border:"1px solid var(--border)",borderRadius:9,marginBottom:10}}>
-                  <span style={{fontSize:12,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>TOTAL ARQUEO</span>
-                  <span className="sh" style={{fontSize:20,color:"#2563EB"}}>{fmt(arqueoTotal)}</span>
-                </div>
-              )}
-              {arqueoTotal>0&&arqueoTotal!==Number(monto||0)&&(
-                <button className="btn" onClick={()=>setMonto(String(arqueoTotal))}
-                  style={{width:"100%",padding:"8px 0",borderRadius:9,background:"#2563EB",color:"#fff",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",marginBottom:10,border:"none"}}>
-                  USAR TOTAL ARQUEO COMO MONTO DE CIERRE
-                </button>
-              )}
-              <div style={{borderTop:"1px solid var(--border)",paddingTop:10}}>
-                <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif",marginBottom:8}}>RESUMEN ESPERADO</div>
+            <>
+              <div style={{background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,padding:"10px 14px",marginBottom:12}}>
                 {[
-                  {l:"Saldo inicial",     v:fmt(saldoInicial),   c:"#2563EB"},
-                  {l:"+ Ventas efectivo", v:fmt(totEf),          c:"#16A34A"},
-                  ...(totalEntradas>0?[{l:"+ Entradas extra",    v:fmt(totalEntradas), c:"#16A34A"}]:[]),
-                  ...(totalSalidas>0? [{l:"- Retiros",           v:fmt(totalSalidas),  c:"#DC2626"}]:[]),
+                  {l:"Saldo inicial",     v:fmt(saldoInicial)},
+                  {l:"+ Ventas en efectivo", v:fmt(totEf)},
+                  ...(totalEntradas>0?[{l:"+ Entradas",  v:fmt(totalEntradas)}]:[]),
+                  ...(totalSalidas>0? [{l:"− Retiros",   v:fmt(totalSalidas)}]:[]),
                 ].map(r=>(
-                  <div key={r.l} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"5px 0",borderBottom:"1px solid var(--border)"}}>
-                    <span style={{fontSize:12,color:"var(--text3)"}}>{r.l}</span>
-                    <span style={{fontSize:13,fontWeight:700,color:r.c,fontFamily:"'Barlow Condensed',sans-serif"}}>{r.v}</span>
+                  <div key={r.l} style={{display:"flex",justifyContent:"space-between",padding:"4px 0",fontSize:13}}>
+                    <span style={{color:"var(--text3)"}}>{r.l}</span>
+                    <span style={{fontWeight:600,color:"var(--text2)"}}>{r.v}</span>
                   </div>
                 ))}
-                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,marginTop:4}}>
-                  <span style={{fontSize:12,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>ESPERADO EN CAJA</span>
-                  <span className="sh" style={{fontSize:18,color:"var(--text)"}}>{fmt(esperado)}</span>
+                <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:8,marginTop:4,borderTop:"1px solid var(--border)"}}>
+                  <span style={{fontSize:13,fontWeight:700,color:"var(--text)"}}>Efectivo esperado</span>
+                  <span style={{fontSize:18,fontWeight:700,color:"var(--text)"}}>{fmt(esperado)}</span>
                 </div>
-                {diferencia!==null&&(
-                  <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",paddingTop:6,marginTop:6,borderTop:"1px solid var(--border)"}}>
-                    <span style={{fontSize:12,color:"var(--text3)"}}>Diferencia</span>
-                    <span className="sh" style={{fontSize:15,color:diferencia===0?"#16A34A":diferencia>0?"#D97706":"#DC2626"}}>
-                      {diferencia>0?"+":""}{fmt(diferencia)}
-                    </span>
-                  </div>
-                )}
               </div>
-            </div>
+
+              <details style={{marginBottom:12}}>
+                <summary style={{cursor:"pointer",fontSize:13,fontWeight:600,color:"var(--text2)",padding:"6px 0"}}>Contar billetes (opcional){arqueoTotal>0?` · ${fmt(arqueoTotal)}`:""}</summary>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,margin:"8px 0"}}>
+                  {BILLETES.map(b=>(
+                    <div key={b} style={{display:"flex",alignItems:"center",gap:6,background:"var(--surface)",border:"1px solid var(--border)",borderRadius:8,padding:"5px 8px"}}>
+                      <span style={{fontSize:13,fontWeight:600,color:"var(--text2)",minWidth:54}}>${b.toLocaleString("es-AR")}</span>
+                      <span style={{color:"var(--text4)",fontSize:12}}>×</span>
+                      <input type="number" min="0" value={arqueo[b]||""} onChange={e=>{const v=Math.max(0,parseInt(e.target.value)||0);setArqueo(p=>({...p,[b]:v}));}}
+                        placeholder="0" style={{width:46,padding:"5px 6px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:6,fontSize:14,fontWeight:600,color:"var(--text)",textAlign:"center"}}/>
+                      <span style={{fontSize:11,color:"var(--text4)",flex:1,textAlign:"right"}}>{arqueo[b]>0?fmt(b*arqueo[b]):""}</span>
+                    </div>
+                  ))}
+                </div>
+                {arqueoTotal>0&&arqueoTotal!==Number(monto||0)&&(
+                  <button className="btn" onClick={()=>setMonto(String(arqueoTotal))}
+                    style={{...btnSec,width:"100%",fontSize:13}}>
+                    Usar {fmt(arqueoTotal)} como efectivo contado
+                  </button>
+                )}
+              </details>
+            </>
           )}
 
           <div style={{marginBottom:12}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>
-              {abierta?"EFECTIVO REAL EN CAJA ($)":"EFECTIVO INICIAL EN CAJA ($)"}
+            <div style={{fontSize:13,fontWeight:600,color:"var(--text2)",marginBottom:6}}>
+              {abierta?"Efectivo contado en la caja":"Efectivo inicial en la caja"}
             </div>
             {!abierta&&lastCierre!=null&&!ultimaSinArqueo&&monto===String(lastCierre)&&(
-              <div style={{fontSize:10,color:"#2563EB",marginBottom:4,fontFamily:"'Barlow Condensed',sans-serif"}}>Pre-cargado del cierre anterior ({fmt(lastCierre)})</div>
+              <div style={{fontSize:12,color:"var(--text3)",marginBottom:6}}>Precargado con lo que quedó en el cierre anterior ({fmt(lastCierre)})</div>
             )}
             {!abierta&&ultimaSinArqueo&&(
-              <div style={{fontSize:11,color:"#9A3412",marginBottom:6,lineHeight:1.4}}>⚠️ La caja del {fechaCorta(ultimaCaja.fecha)} no se cerró a mano (se cerró sola, sin contar la plata). Contá el efectivo que hay ahora y escribilo acá.</div>
+              <div style={{...aviso,marginBottom:8,fontSize:12}}><Icon name="alerta" size={14} color="#B45309" style={{marginTop:1}}/><span>La caja del {fechaCorta(ultimaCaja.fecha)} no se cerró a mano (se cerró sola, sin contar la plata). Contá el efectivo que hay ahora y escribilo acá.</span></div>
             )}
-            <input type="number" min="0" value={monto} onChange={e=>setMonto(e.target.value)} placeholder="0"
-              style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:18,fontWeight:700,color:"var(--text)",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+            <input type="number" min="0" value={monto} onChange={e=>setMonto(e.target.value)} placeholder="$ 0"
+              style={{...inputBase,fontSize:20,fontWeight:700,padding:"12px 14px"}}/>
+            {abierta&&diferencia!==null&&(
+              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginTop:8,padding:"8px 12px",borderRadius:8,
+                background:diferencia===0?"#F0FDF4":Math.abs(diferencia)<1000?"#FFFBEB":"#FEF2F2"}}>
+                <span style={{fontSize:13,color:"var(--text2)"}}>{diferencia===0?"La caja cierra justa":diferencia>0?"Sobra":"Falta"}</span>
+                <span style={{fontSize:16,fontWeight:700,color:diferencia===0?"#15803D":Math.abs(diferencia)<1000?"#B45309":"#DC2626"}}>
+                  {diferencia>0?"+":""}{fmt(diferencia)}
+                </span>
+              </div>
+            )}
           </div>
           <div style={{marginBottom:14}}>
-            <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>NOTAS (opcional)</div>
+            <div style={{fontSize:13,fontWeight:600,color:"var(--text2)",marginBottom:6}}>Notas <span style={{fontWeight:400,color:"var(--text4)"}}>(opcional)</span></div>
             <textarea value={notas} onChange={e=>setNotas(e.target.value)} rows={2} placeholder="Observaciones del día..."
-              style={{width:"100%",padding:"11px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,resize:"none",lineHeight:1.5}}/>
+              style={{...inputBase,fontSize:14,resize:"none",lineHeight:1.5}}/>
           </div>
           <div style={{display:"flex",gap:8}}>
             <button className="btn" onClick={()=>{setShowForm(false);setMonto("");setNotas("");setArqueo(Object.fromEntries(BILLETES.map(b=>[b,0])));}}
-              style={{flex:1,padding:"11px 0",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:12,color:"var(--text3)",fontSize:14,fontWeight:600}}>Cancelar</button>
+              style={{...btnSec,flex:1}}>Cancelar</button>
             <button className="btn" onClick={handleSubmit} disabled={cajaLoading}
-              style={{flex:2,padding:"11px 0",background:abierta?"#DC2626":"#16A34A",borderRadius:12,color:"#fff",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
-              {cajaLoading?"...":(abierta?"CONFIRMAR CIERRE":"CONFIRMAR APERTURA")}
+              style={{flex:2,padding:"11px 0",background:abierta?"#DC2626":"#15803D",borderRadius:10,color:"#fff",fontSize:14,fontWeight:700}}>
+              {cajaLoading?"Guardando...":(abierta?"Confirmar cierre":"Confirmar apertura")}
             </button>
           </div>
         </div>
@@ -3580,7 +3658,7 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
 
       {/* Repartidores */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
-        <div className="sh" style={{fontSize:13,color:"#7C3AED",letterSpacing:1,marginBottom:14}}>🏍️ REPARTIDORES</div>
+        <div style={{fontSize:12,fontWeight:700,color:"var(--text3)",letterSpacing:1,marginBottom:14,display:"flex",alignItems:"center",gap:6}}><Icon name="moto" size={15}/>REPARTIDORES</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:8,marginBottom:12}}>
           {cfg.repartidores.map(r=>(
             <div key={r} style={{display:"flex",alignItems:"center",gap:6,background:"#FAF5FF",border:"1px solid #E9D5FF",borderRadius:20,padding:"6px 12px"}}>
@@ -3604,7 +3682,7 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
 
       {/* Horario */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
-        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:14}}>⏰ HORARIO</div>
+        <div style={{fontSize:12,fontWeight:700,color:"var(--text3)",letterSpacing:1,marginBottom:14,display:"flex",alignItems:"center",gap:6}}><Icon name="reloj" size={15}/>HORARIO</div>
         <div style={{display:"flex",gap:12,alignItems:"flex-end"}}>
           <div style={{flex:1}}>
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>APERTURA</div>
@@ -3637,11 +3715,11 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
 
       {/* Web habilitada */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
-        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:14}}>🌐 ESTADO DE LA WEB</div>
+        <div style={{fontSize:12,fontWeight:700,color:"var(--text3)",letterSpacing:1,marginBottom:14,display:"flex",alignItems:"center",gap:6}}><Icon name="web" size={15}/>ESTADO DE LA WEB</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:cfg.webHabilitada?"#F0FDF4":"#FFF1F2",border:`1px solid ${cfg.webHabilitada?"#BBF7D0":"#FECDD3"}`,borderRadius:12,cursor:"pointer"}}
           onClick={()=>setCfg(p=>({...p,webHabilitada:!p.webHabilitada}))}>
           <div>
-            <div style={{fontSize:14,fontWeight:700,color:cfg.webHabilitada?"#16A34A":"#CC1F1F"}}>{cfg.webHabilitada?"🟢 Web habilitada":"🔴 Web deshabilitada"}</div>
+            <div style={{fontSize:14,fontWeight:700,color:cfg.webHabilitada?"#16A34A":"#CC1F1F"}}>{cfg.webHabilitada?"Web habilitada":"Web deshabilitada"}</div>
             <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>{cfg.webHabilitada?"Los clientes pueden ver el menú y hacer pedidos":"La web muestra pantalla de cerrado aunque sea horario de apertura"}</div>
           </div>
           <div style={{width:44,height:24,borderRadius:12,background:cfg.webHabilitada?"#16A34A":"#DC2626",position:"relative",transition:"background .2s",flexShrink:0}}>
@@ -3652,11 +3730,11 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
 
       {/* Pagos */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
-        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:14}}>💳 PAGOS Y COMISIONES</div>
+        <div style={{fontSize:12,fontWeight:700,color:"var(--text3)",letterSpacing:1,marginBottom:14,display:"flex",alignItems:"center",gap:6}}><Icon name="tarjeta" size={15}/>PAGOS Y COMISIONES</div>
         <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 14px",background:cfg.tarjetaHabilitada?"#F0FDF4":"var(--bg2)",border:`1px solid ${cfg.tarjetaHabilitada?"#BBF7D0":"var(--border)"}`,borderRadius:12,marginBottom:12,cursor:"pointer"}}
           onClick={()=>setCfg(p=>({...p,tarjetaHabilitada:!p.tarjetaHabilitada}))}>
           <div>
-            <div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>💳 Tarjeta / Mercado Pago</div>
+            <div style={{fontSize:14,fontWeight:600,color:"var(--text)"}}>Tarjeta / Mercado Pago</div>
             <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>Habilitar como método de pago en el checkout</div>
           </div>
           <div style={{width:44,height:24,borderRadius:12,background:cfg.tarjetaHabilitada?"#16A34A":"var(--border)",position:"relative",transition:"background .2s",flexShrink:0}}>
@@ -3678,7 +3756,7 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
 
       {/* Alias y contacto */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
-        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:14}}>📲 CONTACTO Y ALIASES</div>
+        <div style={{fontSize:12,fontWeight:700,color:"var(--text3)",letterSpacing:1,marginBottom:14,display:"flex",alignItems:"center",gap:6}}><Icon name="telefono" size={15}/>CONTACTO Y ALIAS</div>
         <Field label="WHATSAPP (con código de país, sin +)">
           <Input val={cfg.whatsapp} onChange={v=>setCfg(p=>({...p,whatsapp:v}))} placeholder="5491124832305"/>
         </Field>
@@ -3695,7 +3773,7 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
 
       {/* Promociones */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
-        <div className="sh" style={{fontSize:13,color:"var(--red)",letterSpacing:1,marginBottom:4}}>🔥 PROMOCIONES</div>
+        <div style={{fontSize:12,fontWeight:700,color:"var(--text3)",letterSpacing:1,marginBottom:4,display:"flex",alignItems:"center",gap:6}}><Icon name="etiqueta" size={15}/>PROMOCIONES</div>
         <div style={{fontSize:12,color:"var(--text3)",marginBottom:12}}>Aparecen destacados arriba del menú del cliente.</div>
         {(cfg.promociones||[]).map((p,i)=>{
           const allItems = menu.flatMap(c=>c.items);
@@ -3873,12 +3951,12 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
     const descLabel = descuentoMonto>0
       ? `Desc: -${fmt(descuentoMonto)}${descTipo==="porcentaje"?` (${descValorNum}%)`:""}`
       : "";
-    const notasAdmin = [he2?`⏰ ${he2}`:"", descLabel, form.notas].filter(Boolean).join(" | ");
+    const notasAdmin = [he2?`Entrega ${he2}`:"", descLabel, form.notas].filter(Boolean).join(" | ");
     const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", notas:notasAdmin, items:cart, subtotal:subtotalCart, total:total+envioAdmin, envio:envioAdmin, source:"admin", status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
     const { error: insErr } = await supabase.from("orders").insert(order);
     if (insErr) {
       setLoading(false);
-      alert("❌ No se pudo guardar el pedido: " + insErr.message + "\n\nRevisá internet e intentá de nuevo.");
+      alert("No se pudo guardar el pedido: " + insErr.message + "\n\nRevisá internet e intentá de nuevo.");
       return;
     }
     // Mark mesa as ocupada
@@ -3901,13 +3979,13 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
     setLoading(false);
   };
 
-  const PAGOS=[{v:"efectivo",l:"💵 Efectivo"},{v:"transferencia",l:"📲 Transferencia"},{v:"tarjeta",l:"💳 Tarjeta"}];
+  const PAGOS=[{v:"efectivo",l:"Efectivo"},{v:"transferencia",l:"Transferencia"},{v:"tarjeta",l:"Tarjeta"}];
 
   return (
     <div className="fade-in" style={{padding:14,paddingBottom:40}}>
       {mesaId&&(
         <div style={{background:"#EFF6FF",border:"1px solid #BFDBFE",borderRadius:12,padding:"10px 14px",marginBottom:14,display:"flex",alignItems:"center",gap:10}}>
-          <span style={{fontSize:20}}>🪑</span>
+          <Icon name="mesa" size={20}/>
           <div className="sh" style={{fontSize:16,color:"#2563EB"}}>PEDIDO PARA MESA {mesaId.toUpperCase().replace("M","")}</div>
         </div>
       )}
@@ -3936,7 +4014,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
                       <div style={{fontSize:12,color:"var(--red)",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{fmt(item.precio)}{item.porKilo?<span style={{fontSize:10,color:"var(--text4)",marginLeft:3}}>/kg</span>:null}</div>
                     </div>
                     {item.porKilo
-                      ?<button className="btn" onClick={()=>handleAddAdminItem(itemConCat)} style={{padding:"0 10px",height:32,borderRadius:8,background:"#FEF3C7",border:"1px solid #FCD34D",color:"#D97706",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,gap:4}}>⚖️ kg</button>
+                      ?<button className="btn" onClick={()=>handleAddAdminItem(itemConCat)} style={{padding:"0 10px",height:32,borderRadius:8,background:"#FEF3C7",border:"1px solid #FCD34D",color:"#D97706",fontSize:13,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,gap:4}}><Icon name="balanza" size={14}/>kg</button>
                       :qty===0
                         ?<button className="btn" onClick={()=>handleAddAdminItem(itemConCat)} style={{width:32,height:32,borderRadius:8,background:"var(--red-light)",border:"1px solid var(--red-border)",color:"var(--red)",fontSize:item.opciones?.length?14:20,display:"flex",alignItems:"center",justifyContent:"center",fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>{item.opciones?.length?"Ver":"+"}
                         </button>
@@ -4062,7 +4140,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
         </div>
         {!mesaId&&<>
           <div style={{display:"flex",gap:8,marginBottom:10}}>
-            {[{v:"retiro",l:"🏃 Retiro"},{v:"delivery",l:"🛵 Delivery"}].map(t=>(
+            {[{v:"retiro",l:"Retiro"},{v:"delivery",l:"Delivery"}].map(t=>(
               <button key={t.v} className="btn" onClick={()=>setForm(p=>({...p,tipo:t.v}))}
                 style={{flex:1,padding:"10px 0",borderRadius:10,fontSize:13,fontWeight:700,background:form.tipo===t.v?"var(--red-light)":"var(--bg2)",border:`2px solid ${form.tipo===t.v?"var(--red)":"var(--border)"}`,color:form.tipo===t.v?"var(--red)":"var(--text3)",fontFamily:"'Barlow Condensed',sans-serif"}}>{t.l}</button>
             ))}
@@ -4155,7 +4233,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
       {modalKiloItem&&(
         <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:1000,display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
           <div style={{background:"var(--surface)",borderRadius:18,padding:24,width:"100%",maxWidth:320,boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
-            <div className="sh" style={{fontSize:18,marginBottom:4}}>⚖️ PESO DEL PRODUCTO</div>
+            <div className="sh" style={{fontSize:18,marginBottom:4}}>PESO DEL PRODUCTO</div>
             <div style={{fontSize:13,color:"var(--text3)",marginBottom:16}}>{modalKiloItem.nombre} — {fmt(modalKiloItem.precio)}/kg</div>
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>PESO (kg)</div>
             <input
@@ -4223,7 +4301,7 @@ function ModificarPedidoAdmin({ order, menu, appConfig=CONFIG, onClose, onOrderS
     const extra = order.pago==="mixto" && cambioTotal ? { pago_detalle:null, pago:"efectivo" } : {};
     const { error } = await supabase.from("orders").update({ items: cart, subtotal, total, ...extra }).eq("id", order.id);
     setLoading(false);
-    if (error) { alert("❌ No se pudo guardar el cambio: " + error.message); return; }
+    if (error) { alert("No se pudo guardar el cambio: " + error.message); return; }
     if (extra.pago) alert("El total cambió y el pedido era pago mixto: volvé a cargar el desglose del pago.");
     onOrderSaved();
   };
@@ -4406,7 +4484,7 @@ function HistorialCajaResumen({ historial, vista, orders, mesas=[] }) {
 
       {filtrado.length === 0 && (
         <div style={{textAlign:"center",padding:"32px 0",color:"var(--text4)"}}>
-          <div style={{fontSize:32,marginBottom:8}}>📊</div>
+          <div style={{marginBottom:8}}><Icon name="grafico" size={32} color="var(--text4)" stroke={1.5}/></div>
           <div className="sh" style={{fontSize:16,color:"var(--text3)"}}>Sin datos para este período</div>
         </div>
       )}
@@ -4450,7 +4528,7 @@ function HistorialCajaTabla({ historial, onReload, orders=[], mesas=[], onReabri
 
       {historial.length === 0 && (
         <div style={{textAlign:"center",padding:"32px 0",color:"var(--text4)"}}>
-          <div style={{fontSize:32,marginBottom:8}}>🗂️</div>
+          <div style={{marginBottom:8}}><Icon name="archivo" size={32} color="var(--text4)" stroke={1.5}/></div>
           <div className="sh" style={{fontSize:16,color:"var(--text3)"}}>No hay registros de caja todavía</div>
         </div>
       )}
@@ -4512,8 +4590,8 @@ function HistorialCajaTabla({ historial, onReload, orders=[], mesas=[], onReabri
                 </div>
 
                 {/* Notas */}
-                {c.notas_apertura&&<div style={{marginBottom:6,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>📝 Apertura: <em>{c.notas_apertura}</em></div>}
-                {c.notas_cierre&&<div style={{marginBottom:14,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}>📝 Cierre: <em>{c.notas_cierre}</em></div>}
+                {c.notas_apertura&&<div style={{marginBottom:6,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}><strong>Nota de apertura:</strong> <em>{c.notas_apertura}</em></div>}
+                {c.notas_cierre&&<div style={{marginBottom:14,fontSize:12,color:"var(--text2)",background:"var(--bg2)",borderRadius:9,padding:"8px 12px",border:"1px solid var(--border)"}}><strong>Nota de cierre:</strong> <em>{c.notas_cierre}</em></div>}
 
                 {/* Pedidos del día */}
                 <div style={{fontSize:11,fontWeight:700,color:"var(--red)",letterSpacing:2,marginBottom:10,fontFamily:"'Barlow Condensed',sans-serif"}}>
@@ -4552,16 +4630,16 @@ function HistorialCajaTabla({ historial, onReload, orders=[], mesas=[], onReabri
                               <span style={{fontSize:12,fontWeight:600,color:"var(--text)"}}>{o.nombre||"—"}</span>
                               <span style={{fontSize:10,color:"var(--text4)",fontFamily:"monospace"}}>#{o.id.slice(-5).toUpperCase()}</span>
                               <span style={{fontSize:10,fontWeight:700,color:est.color,background:est.color+"15",padding:"1px 6px",borderRadius:20}}>{est.label}</span>
-                              {o.tipo==="delivery"&&<span style={{fontSize:10,color:"#D97706",background:"#FFFBEB",padding:"1px 6px",borderRadius:20,fontWeight:600}}>🛵</span>}
+                              {o.tipo==="delivery"&&<Tag icon="delivery">Delivery</Tag>}
                             </div>
                             <div style={{fontSize:11,color:"var(--text3)",marginTop:1}}>
                               {new Date(Number(o.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false})}
                               {" · "}{o.items?.reduce((s,c)=>s+c.qty,0)||0} items
-                              {o.pago&&<span style={{marginLeft:4}}>{o.pago==="efectivo"?"💵":o.pago==="transferencia"?"📲":o.pago==="mixto"?"🔀":"💳"} {o.pago}</span>}
+                              {o.pago&&<span style={{marginLeft:4}}>· <PagoTag pago={o.pago} size={11}/></span>}
                             </div>
                           </div>
                           <div style={{textAlign:"right",flexShrink:0,display:"flex",alignItems:"center",gap:6}}>
-                            <button className="btn" onClick={e=>{e.stopPropagation();printTicket(o);}} style={{padding:"3px 7px",borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:10}}>🖨️</button>
+                            <button className="btn" onClick={e=>{e.stopPropagation();printTicket(o);}} style={{padding:"3px 7px",borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:10,display:"flex"}} title="Imprimir"><Icon name="imprimir" size={13}/></button>
                             <div className="sh" style={{fontSize:13,color:o.status==="entregado"?"#16A34A":"var(--text3)"}}>{fmt(o.total)}</div>
                             <span style={{fontSize:10,color:"var(--text4)"}}>{isExpO?"▲":"▼"}</span>
                           </div>
@@ -4574,7 +4652,7 @@ function HistorialCajaTabla({ historial, onReload, orders=[], mesas=[], onReabri
                                 <span style={{color:"var(--text3)",fontWeight:600}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
                               </div>
                             ))}
-                            {o.notas&&<div style={{marginTop:5,fontSize:11,color:"var(--text3)",fontStyle:"italic"}}>💬 {o.notas}</div>}
+                            {o.notas&&<div style={{marginTop:5,fontSize:11,color:"var(--text3)",fontStyle:"italic"}}>Nota: {o.notas}</div>}
                           </div>
                         )}
                       </div>
@@ -4598,7 +4676,7 @@ function HistorialCajaTabla({ historial, onReload, orders=[], mesas=[], onReabri
                               <div style={{fontSize:11,color:"var(--text3)"}}>{hora} · {mOrders.length} pedido{mOrders.length!==1?"s":""} · {mOrders.reduce((s,o)=>s+(o.items?.reduce((a,c)=>a+c.qty,0)||0),0)} items</div>
                             </div>
                             <div style={{display:"flex",alignItems:"center",gap:8}}>
-                              <button className="btn" onClick={e=>{e.stopPropagation();printTicket({...mOrders[0],nombre:mesaNombre(mesaId),items:mOrders.flatMap(o=>o.items||[]),total,notas:mOrders.map(o=>o.notas).filter(Boolean).join(" | ")});}} style={{padding:"3px 7px",borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:10}}>🖨️</button>
+                              <button className="btn" onClick={e=>{e.stopPropagation();printTicket({...mOrders[0],nombre:mesaNombre(mesaId),items:mOrders.flatMap(o=>o.items||[]),total,notas:mOrders.map(o=>o.notas).filter(Boolean).join(" | ")});}} style={{padding:"3px 7px",borderRadius:7,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:10,display:"flex"}} title="Imprimir"><Icon name="imprimir" size={13}/></button>
                               <div className="sh" style={{fontSize:14,color:allOk?"#16A34A":"var(--text)"}}>{fmt(total)}</div>
                               <span style={{fontSize:10,color:"var(--text4)"}}>{isExp?"▲":"▼"}</span>
                             </div>
@@ -4655,7 +4733,7 @@ function HistorialCajaTabla({ historial, onReload, orders=[], mesas=[], onReabri
                   <div style={{marginTop:14,paddingTop:12,borderTop:"1px solid var(--border)"}}>
                     <button className="btn" onClick={()=>onReabrir(c.id)}
                       style={{width:"100%",padding:"11px 0",background:"#FFF1F2",border:"1px solid #FECDD3",borderRadius:11,color:"#DC2626",fontSize:13,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
-                      🔓 REABRIR CAJA (REQUIERE PIN)
+                      <span style={{display:"inline-flex",alignItems:"center",gap:6}}><Icon name="candado" size={14}/>REABRIR CAJA (REQUIERE PIN)</span>
                     </button>
                     <div style={{fontSize:10,color:"var(--text4)",marginTop:6,textAlign:"center",lineHeight:1.4}}>
                       Usar solo si faltó cargar un retiro o hay un error en el cierre.
@@ -4748,7 +4826,7 @@ function MesasView({ onNewOrder }) {
 
   const setEstado = async (mesaId, estado) => {
     if (estado === "libre" && getMesaOrders(mesaId).length > 0) {
-      alert("Esta mesa tiene pedidos. Para liberarla cobrá la cuenta con los botones 💵 Efectivo / 📲 Transf. / 💳 Tarjeta, así la plata entra a la caja.");
+      alert("Esta mesa tiene pedidos. Para liberarla cobrá la cuenta con los botones Efectivo, Transferencia o Tarjeta, así la plata entra a la caja.");
       return;
     }
     await supabase.from("mesas").update({estado}).eq("id", mesaId);
@@ -4784,7 +4862,7 @@ function MesasView({ onNewOrder }) {
         });
       }
     } catch (e) {
-      alert("❌ No se pudo cerrar la cuenta: " + (e?.message || "error de conexión") + "\n\nRevisá internet e intentá de nuevo.");
+      alert("No se pudo cerrar la cuenta: " + (e?.message || "error de conexión") + "\n\nRevisá internet e intentá de nuevo.");
       load();
     }
   };
@@ -4802,7 +4880,7 @@ function MesasView({ onNewOrder }) {
       await supabase.from("mesas").update({estado:"libre", pedidos_ids:[], session_num: ses2 + 1}).eq("id", mesa2Id);
       await supabase.from("mesas").update({estado:"ocupada"}).eq("id", mesa1Id);
     } catch (e) {
-      alert("❌ No se pudieron unir las mesas: " + (e?.message || "error de conexión"));
+      alert("No se pudieron unir las mesas: " + (e?.message || "error de conexión"));
     }
     setUnirMode(false); setUnirTarget(null);
     load();
@@ -4977,19 +5055,19 @@ function MesasView({ onNewOrder }) {
                       notas: mesaOrders.map(o=>o.notas).filter(Boolean).join(" | "),
                     })}
                       style={{padding:"10px 16px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>
-                      🖨️ Ticket
+                      <span style={{display:"inline-flex",alignItems:"center",gap:5}}><Icon name="imprimir" size={14}/>Ticket</span>
                     </button>
                     <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id,"efectivo")}
                       style={{padding:"10px 12px",borderRadius:12,background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                      💵 Efectivo
+                      <span style={{display:"inline-flex",alignItems:"center",gap:5}}><Icon name="efectivo" size={14}/>Efectivo</span>
                     </button>
                     <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id,"transferencia")}
                       style={{padding:"10px 12px",borderRadius:12,background:"#FFFBEB",border:"1px solid #FDE68A",color:"#D97706",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                      📲 Transf.
+                      <span style={{display:"inline-flex",alignItems:"center",gap:5}}><Icon name="transferencia" size={14}/>Transf.</span>
                     </button>
                     <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id,"tarjeta")}
                       style={{padding:"10px 12px",borderRadius:12,background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#2563EB",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                      💳 Tarjeta
+                      <span style={{display:"inline-flex",alignItems:"center",gap:5}}><Icon name="tarjeta" size={14}/>Tarjeta</span>
                     </button>
                   </div>
                 </div>
