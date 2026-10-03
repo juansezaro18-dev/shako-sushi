@@ -458,6 +458,29 @@ const repartirPago = (ords, detalle) => {
     return { id: o.id, pago: "mixto", pago_detalle: det };
   });
 };
+// ── Descuentos ──
+// Regla guardada en el pedido como texto: "10%" o "$5000"
+const reglaTexto = (r) => r.tipo === "porcentaje" ? `${Number(r.valor)}%` : `$${Number(r.valor)}`;
+const parseRegla = (t) => !t ? null : String(t).endsWith("%") ? { tipo: "porcentaje", valor: Number(String(t).slice(0, -1)) } : { tipo: "monto", valor: Number(String(t).replace("$", "")) };
+// Precio del pedido antes del descuento
+const totalSinDescuento = (o) => Number(o.total || 0) + Number(o.descuento || 0);
+// Reparte un descuento entre varios pedidos (los de una mesa) según lo que vale cada uno, en pesos enteros.
+// Devuelve el monto total descontado y, por pedido, {id, total, descuento, descuento_regla}. Valor 0 = quitar descuento.
+const calcularDescuento = (ords, regla) => {
+  const bases = ords.map(totalSinDescuento);
+  const baseTotal = bases.reduce((s, b) => s + b, 0);
+  let monto = regla.tipo === "porcentaje" ? Math.round(baseTotal * Number(regla.valor) / 100) : Number(regla.valor);
+  monto = Math.max(0, Math.min(baseTotal, Math.round(monto || 0)));
+  let asignado = 0;
+  const cambios = ords.map((o, i) => {
+    let d = i === ords.length - 1 ? monto - asignado : (baseTotal ? Math.round(monto * bases[i] / baseTotal) : 0);
+    d = Math.max(0, Math.min(bases[i], d));
+    asignado += d;
+    return { id: o.id, total: bases[i] - d, descuento: d || null, descuento_regla: monto > 0 ? reglaTexto(regla) : null };
+  });
+  return { baseTotal, monto, cambios };
+};
+
 // Formulario para cobrar con varios medios: solo deja confirmar cuando la suma da justo el total
 const PagoMixtoForm = ({ total, inicial = {}, onConfirm, onCancel, textoConfirmar = "Guardar" }) => {
   const [montos, setMontos] = useState({ efectivo: "", transferencia: "", tarjeta: "", ...inicial });
@@ -1717,66 +1740,105 @@ function ItemModal({ item, onClose, onConfirm }) {
 
 
 /* ══ TICKET BTN (con descuento) ══════════════════════════════ */
-function TicketBtn({ order }) {
-  const [open,      setOpen]      = useState(false);
-  const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
-  // Auto-calculate discount: compare each item's precioUnitario vs its base price
-  const autoDescuento = (order.items||[]).reduce((s,c) => {
+// Botón "Ticket" de un pedido: permite aplicar un descuento (cambia el total y lo que cuenta la caja)
+// y anotar una seña/adelanto (solo se imprime "resta pagar"). onGuardado(pedidoActualizado) avisa al panel.
+function TicketBtn({ order, onGuardado }) {
+  const [open, setOpen] = useState(false);
+  const reglaActual = parseRegla(order.descuento_regla);
+  const [tipo, setTipo] = useState(reglaActual?.tipo || "monto");
+  const [valor, setValor] = useState(reglaActual ? String(reglaActual.valor) : "");
+  const [adelanto, setAdelanto] = useState("");
+  const [guardando, setGuardando] = useState(false);
+  const fmt = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
+  // Ahorro por precios de promo (ya está incluido en el total; solo se informa)
+  const ahorroPromo = (order.items||[]).reduce((s,c) => {
     if (!c.item) return s;
     const precioUnitario = c.precioUnitario ?? (c.selecciones?.length ? calcOpcionesPrice(c.item, c.selecciones) : c.item.precio);
     const precioBase = c.selecciones?.length ? calcOpcionesPrice(c.item, c.selecciones) : c.item.precio;
     const diff = precioBase - precioUnitario;
-    return diff > 0 ? s + diff * c.qty : s;
+    return diff > 0 && !c.item.porKilo ? s + diff * c.qty : s;
   }, 0);
-  const [descuento, setDescuento] = useState("");
-  const desc = Number(descuento)||0;
-  const totalDesc = autoDescuento + desc;
-  const total = Math.max(0, Number(order.total) - desc - autoDescuento);
+  const base = totalSinDescuento(order);
+  const calc = calcularDescuento([order], { tipo, valor: Number(valor) || 0 });
+  const nuevoTotal = calc.cambios[0].total;
+  const sena = Math.max(0, Number(adelanto) || 0);
+  const cambiaDescuento = calc.monto !== Number(order.descuento || 0);
+
+  const abrir = () => { const r = parseRegla(order.descuento_regla); setTipo(r?.tipo || "monto"); setValor(r ? String(r.valor) : ""); setAdelanto(""); setOpen(true); };
+
+  const imprimir = async () => {
+    let o = order;
+    if (cambiaDescuento) {
+      setGuardando(true);
+      const c = calc.cambios[0];
+      const extra = order.pago === "mixto" ? { pago: "efectivo", pago_detalle: null } : {};
+      const { error } = await supabase.from("orders").update({ total: c.total, descuento: c.descuento, descuento_regla: c.descuento_regla, ...extra }).eq("id", order.id);
+      setGuardando(false);
+      if (error) { alert("No se pudo guardar el descuento: " + error.message); return; }
+      o = { ...order, total: c.total, descuento: c.descuento, descuento_regla: c.descuento_regla, ...extra };
+      if (extra.pago) alert("El pedido era pago con varios medios y el total cambió: volvé a cargar cómo pagó.");
+      onGuardado?.(o);
+    }
+    printTicket(o, sena, ahorroPromo);
+    setOpen(false);
+  };
 
   if (!open) return (
-    <button className="btn" onClick={()=>setOpen(true)}
+    <button className="btn" onClick={abrir}
       style={{flex:1,padding:"10px 14px",borderRadius:10,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
       <Icon name="imprimir" size={14}/>Ticket
     </button>
   );
 
+  const fila = (l, v, color="var(--text3)") => <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color,marginBottom:4}}><span>{l}</span><span>{v}</span></div>;
   return (
-    <div className="slide-up" style={{position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:20}}>
-      <div style={{background:"var(--surface)",borderRadius:20,padding:24,width:"100%",maxWidth:340,boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
-        <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:4,display:"flex",alignItems:"center",gap:8}}><Icon name="imprimir" size={18}/>Imprimir ticket</div>
-        <div style={{fontSize:12,color:"var(--text3)",marginBottom:20}}>Aplicá un descuento o adelanto antes de imprimir</div>
-        <div style={{marginBottom:16}}>
-          <div style={{fontSize:11,color:"var(--text3)",marginBottom:6,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700,letterSpacing:1}}>DESCUENTO / ADELANTO ($)</div>
-          <input type="number" min="0" value={descuento} onChange={e=>setDescuento(e.target.value)} placeholder="0"
-            style={{width:"100%",padding:"12px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:18,fontWeight:700,color:"#16A34A",fontFamily:"'Barlow Condensed',sans-serif"}}/>
+    <div className="slide-up" style={{position:"fixed",inset:0,zIndex:200,background:"rgba(0,0,0,.5)",display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div style={{background:"var(--surface)",borderRadius:14,padding:20,width:"100%",maxWidth:360,boxShadow:"0 20px 60px rgba(0,0,0,.3)"}}>
+        <div style={{fontSize:18,fontWeight:700,color:"var(--text)",marginBottom:14,display:"flex",alignItems:"center",gap:8}}><Icon name="imprimir" size={18}/>Imprimir ticket</div>
+        <DescuentoInput tipo={tipo} setTipo={setTipo} valor={valor} setValor={setValor}/>
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:13,fontWeight:600,color:"var(--text2)",marginBottom:6}}>Seña / adelanto ya pagado <span style={{fontWeight:400,color:"var(--text4)"}}>(solo se imprime)</span></div>
+          <input type="number" min="0" inputMode="numeric" value={adelanto} onChange={e=>setAdelanto(e.target.value)} placeholder="$ 0"
+            style={{width:"100%",padding:"10px 12px",background:"var(--surface)",border:"1px solid var(--border2)",borderRadius:10,fontSize:16,color:"var(--text)"}}/>
         </div>
-        <div style={{background:"var(--bg2)",borderRadius:12,padding:"12px 14px",marginBottom:16}}>
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:4}}>
-            <span>Subtotal</span><span>{fmt(order.total)}</span>
+        <div style={{background:"var(--bg2)",borderRadius:10,padding:"12px 14px",marginBottom:14}}>
+          {fila("Precio del pedido", fmt(base))}
+          {calc.monto>0&&fila(`Descuento${tipo==="porcentaje"?` (${Number(valor)}%)`:""}`, "− "+fmt(calc.monto), "#B45309")}
+          <div style={{display:"flex",justifyContent:"space-between",fontWeight:700,fontSize:17,borderTop:"1px solid var(--border)",paddingTop:8,marginTop:4}}>
+            <span>Total</span><span>{fmt(nuevoTotal)}</span>
           </div>
-          {autoDescuento>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#D97706",marginBottom:4}}>
-            <span>Descuento promo</span><span>- {fmt(autoDescuento)}</span>
-          </div>}
-          {desc>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#16A34A",marginBottom:4}}>
-            <span>Desc/Adelanto</span><span>- {fmt(desc)}</span>
-          </div>}
-          <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:6}}>
-            <span>Envío</span><span>{fmt(order.envio||0)}</span>
-          </div>
-          <div style={{display:"flex",justifyContent:"space-between",fontWeight:800,fontSize:18,fontFamily:"'Barlow Condensed',sans-serif",borderTop:"1px solid var(--border)",paddingTop:8}}>
-            <span>TOTAL</span><span style={{color:"var(--red)"}}>{fmt(Math.max(0,Number(order.total)-totalDesc+(Number(order.envio)||0)))}</span>
-          </div>
+          {sena>0&&<div style={{display:"flex",justifyContent:"space-between",fontWeight:700,fontSize:14,marginTop:6,color:"var(--text2)"}}><span>Resta pagar</span><span>{fmt(Math.max(0,nuevoTotal-sena))}</span></div>}
+          {cambiaDescuento&&<div style={{fontSize:11,color:"var(--text3)",marginTop:8}}>El descuento se guarda en el pedido: la caja va a contar {fmt(nuevoTotal)}.</div>}
         </div>
         <div style={{display:"flex",gap:8}}>
           <button className="btn" onClick={()=>setOpen(false)}
-            style={{flex:1,padding:"12px 0",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text3)",fontSize:14,fontWeight:600}}>
-            Cancelar
-          </button>
-          <button className="btn" onClick={()=>{printTicket(order,desc,autoDescuento);setOpen(false);setDescuento("");}}
+            style={{flex:1,padding:"12px 0",borderRadius:10,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontSize:14,fontWeight:600}}>Cancelar</button>
+          <button className="btn" onClick={imprimir} disabled={guardando}
             style={{flex:2,padding:"12px 0",borderRadius:10,background:"#18181B",color:"#fff",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-            <Icon name="imprimir" size={15}/>Imprimir
+            <Icon name="imprimir" size={15}/>{guardando?"Guardando...":cambiaDescuento?"Guardar e imprimir":"Imprimir"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// Campo de descuento: en pesos o en porcentaje
+function DescuentoInput({ tipo, setTipo, valor, setValor }) {
+  return (
+    <div style={{marginBottom:14}}>
+      <div style={{fontSize:13,fontWeight:600,color:"var(--text2)",marginBottom:6}}>Descuento</div>
+      <div style={{display:"flex",gap:6}}>
+        <div style={{display:"flex",background:"var(--surface2)",borderRadius:9,padding:3,gap:2,flexShrink:0}}>
+          {[{k:"monto",l:"$"},{k:"porcentaje",l:"%"}].map(t=>(
+            <button key={t.k} className="btn" onClick={()=>setTipo(t.k)} aria-label={t.k==="monto"?"Descuento en pesos":"Descuento en porcentaje"}
+              style={{width:40,padding:"7px 0",borderRadius:7,fontSize:15,fontWeight:700,background:tipo===t.k?"var(--surface)":"transparent",color:tipo===t.k?"var(--text)":"var(--text3)",boxShadow:tipo===t.k?"0 1px 3px rgba(0,0,0,.1)":"none"}}>{t.l}</button>
+          ))}
+        </div>
+        <input type="number" min="0" inputMode="numeric" value={valor} onChange={e=>setValor(e.target.value)} aria-label="Valor del descuento"
+          placeholder={tipo==="porcentaje"?"Ej: 10":"Ej: 5000"}
+          style={{flex:1,minWidth:0,padding:"10px 12px",background:"var(--surface)",border:"1px solid var(--border2)",borderRadius:10,fontSize:16,color:"var(--text)"}}/>
+        {valor!==""&&<button className="btn" onClick={()=>setValor("")} style={{padding:"0 12px",borderRadius:10,border:"1px solid var(--border2)",background:"var(--surface)",color:"var(--text3)",fontSize:12,fontWeight:600}}>Quitar</button>}
       </div>
     </div>
   );
@@ -1846,7 +1908,7 @@ const epWrap = (text, width=PW, indent='') => {
   return lines.join(EP.LF) + EP.LF;
 };
 
-const buildTicketEscPos = (order, descuento=0, autoDescuento=0) => {
+const buildTicketEscPos = (order, adelanto=0, ahorroPromo=0) => {
   const fmt = n => '$'+Number(n).toLocaleString('es-AR');
   const fecha = new Date(Number(order.created_at)).toLocaleDateString('es-AR',{day:'numeric',month:'numeric',year:'numeric'});
   const hora  = new Date(Number(order.created_at)).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit',hour12:false});
@@ -1885,14 +1947,18 @@ const buildTicketEscPos = (order, descuento=0, autoDescuento=0) => {
   const envOrd = Number(order.envio||0)||0;
   const descOrden = Math.max(0, subOrd + envOrd - Number(order.total||0));
   t += epCols('Subtotal:', fmt(subOrd));
-  if (autoDescuento>0) t += epCols('Desc. promo:', '- '+fmt(autoDescuento));
   if (descOrden>0)     t += epCols('Descuento:', '- '+fmt(descOrden));
-  if (descuento>0)     t += epCols('Desc/Adelanto:', '- '+fmt(descuento));
   t += epCols('Envio:', fmt(envOrd));
   t += epLine();
   t += EP.BOLD1+EP.TALL;
-  t += epCols('TOTAL:', fmt(Math.max(0,Number(order.total)-descuento-autoDescuento)));
-  t += EP.NORM+EP.BOLD0+EP.FEED(4)+EP.CUT;
+  t += epCols('TOTAL:', fmt(Number(order.total)));
+  t += EP.NORM+EP.BOLD0;
+  if (adelanto>0) {
+    t += epCols('Sena/adelanto:', '- '+fmt(adelanto));
+    t += EP.BOLD1+epCols('RESTA PAGAR:', fmt(Math.max(0,Number(order.total)-adelanto)))+EP.BOLD0;
+  }
+  if (ahorroPromo>0) t += EP.CENTER+'Ahorraste '+fmt(ahorroPromo)+' con promos'+EP.LF+EP.LEFT;
+  t += EP.FEED(4)+EP.CUT;
   return t;
 };
 
@@ -2003,7 +2069,8 @@ const printKitchenTickets = (order) => {
     });
 };
 
-const printTicket = (order, descuento=0, autoDescuento=0) => {
+// adelanto: seña ya pagada (solo se informa en el papel, no cambia la venta). ahorroPromo: solo informativo.
+const printTicket = (order, adelanto=0, ahorroPromo=0) => {
   const fmt = (n) => `$${Number(n).toLocaleString("es-AR")}`;
   const fecha = new Date(Number(order.created_at)).toLocaleDateString("es-AR",{day:"numeric",month:"numeric",year:"numeric"});
   const hora  = new Date(Number(order.created_at)).toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit",hour12:false});
@@ -2043,14 +2110,14 @@ const printTicket = (order, descuento=0, autoDescuento=0) => {
   ${itemsHtml}
   <div class="line"></div>
   <div class="row"><span>Subtotal:</span><span>${fmt(order.subtotal||order.total)}</span></div>
-  ${autoDescuento>0?`<div class="row"><span>Desc. promo:</span><span>- ${fmt(autoDescuento)}</span></div>`:""}
   ${(()=>{const so=Number(order.subtotal||order.total)||0,eo=Number(order.envio||0)||0,d=Math.max(0,so+eo-Number(order.total||0));return d>0?`<div class="row"><span>Descuento:</span><span>- ${fmt(d)}</span></div>`:"";})()}
-  ${descuento>0?`<div class="row"><span>Desc/Adelanto:</span><span>- ${fmt(descuento)}</span></div>`:""}
   <div class="row"><span>Envio:</span><span>${fmt(order.envio||0)}</span></div>
   <div class="line"></div>
-  <div class="row total"><span>TOTAL:</span><span>${fmt(Math.max(0,Number(order.total)-descuento-autoDescuento))}</span></div>
+  <div class="row total"><span>TOTAL:</span><span>${fmt(Number(order.total))}</span></div>
+  ${adelanto>0?`<div class="row"><span>Sena/adelanto pagado:</span><span>- ${fmt(adelanto)}</span></div><div class="row total"><span>RESTA PAGAR:</span><span>${fmt(Math.max(0,Number(order.total)-adelanto))}</span></div>`:""}
+  ${ahorroPromo>0?`<div class="center" style="font-size:9px;margin-top:4px">Ahorraste ${fmt(ahorroPromo)} con promociones</div>`:""}
   <div class="line"></div><br/></body></html>`;
-  printWithFallback(html, buildTicketEscPos(order, descuento, autoDescuento));
+  printWithFallback(html, buildTicketEscPos(order, adelanto, ahorroPromo));
 };
 
 function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) {
@@ -3050,7 +3117,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                           </button>
                         );
                       })()}
-                      <TicketBtn order={order}/>
+                      <TicketBtn order={order} onGuardado={(o)=>{ const f=x=>x.id===o.id?{...x,...o}:x; setOrders(p=>p.map(f)); setHistOrders(p=>p.map(f)); despuesDeCambiarPago([o]); }}/>
                       {["preparando","listo"].includes(order.status)&&(
                         <button className="btn" onClick={()=>setEditOrderId(order.id)} title="Modificar pedido"
                           style={{flex:1,padding:"10px 14px",borderRadius:10,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
@@ -4040,7 +4107,7 @@ function NuevoPedidoAdmin({ menu, mesaId, onClose, onOrderPlaced, appConfig=CONF
       ? `Desc: -${fmt(descuentoMonto)}${descTipo==="porcentaje"?` (${descValorNum}%)`:""}`
       : "";
     const notasAdmin = [he2?`Entrega ${he2}`:"", descLabel, form.notas].filter(Boolean).join(" | ");
-    const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", notas:notasAdmin, items:cart, subtotal:subtotalCart, total:total+envioAdmin, envio:envioAdmin, source:"admin", status:"nuevo", created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
+    const order = { id:genId(), ...formRest2, nombre:orderNombre, entrecalle:ec2||"", notas:notasAdmin, items:cart, subtotal:subtotalCart, total:total+envioAdmin, envio:envioAdmin, source:"admin", status:"nuevo", descuento: descuentoMonto>0?descuentoMonto:null, created_at:Date.now(), mesa_id: mesaId||"", mesa_session: mesaSession2 };
     const { error: insErr } = await supabase.from("orders").insert(order);
     if (insErr) {
       setLoading(false);
@@ -4857,6 +4924,9 @@ function MesasView({ onNewOrder, onCambio, onEditar, mesaInicial=null, recargar=
   const [selectedMesa,setSelectedMesa]= useState(mesaInicial);
   const [avanzando,   setAvanzando]   = useState(null);
   const [cobroMixto,  setCobroMixto]  = useState(false);
+  const [descAbierto, setDescAbierto] = useState(false);
+  const [descTipo,    setDescTipo]    = useState("porcentaje");
+  const [descValor,   setDescValor]   = useState("");
   const [unirMode,    setUnirMode]    = useState(false);
   const [unirTarget,  setUnirTarget]  = useState(null);
   const [loading,     setLoading]     = useState(true);
@@ -4882,6 +4952,16 @@ function MesasView({ onNewOrder, onCambio, onEditar, mesaInicial=null, recargar=
     setMesas(mesas_);
     setOrders(orders_);
     setLoading(false);
+    // Si la mesa tiene descuento y después se cargó otro pedido, el descuento se vuelve a aplicar a toda la cuenta
+    for (const m of mesas_) {
+      const ses = orders_.filter(o => o.mesa_id===m.id && (o.mesa_session||1)===(m.session_num||1) && o.status!=="eliminado");
+      const reglas = [...new Set(ses.map(o => o.descuento_regla || ""))];
+      if (reglas.length > 1) {
+        const { cambios } = calcularDescuento(ses, parseRegla(reglas.find(Boolean)));
+        const res = await Promise.all(cambios.map(({id, ...c}) => supabase.from("orders").update(c).eq("id", id)));
+        if (!res.some(r => r.error)) setOrders(p => p.map(o => { const c = cambios.find(x => x.id === o.id); return c ? {...o, ...c} : o; }));
+      }
+    }
     // Una mesa libre con pedidos sin terminar de su cuenta actual (ej: pedido por QR) pasa a ocupada
     const activeOrders_ = orders_.filter(o=>{
       if (!ESTADOS_ACTIVOS.includes(o.status)) return false;
@@ -4920,6 +5000,7 @@ function MesasView({ onNewOrder, onCambio, onEditar, mesaInicial=null, recargar=
   const getMesaActiveOrders = (mesaId) => getMesaOrders(mesaId).filter(o => ESTADOS_ACTIVOS.includes(o.status));
   // Total de la cuenta = todos los pedidos de la sesión actual (también los ya llevados a la mesa)
   const getMesaTotal  = (mesaId) => getMesaOrders(mesaId).filter(o=>o.status!=="eliminado").reduce((s,o)=>s+Number(o.total),0);
+  const getMesaSubtotal = (mesaId) => getMesaOrders(mesaId).filter(o=>o.status!=="eliminado").reduce((s,o)=>s+totalSinDescuento(o),0);
 
   // Pedidos de la sesión actual de una mesa, directo de Supabase (sin el límite de 48h de la pantalla)
   const pedidosSesionDB = async (mesaId) => {
@@ -4974,7 +5055,7 @@ function MesasView({ onNewOrder, onCambio, onEditar, mesaInicial=null, recargar=
           pago,
           nombre: mesaNombre,
           items: mesaOrds.flatMap(o=>o.items||[]),
-          subtotal: totalMesa,
+          subtotal: mesaOrds.reduce((s,o)=>s+totalSinDescuento(o),0),
           envio: 0,
           total: totalMesa,
           notas: mesaOrds.map(o=>o.notas).filter(Boolean).join(" | "),
@@ -5018,6 +5099,19 @@ function MesasView({ onNewOrder, onCambio, onEditar, mesaInicial=null, recargar=
     nuevo:          "Mandar a cocina",
     preparando:     "Marcar listo",
     listo:          "Llevado a la mesa",
+  };
+
+  // Aplica (o quita, con valor 0) un descuento a toda la cuenta actual de la mesa
+  const aplicarDescuentoMesa = async (mesaId, regla) => {
+    try {
+      const { ords } = await pedidosSesionDB(mesaId);
+      if (!ords.length) return;
+      const { cambios } = calcularDescuento(ords, regla);
+      const res = await Promise.all(cambios.map(({id, ...c}) => supabase.from("orders").update(c).eq("id", id)));
+      const err = res.find(r=>r.error)?.error; if (err) throw err;
+      setDescAbierto(false);
+      load(); onCambio?.();
+    } catch (e) { alert("No se pudo aplicar el descuento: " + (e?.message || "error de conexión")); }
   };
 
   const avanzarPedido = async (o) => {
@@ -5096,7 +5190,7 @@ function MesasView({ onNewOrder, onCambio, onEditar, mesaInicial=null, recargar=
                     if (mesa.id !== unirTarget) unirMesas(unirTarget, mesa.id);
                     return;
                   }
-                  setCobroMixto(false);
+                  setCobroMixto(false); setDescAbierto(false);
                   setSelectedMesa(isSelected ? null : mesa.id);
                 };
 
@@ -5208,22 +5302,55 @@ function MesasView({ onNewOrder, onCambio, onEditar, mesaInicial=null, recargar=
                 )}
                 {/* Total y acciones (en el celular los botones van en grilla para que entren todos) */}
                 <div style={{padding:"12px 0 0",borderTop:"1px solid var(--border)",marginTop:4}}>
-                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
-                    <span style={{fontSize:14,color:"var(--text3)",fontWeight:600}}>Total de la mesa</span>
-                    <span style={{fontSize:22,fontWeight:700,color:"var(--text)"}}>{fmt(getMesaTotal(mesaSeleccionada.id))}</span>
+                  {(()=>{
+                    const base = getMesaSubtotal(mesaSeleccionada.id), total = getMesaTotal(mesaSeleccionada.id);
+                    const regla = mesaOrders.map(o=>o.descuento_regla).find(Boolean);
+                    return (<>
+                      {base>total&&(<>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:4}}><span>Subtotal</span><span>{fmt(base)}</span></div>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#B45309",fontWeight:600,marginBottom:6}}><span>Descuento{regla&&regla.endsWith("%")?" ("+regla+")":""}</span><span>− {fmt(base-total)}</span></div>
+                      </>)}
+                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                        <span style={{fontSize:14,color:"var(--text3)",fontWeight:600}}>Total de la mesa</span>
+                        <span style={{fontSize:22,fontWeight:700,color:"var(--text)"}}>{fmt(total)}</span>
+                      </div>
+                    </>);
+                  })()}
+                  <div style={{display:"flex",gap:6,marginBottom:10}}>
+                    <button className="btn" onClick={()=>printTicket({
+                      ...mesaOrders[0],
+                      nombre: mesaSeleccionada.nombre,
+                      items: mesaOrders.flatMap(o=>o.items||[]),
+                      subtotal: getMesaSubtotal(mesaSeleccionada.id),
+                      envio: 0,
+                      total: getMesaTotal(mesaSeleccionada.id),
+                      notas: mesaOrders.map(o=>o.notas).filter(Boolean).join(" | "),
+                    })}
+                      style={{flex:1,padding:"10px 0",borderRadius:10,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                      <Icon name="imprimir" size={15}/>Imprimir pre-cuenta
+                    </button>
+                    <button className="btn" onClick={()=>{ const r=parseRegla(mesaOrders.map(o=>o.descuento_regla).find(Boolean)); setDescTipo(r?.tipo||"porcentaje"); setDescValor(r?String(r.valor):""); setDescAbierto(v=>!v); }}
+                      style={{flex:1,padding:"10px 0",borderRadius:10,background:descAbierto?"var(--surface2)":"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                      <Icon name="etiqueta" size={15}/>Descuento
+                    </button>
                   </div>
-                  <button className="btn" onClick={()=>printTicket({
-                    ...mesaOrders[0],
-                    nombre: mesaSeleccionada.nombre,
-                    items: mesaOrders.flatMap(o=>o.items||[]),
-                    subtotal: getMesaTotal(mesaSeleccionada.id),
-                    envio: 0,
-                    total: getMesaTotal(mesaSeleccionada.id),
-                    notas: mesaOrders.map(o=>o.notas).filter(Boolean).join(" | "),
-                  })}
-                    style={{width:"100%",padding:"10px 0",marginBottom:10,borderRadius:10,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
-                    <Icon name="imprimir" size={15}/>Imprimir pre-cuenta
-                  </button>
+                  {descAbierto&&(()=>{
+                    const prev = calcularDescuento(mesaOrders, { tipo: descTipo, valor: Number(descValor)||0 });
+                    return (
+                      <div style={{background:"var(--bg2)",border:"1px solid var(--border2)",borderRadius:10,padding:12,marginBottom:10}}>
+                        <DescuentoInput tipo={descTipo} setTipo={setDescTipo} valor={descValor} setValor={setDescValor}/>
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"var(--text3)",marginBottom:4}}><span>Cuenta sin descuento</span><span>{fmt(prev.baseTotal)}</span></div>
+                        {prev.monto>0&&<div style={{display:"flex",justifyContent:"space-between",fontSize:13,color:"#B45309",marginBottom:4}}><span>Descuento</span><span>− {fmt(prev.monto)}</span></div>}
+                        <div style={{display:"flex",justifyContent:"space-between",fontSize:16,fontWeight:700,marginBottom:10}}><span>Total con descuento</span><span>{fmt(prev.baseTotal-prev.monto)}</span></div>
+                        <div style={{display:"flex",gap:6}}>
+                          <button className="btn" onClick={()=>setDescAbierto(false)}
+                            style={{flex:1,padding:"9px 0",borderRadius:8,fontSize:13,fontWeight:600,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)"}}>Cancelar</button>
+                          <button className="btn" onClick={()=>aplicarDescuentoMesa(mesaSeleccionada.id, { tipo: descTipo, valor: Number(descValor)||0 })}
+                            style={{flex:1,padding:"9px 0",borderRadius:8,fontSize:13,fontWeight:600,background:"#18181B",border:"none",color:"#fff"}}>{prev.monto>0?"Aplicar descuento":"Sin descuento"}</button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                   <div style={{fontSize:11,color:"var(--text3)",fontWeight:700,letterSpacing:.5,marginBottom:6}}>COBRAR Y LIBERAR LA MESA</div>
                   <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
                     {["efectivo","transferencia","tarjeta"].map(v=>(
