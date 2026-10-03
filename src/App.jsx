@@ -1867,7 +1867,11 @@ const buildKitchenEscPos = (titulo, items, order) => {
   return t;
 };
 
+// Si QZ Tray no responde (ej: celular o compu sin el programa), conectar tarda ~8 s:
+// durante el minuto siguiente se imprime directo con la ventana del navegador.
+let qzSinConexionHasta = 0;
 const qzPrint = async (escpos) => {
+  if (Date.now() < qzSinConexionHasta) return false;
   try {
     if (!window.qz || !window.qz.websocket.isActive()) {
       await window.qz.websocket.connect();
@@ -1877,6 +1881,7 @@ const qzPrint = async (escpos) => {
     return true;
   } catch(e) {
     console.warn("QZ Tray no disponible, usando window.print:", e);
+    qzSinConexionHasta = Date.now() + 60000;
     return false;
   }
 };
@@ -2700,9 +2705,9 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
         </div>
       )}
 
-      {filter==="mesas"&&<MesasView onNewOrder={(mesaId)=>{setFilter("nuevo_pedido");setNuevoPedidoMesaId(mesaId);}} />}
+      {filter==="mesas"&&<MesasView onNewOrder={(mesaId)=>{setFilter("nuevo_pedido");setNuevoPedidoMesaId(mesaId);}} onCambio={()=>{loadOrders();loadMesas();contarEntregados();}} />}
       {filter==="config"&&<ConfigEditor appConfig={appConfig} saveAppConfig={saveAppConfig} menu={menu}/>}
-      {filter==="nuevo_pedido"&&<NuevoPedidoAdmin menu={menu} mesaId={nuevoPedidoMesaId} appConfig={appConfig} onClose={()=>{setFilter(nuevoPedidoMesaId?"mesas":"activos");setNuevoPedidoMesaId(null);}} onOrderPlaced={()=>{loadOrders();}} />}
+      {filter==="nuevo_pedido"&&<NuevoPedidoAdmin menu={menu} mesaId={nuevoPedidoMesaId} appConfig={appConfig} onClose={()=>{setFilter(nuevoPedidoMesaId?"mesas":"activos");setNuevoPedidoMesaId(null);}} onOrderPlaced={()=>{loadOrders();loadMesas();}} />}
       {editOrderId&&(
         <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:100,overflowY:"auto"}}>
           <ModificarPedidoAdmin
@@ -2953,7 +2958,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                         const needsRep = est.next==="entregado" && order.tipo==="delivery" && !order.repartidor;
                         return(
                           <button className="btn"
-                            onClick={()=>{ if(needsRep) return; updateStatus(order,est.next); if(est.next==="entregado") printTicket(order); if(est.next==="preparando") printKitchenTickets(order); }}
+                            onClick={()=>{ if(needsRep) return; updateStatus(order,est.next); if(est.next==="entregado" && !order.mesa_id) printTicket(order); /* la cuenta de una mesa se imprime al cobrarla */ if(est.next==="preparando") printKitchenTickets(order); }}
                             title={needsRep?"Asigná un repartidor antes de despachar":""}
                             style={{flex:"1 1 100%",padding:"12px 0",borderRadius:10,
                               background:needsRep?"var(--surface2)":est.ring,
@@ -3686,7 +3691,7 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
       {/* Horario */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
         <div style={{fontSize:12,fontWeight:700,color:"var(--text3)",letterSpacing:1,marginBottom:14,display:"flex",alignItems:"center",gap:6}}><Icon name="reloj" size={15}/>HORARIO</div>
-        <div style={{display:"flex",gap:12,alignItems:"flex-end"}}>
+        <div style={{display:"flex",gap:12,alignItems:"flex-end",flexWrap:"wrap"}}>
           <div style={{flex:1}}>
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>APERTURA</div>
             <div style={{display:"flex",gap:6}}>
@@ -3708,7 +3713,7 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
                 style={{width:60,padding:"10px 8px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,textAlign:"center",color:"var(--text)"}}/>
             </div>
           </div>
-          <div style={{flex:2,paddingBottom:2}}>
+          <div style={{flex:"1 1 100%",paddingBottom:2}}>
             <div style={{fontSize:11,color:"var(--text3)",marginBottom:5,fontFamily:"'Barlow Condensed',sans-serif",fontWeight:700}}>TEXTO HORARIO</div>
             <input value={cfg.horario} onChange={e=>setCfg(p=>({...p,horario:e.target.value}))} placeholder="Ej: 16:30 a 23:30"
               style={{width:"100%",padding:"10px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:13,color:"var(--text)"}}/>
@@ -4762,7 +4767,9 @@ function HistorialCajaTabla({ historial, onReload, orders=[], mesas=[], onReabri
 }
 
 /* ══ MESAS VIEW ═══════════════════════════════════════════════ */
-function MesasView({ onNewOrder }) {
+// onCambio: avisa al panel que se cobró / unió / cambió una mesa, para que la caja se actualice al instante
+// (sin depender de que llegue el aviso en tiempo real de Supabase)
+function MesasView({ onNewOrder, onCambio }) {
   const [mesas,       setMesas]       = useState([]);
   const [orders,      setOrders]      = useState([]);
   const [selectedMesa,setSelectedMesa]= useState(null);
@@ -4791,8 +4798,12 @@ function MesasView({ onNewOrder }) {
     setMesas(mesas_);
     setOrders(orders_);
     setLoading(false);
-    // Auto-update: only mark as ocupada if there are active orders and mesa is libre
-    const activeOrders_ = orders_.filter(o=>["nuevo","preparando","listo"].includes(o.status));
+    // Una mesa libre con pedidos sin terminar de su cuenta actual (ej: pedido por QR) pasa a ocupada
+    const activeOrders_ = orders_.filter(o=>{
+      if (!ESTADOS_ACTIVOS.includes(o.status)) return false;
+      const m = mesas_.find(x=>x.id===o.mesa_id);
+      return m && (o.mesa_session||1) === (m.session_num||1);
+    });
     const mesasConPedidos = [...new Set(activeOrders_.map(o=>o.mesa_id).filter(Boolean))];
     for (const mId of mesasConPedidos) {
       const mesa = mesas_.find(m=>m.id===mId);
@@ -4820,7 +4831,8 @@ function MesasView({ onNewOrder }) {
     const currentSession = mesa?.session_num || 1;
     return orders.filter(o => o.mesa_id === mesaId && (o.mesa_session||1) === currentSession);
   };
-  const getMesaActiveOrders = (mesaId) => orders.filter(o => o.mesa_id === mesaId && ["nuevo","preparando","listo"].includes(o.status));
+  // Pedidos de la sesión actual que todavía no se llevaron a la mesa (incluye los del QR que esperan confirmar la transferencia)
+  const getMesaActiveOrders = (mesaId) => getMesaOrders(mesaId).filter(o => ESTADOS_ACTIVOS.includes(o.status));
   // Total de la cuenta = todos los pedidos de la sesión actual (también los ya llevados a la mesa)
   const getMesaTotal  = (mesaId) => getMesaOrders(mesaId).filter(o=>o.status!=="eliminado").reduce((s,o)=>s+Number(o.total),0);
 
@@ -4843,6 +4855,7 @@ function MesasView({ onNewOrder }) {
     }
     await supabase.from("mesas").update({estado}).eq("id", mesaId);
     setMesas(p => p.map(m => m.id===mesaId ? {...m,estado} : m));
+    onCambio?.();
   };
 
   const liberarMesa = async (mesaId, pago="efectivo") => {
@@ -4860,6 +4873,7 @@ function MesasView({ onNewOrder }) {
       if (e2) throw e2;
       setSelectedMesa(null);
       load();
+      onCambio?.();
       // Print ticket after closing
       if (mesaOrds.length > 0) {
         printTicket({
@@ -4896,6 +4910,7 @@ function MesasView({ onNewOrder }) {
     }
     setUnirMode(false); setUnirTarget(null);
     load();
+    onCambio?.();
     setSelectedMesa(mesa1Id);
   };
 
@@ -5051,34 +5066,32 @@ function MesasView({ onNewOrder }) {
                     ))}
                   </div>
                 )}
-                {/* Total y acciones */}
-                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0 0",borderTop:"1px solid var(--border)",marginTop:4}}>
-                  <div className="sh" style={{fontSize:20,color:"var(--text)"}}>TOTAL: <span style={{color:"var(--red)"}}>{fmt(getMesaTotal(mesaSeleccionada.id))}</span></div>
-                  <div style={{display:"flex",gap:8}}>
-                    <button className="btn" onClick={()=>printTicket({
-                      ...mesaOrders[0],
-                      nombre: mesaSeleccionada.nombre,
-                      items: mesaOrders.flatMap(o=>o.items||[]),
-                      subtotal: getMesaTotal(mesaSeleccionada.id),
-                      envio: 0,
-                      total: getMesaTotal(mesaSeleccionada.id),
-                      notas: mesaOrders.map(o=>o.notas).filter(Boolean).join(" | "),
-                    })}
-                      style={{padding:"10px 16px",borderRadius:12,background:"var(--bg2)",border:"1px solid var(--border)",color:"var(--text2)",fontSize:13,fontWeight:600}}>
-                      <span style={{display:"inline-flex",alignItems:"center",gap:5}}><Icon name="imprimir" size={14}/>Ticket</span>
-                    </button>
-                    <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id,"efectivo")}
-                      style={{padding:"10px 12px",borderRadius:12,background:"#F0FDF4",border:"1px solid #BBF7D0",color:"#16A34A",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                      <span style={{display:"inline-flex",alignItems:"center",gap:5}}><Icon name="efectivo" size={14}/>Efectivo</span>
-                    </button>
-                    <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id,"transferencia")}
-                      style={{padding:"10px 12px",borderRadius:12,background:"#FFFBEB",border:"1px solid #FDE68A",color:"#D97706",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                      <span style={{display:"inline-flex",alignItems:"center",gap:5}}><Icon name="transferencia" size={14}/>Transf.</span>
-                    </button>
-                    <button className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id,"tarjeta")}
-                      style={{padding:"10px 12px",borderRadius:12,background:"#EFF6FF",border:"1px solid #BFDBFE",color:"#2563EB",fontSize:12,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif"}}>
-                      <span style={{display:"inline-flex",alignItems:"center",gap:5}}><Icon name="tarjeta" size={14}/>Tarjeta</span>
-                    </button>
+                {/* Total y acciones (en el celular los botones van en grilla para que entren todos) */}
+                <div style={{padding:"12px 0 0",borderTop:"1px solid var(--border)",marginTop:4}}>
+                  <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:12}}>
+                    <span style={{fontSize:14,color:"var(--text3)",fontWeight:600}}>Total de la mesa</span>
+                    <span style={{fontSize:22,fontWeight:700,color:"var(--text)"}}>{fmt(getMesaTotal(mesaSeleccionada.id))}</span>
+                  </div>
+                  <button className="btn" onClick={()=>printTicket({
+                    ...mesaOrders[0],
+                    nombre: mesaSeleccionada.nombre,
+                    items: mesaOrders.flatMap(o=>o.items||[]),
+                    subtotal: getMesaTotal(mesaSeleccionada.id),
+                    envio: 0,
+                    total: getMesaTotal(mesaSeleccionada.id),
+                    notas: mesaOrders.map(o=>o.notas).filter(Boolean).join(" | "),
+                  })}
+                    style={{width:"100%",padding:"10px 0",marginBottom:10,borderRadius:10,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                    <Icon name="imprimir" size={15}/>Imprimir pre-cuenta
+                  </button>
+                  <div style={{fontSize:11,color:"var(--text3)",fontWeight:700,letterSpacing:.5,marginBottom:6}}>COBRAR Y LIBERAR LA MESA</div>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:6}}>
+                    {["efectivo","transferencia","tarjeta"].map(v=>(
+                      <button key={v} className="btn" onClick={()=>liberarMesa(mesaSeleccionada.id,v)}
+                        style={{padding:"12px 4px",borderRadius:10,background:"#18181B",color:"#fff",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                        <Icon name={PAGO_INFO[v].icon} size={15}/>{v==="transferencia"?"Transf.":PAGO_INFO[v].label}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </>
@@ -5086,8 +5099,8 @@ function MesasView({ onNewOrder }) {
 
           {/* Nuevo pedido para esta mesa */}
           <button className="btn" onClick={()=>onNewOrder(mesaSeleccionada.id)}
-            style={{width:"100%",marginTop:12,padding:"12px 0",borderRadius:12,background:"var(--red-light)",border:"1px dashed var(--red-border)",color:"var(--red)",fontSize:14,fontWeight:700,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>
-            + AGREGAR PEDIDO A {mesaSeleccionada.nombre.toUpperCase()}
+            style={{width:"100%",marginTop:12,padding:"12px 0",borderRadius:10,background:"var(--surface)",border:"1px dashed var(--border2)",color:"var(--text2)",fontSize:14,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+            <Icon name="nuevo" size={15}/>Agregar pedido a {mesaSeleccionada.nombre}
           </button>
         </div>
       )}
