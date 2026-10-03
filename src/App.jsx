@@ -443,6 +443,60 @@ const PagoTag = ({pago, size=12, showLabel=true}) => {
   const p = PAGO_INFO[pago]; if (!p) return null;
   return <span style={{display:"inline-flex",alignItems:"center",gap:4,color:p.color,fontWeight:600}}><Icon name={p.icon} size={size} color={p.color}/>{showLabel&&p.label}</span>;
 };
+// Reparte un pago con varios medios entre varios pedidos (ej: los de una mesa), sin redondeos:
+// llena cada pedido con lo que queda de cada medio. Devuelve {id, pago, pago_detalle} por pedido.
+const repartirPago = (ords, detalle) => {
+  const resto = detalle.map(d => ({ metodo: d.metodo, monto: Number(d.monto) }));
+  return ords.map(o => {
+    let falta = Number(o.total || 0); const det = [];
+    for (const r of resto) {
+      if (falta <= 0) break;
+      const toma = Math.min(falta, r.monto);
+      if (toma > 0) { det.push({ metodo: r.metodo, monto: toma }); r.monto -= toma; falta -= toma; }
+    }
+    if (det.length <= 1) return { id: o.id, pago: det[0]?.metodo || resto[0]?.metodo || "efectivo", pago_detalle: null };
+    return { id: o.id, pago: "mixto", pago_detalle: det };
+  });
+};
+// Formulario para cobrar con varios medios: solo deja confirmar cuando la suma da justo el total
+const PagoMixtoForm = ({ total, inicial = {}, onConfirm, onCancel, textoConfirmar = "Guardar" }) => {
+  const [montos, setMontos] = useState({ efectivo: "", transferencia: "", tarjeta: "", ...inicial });
+  const suma = ["efectivo","transferencia","tarjeta"].reduce((s,k) => s + (Number(montos[k]) || 0), 0);
+  const falta = Number(total) - suma;
+  const ok = suma > 0 && falta === 0;
+  const fmtL = (n) => `$${Number(n||0).toLocaleString("es-AR")}`;
+  return (
+    <div style={{background:"var(--bg2)",border:"1px solid var(--border2)",borderRadius:10,padding:12}}>
+      <div style={{fontSize:11,color:"var(--text3)",fontWeight:700,letterSpacing:.5,marginBottom:8}}>PAGO CON VARIOS MEDIOS</div>
+      {["efectivo","transferencia","tarjeta"].map(k => (
+        <div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
+          <span style={{fontSize:13,width:120}}><PagoTag pago={k} size={14}/></span>
+          <input type="number" min="0" inputMode="numeric" value={montos[k]} placeholder="$ 0" aria-label={PAGO_INFO[k].label}
+            onChange={e => setMontos(p => ({ ...p, [k]: e.target.value }))}
+            style={{flex:1,minWidth:0,padding:"8px 10px",borderRadius:8,border:"1px solid var(--border)",fontSize:16,fontWeight:600,background:"var(--surface)",color:"var(--text)"}}/>
+          {falta > 0 && !montos[k] && (
+            <button className="btn" onClick={() => setMontos(p => ({ ...p, [k]: String(falta) }))}
+              style={{padding:"7px 8px",borderRadius:7,border:"1px solid var(--border2)",background:"var(--surface)",fontSize:11,fontWeight:600,color:"var(--text2)",whiteSpace:"nowrap"}}>Resto</button>
+          )}
+        </div>
+      ))}
+      <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0 2px",borderTop:"1px solid var(--border)",marginTop:4,fontSize:12}}>
+        <span style={{color:"var(--text3)"}}>Total: <strong style={{color:"var(--text)"}}>{fmtL(total)}</strong></span>
+        <span style={{fontWeight:700,color:falta===0?"#15803D":"#DC2626"}}>
+          {falta === 0 ? "Suma justa" : falta > 0 ? `Faltan ${fmtL(falta)}` : `Sobran ${fmtL(-falta)}`}
+        </span>
+      </div>
+      <div style={{display:"flex",gap:6,marginTop:8}}>
+        <button className="btn" onClick={onCancel}
+          style={{flex:1,padding:"9px 0",borderRadius:8,fontSize:13,fontWeight:600,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)"}}>Cancelar</button>
+        <button className="btn" disabled={!ok}
+          onClick={() => onConfirm(["efectivo","transferencia","tarjeta"].filter(k => Number(montos[k]) > 0).map(k => ({ metodo: k, monto: Number(montos[k]) })))}
+          style={{flex:1,padding:"9px 0",borderRadius:8,fontSize:13,fontWeight:600,background:"#18181B",border:"none",color:"#fff",opacity:ok?1:.4}}>{textoConfirmar}</button>
+      </div>
+    </div>
+  );
+};
+
 // Pastilla neutra con ícono (Delivery, Retiro, Mesa, repartidor...)
 const Tag = ({icon, children, color="var(--text2)", bg="var(--surface2)"}) => (
   <span style={{display:"inline-flex",alignItems:"center",gap:4,fontSize:11,fontWeight:600,color,background:bg,padding:"3px 8px",borderRadius:6,whiteSpace:"nowrap"}}>
@@ -2004,7 +2058,6 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const [filter,     setFilter]     = useState("activos");
   const [expandedId, setExpandedId] = useState(null);
   const [splitPayId, setSplitPayId] = useState(null);
-  const [splitAmounts, setSplitAmounts] = useState({efectivo:"", transferencia:"", tarjeta:""});
   const [showNewOrder, setShowNewOrder] = useState(false);
   const [nuevoPedidoMesaId, setNuevoPedidoMesaId] = useState(null);
   const [mesasData, setMesasData] = useState([]);
@@ -2016,6 +2069,10 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
   const [histSearch,  setHistSearch]  = useState("");
   const histReq = useRef(0);
   const [editOrderId, setEditOrderId] = useState(null);
+  const [editOrderRespaldo, setEditOrderRespaldo] = useState(null); // el pedido tal cual lo tenía la vista de mesas
+  const [mesaAbierta, setMesaAbierta] = useState(null);   // mesa que queda abierta al volver de cargar un pedido
+  const [mesasRecargar, setMesasRecargar] = useState(0);
+  const [navVuelta, setNavVuelta] = useState(0); // tocar una sección del menú de arriba vuelve a su pantalla inicial
   const repartidorOverrides = useRef({}); // persists through polling cycles
   const ordersRef = useRef([]); // copia de orders para el poll (que corre fuera del render)
 
@@ -2329,6 +2386,39 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
     setOrders(p => p.map(o => o.id===order.id ? {...o,status:ns} : o));
     await supabase.from("orders").update({status:ns}).eq("id", order.id);
   };
+  // Si se cambia el pago de un pedido de un día con la caja ya cerrada, se recalculan los números guardados
+  // de ese cierre (ventas por medio, esperado y diferencia) para que el historial de caja siga cerrando bien.
+  const recalcularCajaCerrada = async (createdAt) => {
+    try {
+      const fecha = fechaNegocio(new Date(Number(createdAt)));
+      const { data: cajas } = await supabase.from("caja").select("*").eq("fecha", fecha).eq("estado", "cerrada");
+      if (!cajas?.length) return;
+      const { ventas } = await ventasDelDiaDB(fecha);
+      for (const c of cajas) {
+        const esperado = efectivoEsperado(c, ventas.efectivo);
+        await supabase.from("caja").update({
+          total_ventas: ventas.total, ventas_efectivo: ventas.efectivo, ventas_transferencia: ventas.transferencia, ventas_tarjeta: ventas.tarjeta,
+          esperado, diferencia: c.monto_cierre != null ? Number(c.monto_cierre) - esperado : null,
+        }).eq("id", c.id);
+      }
+      loadHistorialCaja();
+    } catch (e) { console.error("No se pudo recalcular la caja:", e); }
+  };
+  // Aplica cambios de pago en pantalla (pedidos en curso y página del historial) y en Supabase
+  const guardarPagos = async (cambios) => { // cambios: [{id, pago, pago_detalle, total?}]
+    const porId = Object.fromEntries(cambios.map(c => [c.id, c]));
+    const aplicar = (o) => porId[o.id] ? { ...o, ...porId[o.id] } : o;
+    setOrders(p => p.map(aplicar));
+    setHistOrders(p => p.map(aplicar));
+    const res = await Promise.all(cambios.map(({ id, ...campos }) => supabase.from("orders").update(campos).eq("id", id)));
+    const err = res.find(r => r.error)?.error;
+    if (err) { alert("No se pudo guardar el medio de pago: " + err.message); loadOrders(); return false; }
+    return true;
+  };
+  const despuesDeCambiarPago = (ords) => {
+    const entregado = ords.find(o => o.status === "entregado");
+    if (entregado) recalcularCajaCerrada(entregado.created_at);
+  };
   const updatePago = async (order, pago) => {
     // Only recalculate total for customer-placed orders (admin orders never have recargo)
     let nuevoTotal = order.total;
@@ -2337,27 +2427,22 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
       const sub = Number(order.subtotal), envio = Number(order.envio||0);
       nuevoTotal = (pago === "tarjeta" ? Math.round(sub * (1 + appConfig.recargoMP)) : sub) + envio;
     }
-    setOrders(p => p.map(o => o.id===order.id ? {...o, pago, total:nuevoTotal, pago_detalle:null} : o));
-    await supabase.from("orders").update({pago, total:nuevoTotal, pago_detalle:null}).eq("id", order.id);
     setSplitPayId(null);
+    if (await guardarPagos([{ id: order.id, pago, total: nuevoTotal, pago_detalle: null }])) despuesDeCambiarPago([order]);
   };
-  const updatePagoDetalle = async (order, amounts) => {
-    // amounts = {efectivo: 3000, transferencia: 2000, tarjeta: 0}
-    const detalle = Object.entries(amounts)
-      .filter(([,m]) => Number(m) > 0)
-      .map(([metodo,monto]) => ({metodo, monto:Number(monto)}));
-    if (detalle.length === 0) return;
-    if (detalle.length === 1) {
-      // Solo un método → usar pago normal
-      const pago = detalle[0].metodo;
-      setOrders(p => p.map(o => o.id===order.id ? {...o, pago, pago_detalle:null} : o));
-      await supabase.from("orders").update({pago, pago_detalle:null}).eq("id", order.id);
-    } else {
-      setOrders(p => p.map(o => o.id===order.id ? {...o, pago:"mixto", pago_detalle:detalle} : o));
-      await supabase.from("orders").update({pago:"mixto", pago_detalle:detalle}).eq("id", order.id);
-    }
+  const updatePagoDetalle = async (order, detalle) => { // detalle: [{metodo, monto}] que suma justo el total
     setSplitPayId(null);
-    setSplitAmounts({efectivo:"", transferencia:"", tarjeta:""});
+    if (!detalle.length) return;
+    const cambio = detalle.length === 1 ? { id: order.id, pago: detalle[0].metodo, pago_detalle: null } : { id: order.id, pago: "mixto", pago_detalle: detalle };
+    if (await guardarPagos([cambio])) despuesDeCambiarPago([order]);
+  };
+  // Cambiar el pago de una mesa ya cobrada (todos sus pedidos): un medio, o varios repartidos entre los pedidos
+  const updatePagoSesion = async (ords, pagoODetalle) => {
+    const cambios = typeof pagoODetalle === "string"
+      ? ords.map(o => ({ id: o.id, pago: pagoODetalle, pago_detalle: null }))
+      : repartirPago(ords, pagoODetalle);
+    setSplitPayId(null);
+    if (await guardarPagos(cambios)) despuesDeCambiarPago(ords);
   };
   const updateRepartidor = async (order, repartidor) => {
     const nuevo = order.repartidor === repartidor ? null : repartidor; // toggle
@@ -2493,7 +2578,7 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
           {SECCIONES.map(s=>{
             const activa = s.key==="pedidos" ? enPedidos : filter===s.key;
             return (
-              <button key={s.key} className="btn" onClick={()=>setFilter(s.key==="pedidos"?"activos":s.key)}
+              <button key={s.key} className="btn" onClick={()=>{setMesaAbierta(null);setNavVuelta(n=>n+1);setFilter(s.key==="pedidos"?"activos":s.key);}}
                 style={{flex:1,minWidth:56,padding:"9px 2px 8px",display:"flex",flexDirection:"column",alignItems:"center",gap:3,background:"transparent",
                   borderBottom:activa?"2px solid var(--red)":"2px solid transparent",color:activa?"var(--red)":"var(--text3)",flexShrink:0,position:"relative"}}>
                 <Icon name={s.icon} size={20} stroke={activa?2.2:1.8}/>
@@ -2705,17 +2790,20 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
         </div>
       )}
 
-      {filter==="mesas"&&<MesasView onNewOrder={(mesaId)=>{setFilter("nuevo_pedido");setNuevoPedidoMesaId(mesaId);}} onCambio={()=>{loadOrders();loadMesas();contarEntregados();}} />}
+      {filter==="mesas"&&<MesasView key={navVuelta} mesaInicial={mesaAbierta} recargar={mesasRecargar}
+        onNewOrder={(mesaId)=>{setMesaAbierta(mesaId);setFilter("nuevo_pedido");setNuevoPedidoMesaId(mesaId);}}
+        onEditar={(o)=>{setMesaAbierta(o.mesa_id);setEditOrderRespaldo(o);setEditOrderId(o.id);}}
+        onCambio={()=>{loadOrders();loadMesas();contarEntregados();}} />}
       {filter==="config"&&<ConfigEditor appConfig={appConfig} saveAppConfig={saveAppConfig} menu={menu}/>}
       {filter==="nuevo_pedido"&&<NuevoPedidoAdmin menu={menu} mesaId={nuevoPedidoMesaId} appConfig={appConfig} onClose={()=>{setFilter(nuevoPedidoMesaId?"mesas":"activos");setNuevoPedidoMesaId(null);}} onOrderPlaced={()=>{loadOrders();loadMesas();}} />}
       {editOrderId&&(
         <div style={{position:"fixed",inset:0,background:"var(--bg)",zIndex:100,overflowY:"auto"}}>
           <ModificarPedidoAdmin
-            order={orders.find(o=>o.id===editOrderId)}
+            order={orders.find(o=>o.id===editOrderId) || (editOrderRespaldo?.id===editOrderId ? editOrderRespaldo : undefined)}
             menu={menu}
             appConfig={appConfig}
             onClose={()=>setEditOrderId(null)}
-            onOrderSaved={()=>{loadOrders();setEditOrderId(null);}}
+            onOrderSaved={()=>{loadOrders();setEditOrderId(null);setMesasRecargar(k=>k+1);}}
           />
         </div>
       )}
@@ -2783,6 +2871,41 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                         <span style={{color:"var(--text3)"}}>TOTAL MESA</span>
                         <span style={{color:"#16A34A"}}>{fmt2(order.total)}</span>
                       </div>
+                      {/* Cambiar cómo pagó la mesa (todos sus pedidos) */}
+                      {(()=>{
+                        // pago real de la mesa: suma de lo que pagó cada pedido por medio
+                        const porMedio = ["efectivo","transferencia","tarjeta"].map(k=>[k, order.orders.reduce((s,o)=>s+montoPorMetodo(o,k),0)]).filter(([,m])=>m>0);
+                        const unico = porMedio.length===1 ? porMedio[0][0] : null;
+                        return (
+                          <div style={{marginTop:12}}>
+                            <div style={{fontSize:11,color:"var(--text3)",fontWeight:700,letterSpacing:.5,marginBottom:6}}>CÓMO PAGÓ LA MESA</div>
+                            {porMedio.length>1&&(
+                              <div style={{display:"flex",gap:10,flexWrap:"wrap",fontSize:12,marginBottom:8}}>
+                                {porMedio.map(([k,m])=><span key={k} style={{display:"inline-flex",alignItems:"center",gap:4}}><PagoTag pago={k} size={12} showLabel={false}/><span style={{fontWeight:600}}>{fmt2(m)}</span></span>)}
+                              </div>
+                            )}
+                            <div style={{display:"flex",gap:6,marginBottom:6}}>
+                              {["efectivo","transferencia","tarjeta"].map(v=>{
+                                const sel = unico===v, info = PAGO_INFO[v];
+                                return (
+                                  <button key={v} className="btn" onClick={()=>updatePagoSesion(order.orders,v)}
+                                    style={{flex:1,padding:"9px 0",borderRadius:8,fontSize:12,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:5,
+                                      background:sel?info.color+"12":"var(--surface)",border:`1px solid ${sel?info.color:"var(--border2)"}`,color:sel?info.color:"var(--text3)"}}>
+                                    <Icon name={info.icon} size={14}/>{v==="transferencia"?"Transf.":info.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                            {splitPayId!==order.id
+                              ? <button className="btn" onClick={()=>setSplitPayId(order.id)}
+                                  style={{width:"100%",padding:"9px 0",borderRadius:8,fontSize:12,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6,background:"transparent",border:"1px dashed var(--border2)",color:"var(--text3)"}}>
+                                  <Icon name="mixto" size={14}/>{porMedio.length>1?"Pago con varios medios · editar":"Pagó con varios medios"}
+                                </button>
+                              : <PagoMixtoForm total={order.total} inicial={porMedio.length>1?Object.fromEntries(porMedio.map(([k,m])=>[k,String(m)])):{}}
+                                  onCancel={()=>setSplitPayId(null)} onConfirm={(det)=>updatePagoSesion(order.orders,det)} textoConfirmar="Guardar pago"/>}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>
@@ -2888,60 +3011,17 @@ function AdminView({ onExit, menu, saveMenu, appConfig=CONFIG, saveAppConfig }) 
                     {!order.mesa_id&&(
                     <div style={{marginBottom:8}}>
                       {splitPayId!==order.id?(
-                        <button className="btn" onClick={()=>{
-                          setSplitPayId(order.id);
-                          if (order.pago==="mixto"&&order.pago_detalle) {
-                            const sa={efectivo:"",transferencia:"",tarjeta:""};
-                            order.pago_detalle.forEach(d=>{sa[d.metodo]=String(d.monto);});
-                            setSplitAmounts(sa);
-                          } else {
-                            setSplitAmounts({efectivo:order.pago==="efectivo"?String(order.total):"",transferencia:order.pago==="transferencia"?String(order.total):"",tarjeta:order.pago==="tarjeta"?String(order.total):""});
-                          }
-                        }}
+                        <button className="btn" onClick={()=>setSplitPayId(order.id)}
                           style={{width:"100%",padding:"9px 0",borderRadius:8,fontSize:12,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6,
                             background:order.pago==="mixto"?PAGO_INFO.mixto.color+"12":"transparent",
                             border:`1px ${order.pago==="mixto"?"solid":"dashed"} ${order.pago==="mixto"?PAGO_INFO.mixto.color:"var(--border2)"}`,
                             color:order.pago==="mixto"?PAGO_INFO.mixto.color:"var(--text3)"}}>
-                          <Icon name="mixto" size={14}/>{order.pago==="mixto"?"Pago mixto · editar desglose":"Pago mixto (dividir entre medios)"}
+                          <Icon name="mixto" size={14}/>{order.pago==="mixto"?"Pago con varios medios · editar":"Pagó con varios medios"}
                         </button>
                       ):(
-                        <div style={{background:"var(--bg2)",border:"1px solid var(--border2)",borderRadius:10,padding:12}}>
-                          <div style={{fontSize:11,color:"var(--text3)",fontWeight:700,letterSpacing:.5,marginBottom:8}}>DIVIDIR EL PAGO</div>
-                          {["efectivo","transferencia","tarjeta"].map(k=>(
-                            <div key={k} style={{display:"flex",alignItems:"center",gap:8,marginBottom:6}}>
-                              <span style={{fontSize:13,width:130}}><PagoTag pago={k} size={14}/></span>
-                              <span style={{color:"var(--text3)",fontSize:14}}>$</span>
-                              <input type="number" min="0" value={splitAmounts[k]} placeholder="0"
-                                onChange={e=>setSplitAmounts(prev=>({...prev,[k]:e.target.value}))}
-                                style={{flex:1,padding:"7px 10px",borderRadius:8,border:"1px solid var(--border)",fontSize:15,fontWeight:600,
-                                  background:"var(--surface)",color:"var(--text)"}}/>
-                            </div>
-                          ))}
-                          {(()=>{
-                            const sumSplit = (Number(splitAmounts.efectivo)||0)+(Number(splitAmounts.transferencia)||0)+(Number(splitAmounts.tarjeta)||0);
-                            const diff = sumSplit - Number(order.total);
-                            return(<>
-                              <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0 2px",borderTop:"1px solid var(--border)",marginTop:4}}>
-                                <span style={{fontSize:12,color:"var(--text3)"}}>Total pedido: <strong style={{color:"var(--text)"}}>{fmt(order.total)}</strong></span>
-                                <span style={{fontSize:12,fontWeight:700,color:diff===0?"#15803D":diff>0?"#B45309":"#DC2626"}}>
-                                  Suma: {fmt(sumSplit)} {diff!==0&&`(${diff>0?"+":""}${diff.toLocaleString("es-AR")})`}
-                                </span>
-                              </div>
-                              <div style={{display:"flex",gap:6,marginTop:8}}>
-                                <button className="btn" onClick={()=>{setSplitPayId(null);setSplitAmounts({efectivo:"",transferencia:"",tarjeta:""});}}
-                                  style={{flex:1,padding:"9px 0",borderRadius:8,fontSize:13,fontWeight:600,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)"}}>
-                                  Cancelar
-                                </button>
-                                <button className="btn" onClick={()=>updatePagoDetalle(order,splitAmounts)}
-                                  disabled={sumSplit===0}
-                                  style={{flex:1,padding:"9px 0",borderRadius:8,fontSize:13,fontWeight:600,
-                                    background:"#18181B",border:"none",color:"#fff",opacity:sumSplit===0?.4:1}}>
-                                  Guardar desglose
-                                </button>
-                              </div>
-                            </>);
-                          })()}
-                        </div>
+                        <PagoMixtoForm total={order.total}
+                          inicial={order.pago==="mixto"&&Array.isArray(order.pago_detalle)?Object.fromEntries(order.pago_detalle.map(d=>[d.metodo,String(d.monto)])):{}}
+                          onCancel={()=>setSplitPayId(null)} onConfirm={(det)=>updatePagoDetalle(order,det)} textoConfirmar="Guardar pago"/>
                       )}
                       {order.pago==="mixto"&&order.pago_detalle&&splitPayId!==order.id&&(
                         <div style={{marginTop:6,display:"flex",gap:10,flexWrap:"wrap",fontSize:12}}>
@@ -4769,10 +4849,14 @@ function HistorialCajaTabla({ historial, onReload, orders=[], mesas=[], onReabri
 /* ══ MESAS VIEW ═══════════════════════════════════════════════ */
 // onCambio: avisa al panel que se cobró / unió / cambió una mesa, para que la caja se actualice al instante
 // (sin depender de que llegue el aviso en tiempo real de Supabase)
-function MesasView({ onNewOrder, onCambio }) {
+// mesaInicial: mesa que queda abierta al volver de cargar un pedido. onEditar(pedido): abre "Modificar pedido".
+// recargar: cambia cuando el panel modificó un pedido, para volver a leer las mesas.
+function MesasView({ onNewOrder, onCambio, onEditar, mesaInicial=null, recargar=0 }) {
   const [mesas,       setMesas]       = useState([]);
   const [orders,      setOrders]      = useState([]);
-  const [selectedMesa,setSelectedMesa]= useState(null);
+  const [selectedMesa,setSelectedMesa]= useState(mesaInicial);
+  const [avanzando,   setAvanzando]   = useState(null);
+  const [cobroMixto,  setCobroMixto]  = useState(false);
   const [unirMode,    setUnirMode]    = useState(false);
   const [unirTarget,  setUnirTarget]  = useState(null);
   const [loading,     setLoading]     = useState(true);
@@ -4824,6 +4908,7 @@ function MesasView({ onNewOrder, onCambio }) {
       .subscribe();
     return () => { clearInterval(iv); supabase.removeChannel(ch); };
   }, [load]);
+  useEffect(() => { if (recargar) load(); }, [recargar, load]);
 
   const getMesaOrders = (mesaId) => {
     const mesa = mesas.find(m=>m.id===mesaId);
@@ -4858,14 +4943,22 @@ function MesasView({ onNewOrder, onCambio }) {
     onCambio?.();
   };
 
-  const liberarMesa = async (mesaId, pago="efectivo") => {
+  // detalle (opcional): [{metodo, monto}] cuando la mesa paga con varios medios
+  const liberarMesa = async (mesaId, pago="efectivo", detalle=null) => {
     if (!window.confirm("¿Cerrar la cuenta y liberar la mesa?")) return;
     const mesaNombre = mesas.find(m=>m.id===mesaId)?.nombre||mesaId;
     try {
       const { ses, ords: mesaOrds } = await pedidosSesionDB(mesaId);
       const totalMesa = mesaOrds.reduce((s,o)=>s+Number(o.total),0);
       // Toda la sesión queda entregada y con el medio de pago con que se cobró (también lo ya llevado a la mesa)
-      if (mesaOrds.length > 0) {
+      if (detalle) {
+        // varios medios: la suma tiene que dar justo lo que debe la mesa (si cambió algo mientras tanto, se avisa)
+        const suma = detalle.reduce((s,d)=>s+Number(d.monto),0);
+        if (suma !== totalMesa) { alert(`La cuenta de la mesa cambió: ahora es ${fmt(totalMesa)} y los montos suman ${fmt(suma)}. Revisá y cobrá de nuevo.`); load(); return; }
+        const res = await Promise.all(repartirPago(mesaOrds, detalle).map(({id, ...c}) =>
+          supabase.from("orders").update({status:"entregado", ...c}).eq("id", id)));
+        const err = res.find(r=>r.error)?.error; if (err) throw err;
+      } else if (mesaOrds.length > 0) {
         const {error} = await supabase.from("orders").update({status:"entregado", pago, pago_detalle:null}).in("id", mesaOrds.map(o=>o.id));
         if (error) throw error;
       }
@@ -4919,11 +5012,32 @@ function MesasView({ onNewOrder, onCambio }) {
   const pedidos = mesaOrders;
   const pedidosActivos = selectedMesa ? getMesaActiveOrders(selectedMesa) : [];
 
-  const ESTADOS = {
-    pendiente_pago: {label:"Pend. pago", color:"#D97706", bg:"rgba(217,119,6,.1)", ring:"#D97706", next:"nuevo", nextLabel:"✓ Confirmar pago"},
-    nuevo:     {label:"Nuevo",     color:"#CC1F1F", bg:"rgba(204,31,31,.1)"},
-    preparando:{label:"Preparando",color:"#D97706", bg:"rgba(217,119,6,.1)"},
-    listo:     {label:"Listo ✓",  color:"#16A34A", bg:"rgba(22,163,74,.1)"},
+  // Texto del botón para pasar cada pedido al paso siguiente, dentro de la mesa
+  const SIGUIENTE_EN_MESA = {
+    pendiente_pago: "Confirmar pago",
+    nuevo:          "Mandar a cocina",
+    preparando:     "Marcar listo",
+    listo:          "Llevado a la mesa",
+  };
+
+  const avanzarPedido = async (o) => {
+    const next = ESTADOS[o.status]?.next;
+    if (!next) return;
+    setAvanzando(o.id);
+    setOrders(p => p.map(x => x.id===o.id ? {...x, status:next} : x));
+    const { error } = await supabase.from("orders").update({status:next}).eq("id", o.id);
+    setAvanzando(null);
+    if (error) { alert("No se pudo actualizar el pedido: " + error.message); load(); return; }
+    if (next === "preparando") printKitchenTickets(o); // comanda para cocina
+    load(); onCambio?.();
+  };
+
+  const eliminarPedido = async (o) => {
+    if (!window.confirm(`¿Eliminar el pedido #${o.id.slice(-5).toUpperCase()} (${fmt(o.total)}) de esta mesa?\nNo se puede deshacer.`)) return;
+    setOrders(p => p.filter(x => x.id !== o.id));
+    const { error } = await supabase.from("orders").delete().eq("id", o.id);
+    if (error) alert("No se pudo eliminar el pedido: " + error.message);
+    load(); onCambio?.();
   };
 
   if (loading) return <div style={{padding:40,textAlign:"center",color:"var(--text4)"}}>Cargando mesas...</div>;
@@ -4982,6 +5096,7 @@ function MesasView({ onNewOrder, onCambio }) {
                     if (mesa.id !== unirTarget) unirMesas(unirTarget, mesa.id);
                     return;
                   }
+                  setCobroMixto(false);
                   setSelectedMesa(isSelected ? null : mesa.id);
                 };
 
@@ -5037,21 +5152,46 @@ function MesasView({ onNewOrder, onCambio }) {
             : <>
                 {pedidosActivos.map(o => {
                   const est = ESTADOS[o.status]||ESTADOS.nuevo;
+                  const sig = SIGUIENTE_EN_MESA[o.status];
                   return(
-                    <div key={o.id} style={{background:"var(--bg2)",borderRadius:12,padding:"12px 14px",marginBottom:8,border:"1px solid var(--border)"}}>
+                    <div key={o.id} style={{background:"var(--surface)",borderRadius:10,padding:"12px 14px",marginBottom:8,border:"1px solid var(--border)"}}>
                       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:8}}>
-                          <span className="sh" style={{fontSize:14,color:"var(--text)"}}>#{o.id.slice(-5).toUpperCase()}</span>
-                          <span style={{fontSize:11,fontWeight:700,color:est.color,background:est.bg,padding:"2px 8px",borderRadius:20}}>{est.label}</span>
+                          <span style={{fontSize:14,fontWeight:700,color:"var(--text)"}}>#{o.id.slice(-5).toUpperCase()}</span>
+                          <span style={{fontSize:11,fontWeight:700,color:est.color,background:est.bg,padding:"2px 8px",borderRadius:6}}>{est.label}</span>
+                          <span style={{fontSize:11,color:"var(--text4)"}}>{timeAgo(o.created_at)}</span>
                         </div>
-                        <span className="sh" style={{fontSize:15,color:"var(--red)"}}>{fmt(o.total)}</span>
+                        <span style={{fontSize:15,fontWeight:700,color:"var(--text)"}}>{fmt(o.total)}</span>
                       </div>
-                      {o.items?.filter(c=>c.item).map(c=>(
-                        <div key={c.item.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"2px 0",borderBottom:"1px solid var(--border)"}}>
-                          <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
-                          <span style={{color:"var(--text3)"}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
+                      {o.items?.filter(c=>c.item).map((c,i)=>(
+                        <div key={c.cartKey||c.item.id+"-"+i} style={{padding:"3px 0",borderBottom:"1px solid var(--border)"}}>
+                          <div style={{display:"flex",justifyContent:"space-between",fontSize:13}}>
+                            <span style={{color:"var(--text2)"}}>{c.qty}× {c.item.nombre}</span>
+                            <span style={{color:"var(--text3)"}}>{fmt((c.precioUnitario??c.item.precio)*c.qty)}</span>
+                          </div>
+                          {c.selecciones&&<div style={{fontSize:11,color:"var(--text4)",paddingLeft:14}}>{seleccionesLabel(c.item,c.selecciones)}</div>}
                         </div>
                       ))}
+                      {o.notas&&<div style={{fontSize:12,color:"var(--text3)",marginTop:6,display:"flex",gap:6}}><Icon name="nota" size={13} style={{marginTop:2}}/>{o.notas}</div>}
+                      {/* Acciones del pedido, sin salir de la mesa */}
+                      <div style={{display:"flex",gap:6,marginTop:10,flexWrap:"wrap"}}>
+                        {sig&&(
+                          <button className="btn" onClick={()=>avanzarPedido(o)} disabled={avanzando===o.id}
+                            style={{flex:"1 1 100%",padding:"10px 0",borderRadius:8,background:est.ring,color:"#fff",fontSize:14,fontWeight:700,display:"flex",alignItems:"center",justifyContent:"center",gap:6,opacity:avanzando===o.id?.6:1}}>
+                            {sig}<Icon name="flecha" size={15}/>
+                          </button>
+                        )}
+                        {o.status!=="pendiente_pago"&&onEditar&&(
+                          <button className="btn" onClick={()=>onEditar(o)}
+                            style={{flex:1,padding:"8px 0",borderRadius:8,background:"var(--surface)",border:"1px solid var(--border2)",color:"var(--text2)",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+                            <Icon name="editar" size={13}/>Modificar
+                          </button>
+                        )}
+                        <button className="btn" onClick={()=>eliminarPedido(o)}
+                          style={{flex:1,padding:"8px 0",borderRadius:8,background:"var(--surface)",border:"1px solid #FECACA",color:"#DC2626",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:5}}>
+                          <Icon name="borrar" size={13}/>Eliminar
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -5092,6 +5232,16 @@ function MesasView({ onNewOrder, onCambio }) {
                         <Icon name={PAGO_INFO[v].icon} size={15}/>{v==="transferencia"?"Transf.":PAGO_INFO[v].label}
                       </button>
                     ))}
+                  </div>
+                  <div style={{marginTop:6}}>
+                    {!cobroMixto
+                      ? <button className="btn" onClick={()=>setCobroMixto(true)}
+                          style={{width:"100%",padding:"10px 0",borderRadius:10,background:"var(--surface)",border:"1px dashed var(--border2)",color:"var(--text2)",fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+                          <Icon name="mixto" size={15}/>Paga con varios medios
+                        </button>
+                      : <PagoMixtoForm total={getMesaTotal(mesaSeleccionada.id)} textoConfirmar="Cobrar"
+                          onCancel={()=>setCobroMixto(false)}
+                          onConfirm={(det)=>{ setCobroMixto(false); liberarMesa(mesaSeleccionada.id, det.length===1?det[0].metodo:"mixto", det.length===1?null:det); }}/>}
                   </div>
                 </div>
               </>
