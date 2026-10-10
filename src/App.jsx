@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
+import QRCode from "qrcode";
 
 const supabase = createClient(
   import.meta.env.VITE_SUPABASE_URL,
@@ -3774,6 +3775,100 @@ Contado: ${fmt(m)}
 }
 
 
+/* ══ QR DEL MENÚ ══════════════════════════════════════════════ */
+// QR del menú y de cada mesa: se ve en Ajustes y se descarga como imagen lista para imprimir
+const URL_MENU = "https://shako-sushi.vercel.app";
+const urlBaseMenu = () => /localhost|127\.0\.0\.1/.test(window.location.hostname) ? URL_MENU : window.location.origin;
+
+async function armarImagenQR(texto, titulo, subtitulo) {
+  const W = 1000, H = 1300;
+  const c = document.createElement("canvas");
+  c.width = W; c.height = H;
+  const ctx = c.getContext("2d");
+  ctx.fillStyle = "#FFFFFF"; ctx.fillRect(0, 0, W, H);
+  // Logo arriba (si no carga, sigue sin logo)
+  try {
+    const logo = await new Promise((ok, mal) => { const i = new Image(); i.onload = () => ok(i); i.onerror = mal; i.src = LOGO_SRC; });
+    ctx.save(); ctx.beginPath(); ctx.arc(W/2, 130, 85, 0, Math.PI*2); ctx.clip();
+    ctx.drawImage(logo, W/2-85, 45, 170, 170); ctx.restore();
+  } catch {}
+  ctx.fillStyle = "#18181B"; ctx.textAlign = "center";
+  ctx.font = "bold 64px sans-serif"; ctx.fillText(titulo, W/2, 300);
+  const qr = document.createElement("canvas");
+  await QRCode.toCanvas(qr, texto, { width: 760, margin: 1, errorCorrectionLevel: "H" });
+  ctx.drawImage(qr, (W-760)/2, 350);
+  ctx.fillStyle = "#CC1F1F"; ctx.font = "bold 44px sans-serif"; ctx.fillText(subtitulo, W/2, 1190);
+  ctx.fillStyle = "#71717A"; ctx.font = "28px sans-serif"; ctx.fillText(texto.replace(/^https?:\/\//, ""), W/2, 1245);
+  return c.toDataURL("image/png");
+}
+
+function QRMenuCard() {
+  const [mesas,   setMesas]   = useState([]);
+  const [elegido, setElegido] = useState("");   // "" = menú general; si no, el id de la mesa
+  const [img,     setImg]     = useState("");
+
+  useEffect(() => {
+    supabase.from("mesas").select("id,nombre").order("id").then(({ data }) => setMesas(data || []));
+  }, []);
+
+  const mesa = mesas.find(m => m.id === elegido);
+  const url = elegido ? `${urlBaseMenu()}/?mesa=${elegido}` : urlBaseMenu();
+  const titulo = mesa ? `Mesa ${mesa.nombre || elegido}` : "Shako Sushi";
+  const subtitulo = mesa ? "Escaneá y pedí desde la mesa" : "Escaneá para ver el menú";
+
+  useEffect(() => {
+    let vivo = true;
+    setImg("");
+    armarImagenQR(url, titulo, subtitulo).then(d => { if (vivo) setImg(d); }).catch(() => {});
+    return () => { vivo = false; };
+  }, [url, titulo, subtitulo]);
+
+  const bajar = (dataUrl, nombre) => {
+    const a = document.createElement("a");
+    a.href = dataUrl; a.download = nombre; a.click();
+  };
+  const descargar = () => bajar(img, mesa ? `qr-mesa-${mesa.nombre || elegido}.png` : "qr-menu-shako-sushi.png");
+  const imprimir = () => {
+    const w = window.open("", "_blank");
+    if (!w) return;
+    w.document.write(`<html><head><title>${titulo}</title><style>@page{margin:10mm}body{margin:0;display:flex;justify-content:center}img{width:120mm}</style></head><body><img src="${img}" onload="window.print()"></body></html>`);
+    w.document.close();
+  };
+  const descargarTodas = async () => {
+    for (const m of mesas) {
+      const d = await armarImagenQR(`${urlBaseMenu()}/?mesa=${m.id}`, `Mesa ${m.nombre || m.id}`, "Escaneá y pedí desde la mesa");
+      bajar(d, `qr-mesa-${m.nombre || m.id}.png`);
+      await new Promise(r => setTimeout(r, 400));
+    }
+  };
+
+  const btn = {padding:"10px 14px",borderRadius:10,fontSize:13,fontWeight:600,display:"flex",alignItems:"center",justifyContent:"center",gap:6};
+  return (
+    <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
+      <div style={{fontSize:12,fontWeight:700,color:"var(--text3)",letterSpacing:1,marginBottom:14}}>QR DEL MENÚ</div>
+      <select value={elegido} onChange={e=>setElegido(e.target.value)}
+        style={{width:"100%",padding:"10px 14px",background:"var(--bg2)",border:"1px solid var(--border)",borderRadius:10,fontSize:14,color:"var(--text)",marginBottom:12}}>
+        <option value="">Menú general (delivery y retiro)</option>
+        {mesas.map(m => <option key={m.id} value={m.id}>Mesa {m.nombre || m.id} (piden desde la mesa)</option>)}
+      </select>
+      <div style={{display:"flex",justifyContent:"center",background:"var(--bg2)",borderRadius:12,padding:12,marginBottom:12}}>
+        {img ? <img src={img} alt={titulo} style={{width:"100%",maxWidth:240,borderRadius:8,boxShadow:"0 1px 4px rgba(0,0,0,0.1)"}}/>
+             : <div style={{height:310,display:"flex",alignItems:"center",color:"var(--text3)",fontSize:13}}>Generando…</div>}
+      </div>
+      <div style={{fontSize:12,color:"var(--text3)",textAlign:"center",marginBottom:12,wordBreak:"break-all"}}>{url}</div>
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
+        <button className="btn" onClick={descargar} disabled={!img} style={{...btn,background:"#18181B",color:"#fff"}}>Descargar</button>
+        <button className="btn" onClick={imprimir} disabled={!img} style={{...btn,background:"var(--bg2)",color:"var(--text)",border:"1px solid var(--border)"}}>Imprimir</button>
+      </div>
+      {mesas.length > 0 && (
+        <button className="btn" onClick={descargarTodas} style={{...btn,width:"100%",marginTop:8,background:"transparent",color:"var(--text2)",border:"1px dashed var(--border)"}}>
+          Descargar los QR de todas las mesas ({mesas.length})
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ══ CONFIG EDITOR ════════════════════════════════════════════ */
 function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
   const [cfg,     setCfg]     = useState({...appConfig});
@@ -3810,6 +3905,8 @@ function ConfigEditor({ appConfig, saveAppConfig, menu=[] }) {
         <div className="sh" style={{fontSize:24,color:"var(--text)"}}>CONFIGURACIÓN</div>
         <div style={{fontSize:12,color:"var(--text3)",marginTop:2}}>Los cambios se aplican al guardar</div>
       </div>
+
+      <QRMenuCard/>
 
       {/* Repartidores */}
       <div style={{background:"var(--surface)",border:"1px solid var(--border)",borderRadius:16,padding:16,marginBottom:14}}>
