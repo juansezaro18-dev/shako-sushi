@@ -1454,8 +1454,12 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         <div ref={tabsRef} style={{overflowX:"auto",display:"flex",whiteSpace:"nowrap",padding:"2px 2px 0",borderBottom:"1px solid var(--border)"}}>
           {menuVis.map(c=>{
             const active=activeCat===c.id;
-            const COLORS={rolls:"#CC1F1F",nigiri:"#E07B39",combinados:"#7C3AED",temaki:"#16A34A",teppan:"#D97706",ceviche:"#0EA5E9",wok:"#EA580C",aperitivos:"#DC2626",vegetarianos:"#16A34A",salsas:"#CA8A04",adicionales:"#6B7280",bebidas:"#2563EB",cervezas:"#D97706",postres:"#DB2877"};
-            const col=COLORS[c.id]||"#CC1F1F";
+            const COLORS={rolls:"#CC1F1F",nigiri:"#E07B39",combinados:"#7C3AED",temaki:"#16A34A",teppan:"#D97706",ceviche:"#0EA5E9",wok:"#EA580C",aperitivos:"#DC2626",vegetarianos:"#16A34A",salsas:"#CA8A04",adicionales:"#6B7280",bebidas:"#2563EB",cervezas:"#D97706",postres:"#DB2877",
+              pescados:"#0284C7",mariscos:"#E11D48",vinos:"#9F1239",espumantes:"#B45309",tiraditos:"#0EA5E9",kometo:"#CA8A04"};
+            // las categorías creadas desde el panel tienen id al azar: el ícono se elige por el nombre
+            const nom=(c.nombre||"").toLowerCase();
+            const clave=COLORS[c.id]?c.id:nom.includes("vino")?"vinos":nom.includes("espumant")?"espumantes":nom.includes("pescad")?"pescados":nom.includes("marisc")?"mariscos":nom.includes("tiradit")?"tiraditos":nom.includes("kometo")?"kometo":c.id;
+            const col=COLORS[clave]||"#CC1F1F";
             const ICONS={
               rolls:     (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5" fill={c} stroke="none"/></svg>,
               nigiri:    (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><ellipse cx="12" cy="15" rx="7" ry="4"/><path d="M8 15 Q9 9 12 8 Q15 9 16 15"/></svg>,
@@ -1471,8 +1475,14 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
               bebidas:   (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M7 4h10l-2 15a2 2 0 0 1-2 1H11a2 2 0 0 1-2-1Z"/><path d="M7 4 L5 10 L7 11"/><line x1="9" y1="9" x2="15" y2="9"/></svg>,
               cervezas:  (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><rect x="6" y="6" width="10" height="14" rx="2"/><path d="M16 9h2a2 2 0 0 1 0 4h-2"/><line x1="10" y1="3" x2="10" y2="6"/><line x1="14" y1="3" x2="14" y2="6"/></svg>,
               postres:   (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M4 17 Q4 21 12 21 Q20 21 20 17 L18 8 Q16 4 12 4 Q8 4 6 8Z"/><path d="M8 13 Q10 15 12 13 Q14 11 16 13"/></svg>,
+              pescados:  (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M3 12 Q9 5 16 12 Q9 19 3 12Z"/><path d="M16 12 L21 8 L21 16 Z"/><circle cx="7.5" cy="11" r="1" fill={c} stroke="none"/></svg>,
+              mariscos:  (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M18 5 C22 10 20 19 12 19 C8 19 5 17 6 14 C7 12 10 12 12 13"/><path d="M15 8 L18 10 M16 12 L20 13 M14 16 L17 18"/><path d="M6 14 L3 12 M6 14 L3 17"/><path d="M18 5 L21 3 M18 5 L22 6"/></svg>,
+              vinos:     (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M7 3h10l-1 6a4 4 0 0 1-8 0Z"/><line x1="12" y1="13" x2="12" y2="20"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="7.5" y1="7" x2="16.5" y2="7"/></svg>,
+              espumantes:(c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M9 3h6l-1 9a2 2 0 0 1-4 0Z"/><line x1="12" y1="14" x2="12" y2="20"/><line x1="9" y1="21" x2="15" y2="21"/><circle cx="12" cy="7" r=".6" fill={c} stroke="none"/><circle cx="11" cy="10" r=".6" fill={c} stroke="none"/></svg>,
+              tiraditos: (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><ellipse cx="12" cy="14" rx="10" ry="6"/><path d="M5 16 Q7 10 10 10 Q9 15 5 16Z"/><path d="M10 18 Q12 11 15 11 Q14 17 10 18Z"/><path d="M15 17 Q17 11 20 12 Q19 16 15 17Z"/></svg>,
+              kometo:    (c)=><svg viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="22" height="22"><path d="M5 5h14v4H5z"/><path d="M6 9v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V9"/><line x1="10" y1="13" x2="14" y2="13"/></svg>,
             };
-            const Icon=ICONS[c.id];
+            const Icon=ICONS[clave];
             return(
               <button key={c.id} data-tid={c.id} className="btn" onClick={()=>scrollTo(c.id)}
                 style={{display:"flex",flexDirection:"column",alignItems:"center",gap:3,padding:"8px 10px 6px",borderRadius:0,borderBottom:active?"3px solid "+col:"3px solid transparent",background:"transparent",transition:"all .2s",flexShrink:0,minWidth:62}}>
