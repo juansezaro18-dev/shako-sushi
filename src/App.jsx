@@ -994,18 +994,54 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         .filter(c=>c.items.length>0)
     : menuVis;
 
+  // Categoría marcada en la barra: se calcula al hacer scroll (sirve también para "Ver menú" con el local cerrado,
+  // donde el menú aparece después). Es la última categoría cuyo título ya pasó por debajo de la barra fija.
+  const stickyRef   = useRef(null);
+  const ordenCats   = useRef([]);
+  const bloqueoSpy  = useRef(0);
+  ordenCats.current = menuFiltered.map(c => c.id);
   useEffect(() => {
-    const obs = new IntersectionObserver(
-      en => { en.forEach(e => { if (e.isIntersecting) setActiveCat(e.target.dataset.cat); }); },
-      { threshold:.25, rootMargin:"-80px 0px -55% 0px" }
-    );
-    Object.values(sRefs.current).forEach(el => el && obs.observe(el));
-    return () => obs.disconnect();
-  }, [menu]);
+    let raf = 0;
+    const calcular = () => {
+      raf = 0;
+      if (Date.now() < bloqueoSpy.current) return;
+      const ids = ordenCats.current;
+      const tope = (stickyRef.current?.getBoundingClientRect().bottom || 0) + 40;
+      const alFondo = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4;
+      let actual = ids[0];
+      for (const id of ids) {
+        const el = sRefs.current[id];
+        if (!el || !el.isConnected) continue;
+        if (el.getBoundingClientRect().top <= tope) actual = id; else break;
+      }
+      if (alFondo && window.scrollY > 0) {
+        const ultimo = [...ids].reverse().find(id => sRefs.current[id]?.isConnected);
+        if (ultimo) actual = ultimo;
+      }
+      if (actual) setActiveCat(a => a === actual ? a : actual);
+    };
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(calcular); };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    calcular();
+    return () => { window.removeEventListener("scroll", onScroll); if (raf) cancelAnimationFrame(raf); };
+  }, []);
+  // la pestaña marcada siempre queda a la vista en la barra (solo mueve la barra, no la página)
+  useEffect(() => {
+    const cont = tabsRef.current;
+    const tab = cont?.querySelector(`[data-tid="${activeCat}"]`);
+    if (!cont || !tab) return;
+    cont.scrollTo({ left: Math.max(0, tab.offsetLeft - cont.clientWidth / 2 + tab.offsetWidth / 2), behavior: "smooth" });
+  }, [activeCat]);
 
+  // tocar una categoría: baja hasta su título dejándolo justo debajo de la barra fija y la marca enseguida
   const scrollTo = (id) => {
-    sRefs.current[id]?.scrollIntoView({behavior:"smooth",block:"start"});
-    tabsRef.current?.querySelector(`[data-tid="${id}"]`)?.scrollIntoView({behavior:"smooth",inline:"center",block:"nearest"});
+    const el = sRefs.current[id];
+    setActiveCat(id);
+    if (!el) return;
+    const alto = stickyRef.current?.offsetHeight || 0;
+    const y = el.getBoundingClientRect().top + window.scrollY - alto;
+    bloqueoSpy.current = Date.now() + 1000;
+    window.scrollTo({ top: Math.max(0, y), behavior: "smooth" });
   };
   const add = (item, selecciones=null, precioUnitario=null) => {
     const key = getCartKey(item, selecciones);
@@ -1491,7 +1527,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         })()}
         </div>
       </div>
-      <div style={{position:"sticky",top:0,background:"rgba(255,255,255,.98)",backdropFilter:"blur(14px)",zIndex:9,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
+      <div ref={stickyRef} style={{position:"sticky",top:0,background:"rgba(255,255,255,.98)",backdropFilter:"blur(14px)",zIndex:9,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
         <div style={{padding:"10px 14px 8px",borderBottom:"1px solid var(--border)"}}>
           <div style={{display:"flex",alignItems:"center",gap:10,background:"var(--bg2)",border:"1.5px solid var(--border)",borderRadius:12,padding:"9px 14px"}}>
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--text3)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
@@ -1499,7 +1535,7 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
             {search&&<button className="btn" onClick={()=>setSearch("")} style={{color:"var(--text4)",fontSize:16,lineHeight:1,padding:0,background:"transparent"}}>✕</button>}
           </div>
         </div>
-        <div ref={tabsRef} style={{overflowX:"auto",display:"flex",whiteSpace:"nowrap",padding:"2px 2px 0",borderBottom:"1px solid var(--border)"}}>
+        <div ref={tabsRef} style={{position:"relative",overflowX:"auto",display:"flex",whiteSpace:"nowrap",padding:"2px 2px 0",borderBottom:"1px solid var(--border)"}}>
           {menuVis.map(c=>{
             const active=activeCat===c.id;
             const COLORS={rolls:"#CC1F1F",nigiri:"#E07B39",combinados:"#7C3AED",temaki:"#16A34A",teppan:"#D97706",ceviche:"#0EA5E9",wok:"#EA580C",aperitivos:"#DC2626",vegetarianos:"#16A34A",salsas:"#CA8A04",adicionales:"#6B7280",bebidas:"#2563EB",cervezas:"#D97706",postres:"#DB2877",
