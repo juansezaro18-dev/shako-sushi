@@ -321,7 +321,9 @@ const fetchCajaStatus = async () => {
 
 const GS = () => (
   <style>{`
-    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@300;400;500;600;700&family=Jost:wght@400;500&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600&text=Shako%20Sushi&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@700&text=%E5%AF%BF%E5%8F%B8&display=swap');
     *{box-sizing:border-box;margin:0;padding:0;}
     :root{
       --red:#CC1F1F; --red-light:rgba(204,31,31,0.08); --red-border:rgba(204,31,31,0.25); --red-glow:rgba(204,31,31,0.2);
@@ -367,6 +369,44 @@ const GS = () => (
       @page { margin: 2mm; size: 80mm auto; }
     }
     .ticket-print { display:none; }
+    /* Encabezado del menú de clientes: foto de fondo (en celu la liviana, en compu la grande) y oscurecido */
+    .cv-hero{position:relative;overflow:hidden;padding:26px 20px 20px;border-bottom:3px solid var(--red);background:#0E0E0E;}
+    .cv-hero-foto{position:absolute;inset:0;background:url(/imgs/hero-shako-1200.webp) center 45%/cover no-repeat;}
+    .cv-hero-velo{position:absolute;inset:0;background:linear-gradient(180deg,rgba(8,8,8,.42) 0%,rgba(8,8,8,.70) 55%,rgba(8,8,8,.92) 100%);}
+    .cv-hero-txt{position:relative;}
+    /* letras del encabezado: nombre en serifa elegante + sello rojo 寿司 ("sushi"), datos en letra fina */
+    .cv-fila-nombre{display:flex;align-items:center;gap:10px;}
+    .cv-nombre{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:36px;letter-spacing:.02em;line-height:1;color:#fff;white-space:nowrap;text-shadow:0 2px 12px rgba(0,0,0,.5);}
+    .cv-sello{font-family:'Shippori Mincho',serif;font-weight:700;background:var(--red);color:#fff;font-size:12px;line-height:1.05;padding:4px;border-radius:3px;writing-mode:vertical-rl;letter-spacing:.1em;box-shadow:0 2px 8px rgba(0,0,0,.35);flex-shrink:0;}
+    .cv-raya{width:34px;height:2px;background:var(--red);margin:6px 0 8px;}
+    .cv-dir{font-family:'Jost',sans-serif;font-weight:400;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.8);display:flex;align-items:center;gap:6px;}
+    .cv-estado{font-family:'Jost',sans-serif;}
+    @media(max-width:380px){.cv-dir{letter-spacing:.04em;}}
+    @media(max-width:350px){.cv-nombre{font-size:32px;}}
+    @media(min-width:700px){.cv-dir{font-size:10.5px;letter-spacing:.26em;}}
+    @media(min-width:900px){.cv-nombre{font-size:48px;}.cv-sello{font-size:13px;}}
+    @media(min-width:700px){.cv-hero-foto{background-image:url(/imgs/hero-shako-2000.webp);}}
+    @media(min-width:900px){
+      .cv-hero{padding:40px 36px 30px;}
+      .cv-hero-velo{background:linear-gradient(90deg,rgba(8,8,8,.90) 0%,rgba(8,8,8,.62) 45%,rgba(8,8,8,.30) 100%);}
+    }
+    /* Animaciones suaves (se apagan si el teléfono tiene "reducir movimiento") */
+    @media (prefers-reduced-motion: no-preference){
+      .cv-hero-foto{animation:cvZoom 16s cubic-bezier(.2,.6,.2,1) both;}
+      .cv-entra{animation:cvEntra .8s cubic-bezier(.22,1,.36,1) both;}
+      .cv-entra-2{animation-delay:.12s;} .cv-entra-3{animation-delay:.24s;}
+      .cv-pulso{animation:cvPulso 2.2s ease-out infinite;}
+      .cv-thumb{transition:transform .6s cubic-bezier(.22,1,.36,1);}
+      .cv-card:hover .cv-thumb{transform:scale(1.07);}
+      /* los productos aparecen al bajar; si el navegador no lo soporta, se ven normal */
+      @supports (animation-timeline: view()){
+        .cv-card{animation:cvAparece linear both;animation-timeline:view();animation-range:entry 0% entry 35%;}
+      }
+    }
+    @keyframes cvZoom{from{transform:scale(1.12)}to{transform:scale(1)}}
+    @keyframes cvEntra{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+    @keyframes cvPulso{0%{box-shadow:0 0 0 0 rgba(74,222,128,.55)}70%{box-shadow:0 0 0 8px rgba(74,222,128,0)}100%{box-shadow:0 0 0 0 rgba(74,222,128,0)}}
+    @keyframes cvAparece{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
     .cv-cart-panel{display:none;}
     .cv-menu-panel{padding-bottom:90px;}
     @media(min-width:900px){
@@ -1406,26 +1446,32 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
     <div className="cv-root" style={{maxWidth:480,margin:"0 auto",minHeight:"100vh",background:"var(--bg2)"}}>
       <div className="cv-menu-panel">
       {verMenuCerrado&&(
-        <div style={{background:"#1C1C1C",padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
+        <div style={{background:"#0B0B0B",borderBottom:"1px solid rgba(255,255,255,.08)",padding:"10px 16px",display:"flex",alignItems:"center",justifyContent:"space-between",gap:10}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{width:7,height:7,borderRadius:"50%",background:"#DC2626",boxShadow:"0 0 6px #DC2626",flexShrink:0}}/>
-            <span style={{fontSize:13,color:"rgba(255,255,255,.8)",fontWeight:600,fontFamily:"'Barlow Condensed',sans-serif",letterSpacing:.5}}>CERRADO · Solo podés ver el menú</span>
+            <span style={{fontSize:11.5,color:"rgba(255,255,255,.75)",fontWeight:400,fontFamily:"'Jost',sans-serif",letterSpacing:".08em"}}><b style={{fontWeight:500,color:"#fff"}}>CERRADO</b> · Solo podés ver el menú</span>
           </div>
-          <button className="btn" onClick={()=>setVerMenuCerrado(false)} style={{fontSize:12,color:"rgba(255,255,255,.5)",background:"none",border:"none",padding:"4px 0",flexShrink:0}}>✕ Salir</button>
+          <button className="btn" onClick={()=>setVerMenuCerrado(false)} style={{fontSize:12,color:"rgba(255,255,255,.55)",background:"none",border:"none",padding:"4px 0",flexShrink:0,fontFamily:"'Jost',sans-serif",letterSpacing:".04em"}}>✕ Salir</button>
         </div>
       )}
-      <div style={{background:"var(--red)",padding:"18px 18px 16px"}}>
-        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-          <div style={{display:"flex",alignItems:"center",gap:12}}>
-            <img src={LOGO_SRC} alt="Shako Sushi" style={{width:56,height:56,borderRadius:"50%",objectFit:"cover",border:"3px solid rgba(255,255,255,0.4)",flexShrink:0}}/>
+      <div className="cv-hero">
+        <div className="cv-hero-foto"/>
+        <div className="cv-hero-velo"/>
+        <div className="cv-hero-txt">
+        <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",rowGap:12}}>
+          <div className="cv-entra" style={{display:"flex",alignItems:"center",gap:14}}>
+            <img src={LOGO_SRC} alt="Shako Sushi" style={{width:64,height:64,borderRadius:"50%",objectFit:"cover",border:"2px solid rgba(255,255,255,.9)",boxShadow:"0 6px 20px rgba(0,0,0,.45)",flexShrink:0}}/>
             <div>
-              <div className="sh" style={{fontSize:26,color:"#fff",lineHeight:1,letterSpacing:1}}>SHAKO SUSHI</div>
-              <div style={{fontSize:11,color:"rgba(255,255,255,0.75)",marginTop:3}}>{mesaQR ? `🪑 Mesa ${mesaQR.replace("m","").replace("v","Vereda ")}` : appConfig.ubicacion}</div>
+              <div className="cv-fila-nombre"><div className="cv-nombre">Shako Sushi</div><div className="cv-sello" aria-hidden="true">寿司</div></div>
+              <div className="cv-raya"/>
+              <div className="cv-dir">
+                {mesaQR ? `Mesa ${mesaQR.replace("m","").replace("v","Vereda ")}` : <><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>{appConfig.ubicacion}</>}
+              </div>
             </div>
           </div>
           {count>0&&!verMenuCerrado&&(
             <button className="btn" onClick={()=>setStep("checkout")}
-              style={{background:"#fff",borderRadius:40,padding:"9px 14px",display:"flex",alignItems:"center",gap:8,color:"var(--red)",fontSize:14,fontWeight:800,boxShadow:"0 4px 12px rgba(0,0,0,.15)"}}>
+              style={{background:"#fff",borderRadius:40,padding:"9px 14px",display:"flex",alignItems:"center",gap:8,color:"var(--red)",fontSize:14,fontWeight:800,boxShadow:"0 4px 12px rgba(0,0,0,.15)",marginLeft:"auto"}}>
               🛒 <span style={{background:"var(--red)",color:"#fff",borderRadius:20,padding:"1px 7px",fontSize:12,fontWeight:700}}>{count}</span>
               <span style={{fontSize:12}}>·</span><span>{fmt(total)}</span>
             </button>
@@ -1434,14 +1480,16 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
         {(()=>{
           const open=!localCerrado;
           return(
-            <div style={{marginTop:10,display:"flex",alignItems:"center",gap:8}}>
-              <div style={{width:7,height:7,borderRadius:"50%",background:open?"#4ADE80":"#FF4757",boxShadow:open?"0 0 6px #4ADE80":"0 0 6px #FF4757"}}/>
-              <span style={{fontSize:12,color:"rgba(255,255,255,.9)",fontWeight:600}}>{open?"Abierto ahora":"Cerrado"}</span>
-              <span style={{fontSize:12,color:"rgba(255,255,255,.5)"}}>·</span>
-              <span style={{fontSize:12,color:"rgba(255,255,255,.7)"}}>{appConfig.horario}</span>
+            <div className="cv-entra cv-entra-2 cv-estado" style={{marginTop:16,display:"inline-flex",alignItems:"center",gap:8,padding:"6px 13px",borderRadius:20,
+              background:"rgba(255,255,255,.10)",border:"1px solid rgba(255,255,255,.18)",backdropFilter:"blur(6px)"}}>
+              <div className={open?"cv-pulso":undefined} style={{width:7,height:7,borderRadius:"50%",background:open?"#4ADE80":"#FF4757",boxShadow:open?"0 0 6px #4ADE80":"0 0 6px #FF4757"}}/>
+              <span style={{fontSize:12,color:"#fff",fontWeight:500,letterSpacing:".04em"}}>{open?"Abierto ahora":"Cerrado"}</span>
+              <span style={{fontSize:12,color:"rgba(255,255,255,.45)"}}>·</span>
+              <span style={{fontSize:12,color:"rgba(255,255,255,.8)"}}>{appConfig.horario}</span>
             </div>
           );
         })()}
+        </div>
       </div>
       <div style={{position:"sticky",top:0,background:"rgba(255,255,255,.98)",backdropFilter:"blur(14px)",zIndex:9,boxShadow:"0 2px 8px rgba(0,0,0,.06)"}}>
         <div style={{padding:"10px 14px 8px",borderBottom:"1px solid var(--border)"}}>
@@ -1580,8 +1628,8 @@ function CustomerView({ menu, cajaStatus, appConfig=CONFIG }) {
             const itemConCat = {...item, catId:cat.id};
             const qty=getQty(itemConCat);
             return(
-              <div key={item.id} style={{margin:"0 14px 8px",background:"var(--surface)",border:`2px solid ${qty>0?"var(--red)":"var(--border)"}`,borderRadius:14,overflow:"hidden",display:"flex",transition:"border .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
-                {item.imagen&&<div style={{width:90,minWidth:90,overflow:"hidden"}}><img src={item.imagen} alt={item.nombre} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.parentNode.style.display="none";}}/></div>}
+              <div key={item.id} className="cv-card" style={{margin:"0 14px 8px",background:"var(--surface)",border:`2px solid ${qty>0?"var(--red)":"var(--border)"}`,borderRadius:14,overflow:"hidden",display:"flex",transition:"border .2s",boxShadow:"0 1px 4px rgba(0,0,0,.05)"}}>
+                {item.imagen&&<div style={{width:90,minWidth:90,overflow:"hidden"}}><img className="cv-thumb" src={item.imagen} alt={item.nombre} loading="lazy" style={{width:"100%",height:"100%",objectFit:"cover",display:"block"}} onError={e=>{e.target.parentNode.style.display="none";}}/></div>}
                 <div style={{flex:1,padding:"13px 14px",display:"flex",alignItems:"center",gap:12,minWidth:0}}>
                   <div style={{flex:1,minWidth:0}}>
                     <div style={{fontSize:15,fontWeight:600,lineHeight:1.35,color:"var(--text)"}}>{item.nombre}</div>
